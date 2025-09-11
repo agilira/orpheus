@@ -8,14 +8,14 @@ require (
 	github.com/agilira/orpheus v0.0.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/spf13/cobra v1.8.1
-	github.com/urfave/cli/v2 v2.27.4
+	github.com/urfave/cli/v2 v2.27.7
 )
 
 require (
 	github.com/agilira/flash-flags v1.0.1 // indirect
 	github.com/agilira/go-errors v1.1.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
