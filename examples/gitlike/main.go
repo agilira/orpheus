@@ -63,24 +63,24 @@ func getConfigFile() string {
 func isValidConfigPath(path string) bool {
 	// Clean the path to prevent directory traversal
 	cleanPath := filepath.Clean(path)
-	
+
 	// Only allow files in home directory or current directory
 	if strings.Contains(cleanPath, "..") {
 		return false
 	}
-	
+
 	// Must be a .json file
 	if !strings.HasSuffix(cleanPath, ".json") {
 		return false
 	}
-	
+
 	return true
 }
 
 // loadConfig loads configuration from file
 func loadConfig() {
 	configFile := getConfigFile()
-	
+
 	// Validate config file path for security
 	if !isValidConfigPath(configFile) {
 		gitData = defaultGitConfig
