@@ -5,7 +5,6 @@
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://codecov.io/gh/agilira/orpheus/branch/main/graph/badge.svg)](https://codecov.io/gh/agilira/orpheus)
-[![Go Reference](https://pkg.go.dev/badge/github.com/agilira/orpheus.svg)](https://pkg.go.dev/github.com/agilira/orpheus)
 
 Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
