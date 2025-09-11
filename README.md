@@ -1,4 +1,4 @@
-# Orpheus: High-Performance zero-dependency CLI framework for Go
+# Orpheus: High-Performance zero external dependencies CLI framework for Go
 ### an AGILira library
 
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
@@ -29,10 +29,10 @@ Benchmark results comparing CLI framework performance:
 
 ```
 AMD Ryzen 5 7520U with Radeon Graphics
-BenchmarkOrpheus-8       2283835               512.8 ns/op            96 B/op          3 allocs/op
-BenchmarkCobra-8          279333              3727 ns/op            1752 B/op         29 allocs/op
-BenchmarkUrfaveCli-8       41664             28026 ns/op            9334 B/op        366 allocs/op
-BenchmarkKingpin-8        294334              3419 ns/op            1988 B/op         40 allocs/op
+BenchmarkOrpheus-8       2283835               512.8 ns/op           96 B/op          3 allocs/op
+BenchmarkCobra-8          279333                3727 ns/op           1752 B/op        29 allocs/op
+BenchmarkUrfaveCli-8       41664               28026 ns/op           9334 B/op        366 allocs/op
+BenchmarkKingpin-8        294334                3419 ns/op           1988 B/op        40 allocs/op
 BenchmarkStdFlag-8       1476625               809.0 ns/op           945 B/op         13 allocs/op
 ```
 
@@ -149,6 +149,7 @@ go test ./pkg/orpheus -v -cover
 **Practical implementations:**
 - **[GitLike Demo](./examples/gitlike/)** - Git-style CLI with subcommands and JSON persistence
 - **[File Manager](./examples/filemanager/)** - Advanced file operations with completion
+- **[Enhanced Errors](./examples/enhanced-errors/)** - Advanced errors handling
 - **[Basic Demo](./cmd/demo/)** - Simple usage patterns and command structures
 
 ## API Reference

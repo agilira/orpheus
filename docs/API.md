@@ -133,18 +133,60 @@ changed := ctx.GlobalFlagChanged("verbose")
 
 ## Error Handling
 
-### Validation Errors
+The framework provides enhanced structured error handling with go-errors integration.
+
+### Built-in Error Types
 
 ```go
-// Create validation error
-return orpheus.ValidationError("command", "message")
+// Create enhanced errors with automatic user messages and severity
+return orpheus.ValidationError("deploy", "missing environment argument")
+return orpheus.ExecutionError("deploy", "failed to connect to server")
+return orpheus.NotFoundError("deploy", "configuration file not found")
+return orpheus.InternalError("unexpected panic in handler")
 ```
 
-### Custom Errors
+### Enhanced Error Features
 
 ```go
-// Create custom error with exit code
-return orpheus.NewOrpheusError(orpheus.ErrorExecution, "command", "message", 1)
+// Create enhanced error with context and user message
+err := orpheus.ValidationError("deploy", "missing environment").
+    WithUserMessage("Please specify a deployment environment").
+    WithContext("available_envs", []string{"dev", "staging", "prod"}).
+    WithContext("user_input", userInput).
+    AsRetryable().
+    WithSeverity("warning")
+
+// Access enhanced error information
+userMsg := err.UserMessage()           // User-friendly message
+isRetryable := err.IsRetryable()       // Check if operation can be retried
+errorCode := err.ErrorCode()           // Get structured error code (ORF1000, etc.)
+```
+
+### Error Code Constants
+
+```go
+// Orpheus error codes for structured error handling
+const (
+    ErrCodeValidation = "ORF1000" // Input validation errors
+    ErrCodeExecution  = "ORF1001" // Command execution errors  
+    ErrCodeNotFound   = "ORF1002" // Resource not found errors
+    ErrCodeInternal   = "ORF1003" // Internal framework errors
+)
+
+// Type-safe error checking
+if err.IsValidationError() {
+    // Handle validation errors
+}
+if err.ErrorCode() == orpheus.ErrCodeValidation {
+    // Handle specific error code
+}
+```
+
+### Custom Error Creation
+
+```go
+// Create custom error with specific code
+return orpheus.NewOrpheusError(orpheus.ErrCodeExecution, "deploy", "connection failed")
 ```
 
 ### End-to-End Error Integration
@@ -166,16 +208,25 @@ func main() {
         SetHandler(func(ctx *orpheus.Context) error {
             env := ctx.GetArg(0)
             if env == "" {
-                return orpheus.ValidationError("deploy", "environment argument required")
+                return orpheus.ValidationError("deploy", "environment argument required").
+                    WithUserMessage("Please specify a deployment environment (dev, staging, prod)").
+                    WithContext("available_environments", []string{"dev", "staging", "prod"})
             }
             
             if env == "production" && !ctx.GetFlagBool("confirm") {
-                return orpheus.NewOrpheusError(
-                    orpheus.ErrorValidation, 
-                    "deploy", 
-                    "production deployment requires --confirm flag", 
-                    2,
-                )
+                return orpheus.ValidationError("deploy", "production deployment requires confirmation").
+                    WithUserMessage("Production deployments require the --confirm flag for safety").
+                    WithContext("environment", env).
+                    WithSeverity("critical")
+            }
+            
+            // Simulate deployment that might fail
+            if env == "staging" {
+                return orpheus.ExecutionError("deploy", "failed to connect to staging server").
+                    WithUserMessage("Unable to connect to the staging environment").
+                    WithContext("server", "staging.example.com").
+                    WithContext("port", 22).
+                    AsRetryable()
             }
             
             // Deployment logic here
@@ -185,10 +236,21 @@ func main() {
     
     app.AddCommand(deployCmd)
     
-    // Handle errors with proper exit codes
+    // Handle errors with enhanced error information
     if err := app.Run(os.Args[1:]); err != nil {
         if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
-            log.Printf("Error: %s", orpheusErr.Error())
+            // Display user-friendly message
+            log.Printf("Error: %s", orpheusErr.UserMessage())
+            
+            // Log technical details for debugging
+            log.Printf("Technical details: %s", orpheusErr.Error())
+            log.Printf("Error code: %s", orpheusErr.ErrorCode())
+            
+            // Handle retryable errors
+            if orpheusErr.IsRetryable() {
+                log.Printf("This operation can be retried")
+            }
+            
             os.Exit(orpheusErr.ExitCode())
         }
         log.Fatal(err)

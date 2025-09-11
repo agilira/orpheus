@@ -8,87 +8,150 @@ package orpheus
 
 import (
 	"fmt"
+
+	"github.com/agilira/go-errors"
 )
 
-// ErrorType represents the type of error that occurred.
-type ErrorType string
-
+// Orpheus-specific error codes using go-errors framework
 const (
-	// ErrorValidation indicates a validation error (bad input, missing args, etc.)
-	ErrorValidation ErrorType = "validation"
+	// ErrCodeValidation indicates a validation error (bad input, missing args, etc.)
+	ErrCodeValidation errors.ErrorCode = "ORF1000"
 
-	// ErrorExecution indicates an error during command execution
-	ErrorExecution ErrorType = "execution"
+	// ErrCodeExecution indicates an error during command execution
+	ErrCodeExecution errors.ErrorCode = "ORF1001"
 
-	// ErrorNotFound indicates a command or resource was not found
-	ErrorNotFound ErrorType = "not_found"
+	// ErrCodeNotFound indicates a command or resource was not found
+	ErrCodeNotFound errors.ErrorCode = "ORF1002"
 
-	// ErrorInternal indicates an internal framework error
-	ErrorInternal ErrorType = "internal"
+	// ErrCodeInternal indicates an internal framework error
+	ErrCodeInternal errors.ErrorCode = "ORF1003"
 )
 
-// OrpheusError represents an error that occurred within the Orpheus framework.
+// OrpheusError represents an enhanced error with go-errors capabilities
 type OrpheusError struct {
-	Type    ErrorType
+	goError *errors.Error
 	Command string
-	Message string
-	Code    int
 }
 
-// NewOrpheusError creates a new OrpheusError.
-func NewOrpheusError(errorType ErrorType, command, message string, code int) *OrpheusError {
+// NewOrpheusError creates a new enhanced OrpheusError using go-errors
+func NewOrpheusError(code errors.ErrorCode, command, message string) *OrpheusError {
+	err := errors.New(code, message).
+		WithContext("command", command).
+		WithSeverity("error")
+
 	return &OrpheusError{
-		Type:    errorType,
+		goError: err,
 		Command: command,
-		Message: message,
-		Code:    code,
 	}
 }
 
-// Error implements the error interface.
+// Error implements the error interface with enhanced formatting
 func (e *OrpheusError) Error() string {
 	if e.Command != "" {
-		return fmt.Sprintf("%s error in command '%s': %s", e.Type, e.Command, e.Message)
+		return fmt.Sprintf("command '%s': %s", e.Command, e.goError.Error())
 	}
-	return fmt.Sprintf("%s error: %s", e.Type, e.Message)
+	return e.goError.Error()
 }
 
-// ExitCode returns the suggested exit code for this error.
+// ErrorCode returns the error code from the underlying go-errors
+func (e *OrpheusError) ErrorCode() errors.ErrorCode {
+	return e.goError.ErrorCode()
+}
+
+// ExitCode returns the suggested exit code based on error type
 func (e *OrpheusError) ExitCode() int {
-	return e.Code
+	switch e.ErrorCode() {
+	case ErrCodeValidation:
+		return 1
+	case ErrCodeExecution:
+		return 1
+	case ErrCodeNotFound:
+		return 1
+	case ErrCodeInternal:
+		return 2
+	default:
+		return 1
+	}
 }
 
-// IsValidationError returns true if this is a validation error.
+// IsValidationError returns true if this is a validation error
 func (e *OrpheusError) IsValidationError() bool {
-	return e.Type == ErrorValidation
+	return e.ErrorCode() == ErrCodeValidation
 }
 
-// IsExecutionError returns true if this is an execution error.
+// IsExecutionError returns true if this is an execution error
 func (e *OrpheusError) IsExecutionError() bool {
-	return e.Type == ErrorExecution
+	return e.ErrorCode() == ErrCodeExecution
 }
 
-// IsNotFoundError returns true if this is a not found error.
+// IsNotFoundError returns true if this is a not found error
 func (e *OrpheusError) IsNotFoundError() bool {
-	return e.Type == ErrorNotFound
+	return e.ErrorCode() == ErrCodeNotFound
 }
 
-// ValidationError creates a validation error.
+// UserMessage returns the user-friendly message
+func (e *OrpheusError) UserMessage() string {
+	return e.goError.UserMessage()
+}
+
+// IsRetryable returns whether the error is retryable
+func (e *OrpheusError) IsRetryable() bool {
+	return e.goError.IsRetryable()
+}
+
+// WithUserMessage adds a user-friendly message and returns the error for chaining
+func (e *OrpheusError) WithUserMessage(msg string) *OrpheusError {
+	e.goError.WithUserMessage(msg)
+	return e
+}
+
+// WithContext adds context information and returns the error for chaining
+func (e *OrpheusError) WithContext(key string, value interface{}) *OrpheusError {
+	e.goError.WithContext(key, value)
+	return e
+}
+
+// AsRetryable marks the error as retryable and returns the error for chaining
+func (e *OrpheusError) AsRetryable() *OrpheusError {
+	e.goError.AsRetryable()
+	return e
+}
+
+// WithSeverity sets the severity level and returns the error for chaining
+func (e *OrpheusError) WithSeverity(severity string) *OrpheusError {
+	e.goError.WithSeverity(severity)
+	return e
+}
+
+// Unwrap returns the underlying go-errors Error for error chain compatibility
+func (e *OrpheusError) Unwrap() error {
+	return e.goError
+}
+
+// ValidationError creates a validation error with enhanced capabilities
 func ValidationError(command, message string) *OrpheusError {
-	return NewOrpheusError(ErrorValidation, command, message, 1)
+	return NewOrpheusError(ErrCodeValidation, command, message).
+		WithUserMessage("Invalid input or missing required arguments").
+		WithSeverity("warning")
 }
 
-// ExecutionError creates an execution error.
+// ExecutionError creates an execution error with enhanced capabilities
 func ExecutionError(command, message string) *OrpheusError {
-	return NewOrpheusError(ErrorExecution, command, message, 1)
+	return NewOrpheusError(ErrCodeExecution, command, message).
+		WithUserMessage("Command execution failed").
+		WithSeverity("error")
 }
 
-// NotFoundError creates a not found error.
+// NotFoundError creates a not found error with enhanced capabilities
 func NotFoundError(command, message string) *OrpheusError {
-	return NewOrpheusError(ErrorNotFound, command, message, 1)
+	return NewOrpheusError(ErrCodeNotFound, command, message).
+		WithUserMessage("Command or resource not found").
+		WithSeverity("warning")
 }
 
-// InternalError creates an internal error.
+// InternalError creates an internal error with enhanced capabilities
 func InternalError(message string) *OrpheusError {
-	return NewOrpheusError(ErrorInternal, "", message, 2)
+	return NewOrpheusError(ErrCodeInternal, "", message).
+		WithUserMessage("An internal error occurred").
+		WithSeverity("critical")
 }

@@ -117,8 +117,15 @@ func main() {
 	// Add completion support
 	app.AddCompletionCommand()
 
-	// Run the application
+	// Run the application with enhanced error handling
 	if err := app.Run(os.Args[1:]); err != nil {
+		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+			log.Printf("Error: %s", orpheusErr.UserMessage())
+			if orpheusErr.IsRetryable() {
+				log.Printf("This operation can be retried")
+			}
+			os.Exit(orpheusErr.ExitCode())
+		}
 		log.Fatal(err)
 	}
 }
@@ -259,14 +266,21 @@ func setupBranchCommand(app *orpheus.App) {
 // Remote command handlers
 func handleRemoteAdd(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 2 {
-		return orpheus.ValidationError("remote add", "requires name and URL: remote add <name> <url>")
+		return orpheus.ValidationError("remote add", "requires name and URL: remote add <name> <url>").
+			WithUserMessage("Please provide both remote name and URL").
+			WithContext("usage", "gitlike remote add <name> <url>").
+			WithContext("example", "gitlike remote add origin https://github.com/user/repo.git")
 	}
 
 	name := ctx.GetArg(0)
 	url := ctx.GetArg(1)
 
 	if _, exists := gitData.Remotes[name]; exists {
-		return orpheus.ValidationError("remote add", fmt.Sprintf("remote '%s' already exists", name))
+		return orpheus.ValidationError("remote add", fmt.Sprintf("remote '%s' already exists", name)).
+			WithUserMessage(fmt.Sprintf("A remote named '%s' is already configured", name)).
+			WithContext("existing_url", gitData.Remotes[name]).
+			WithContext("attempted_url", url).
+			WithContext("suggestion", "use 'remote remove' first or choose a different name")
 	}
 
 	gitData.Remotes[name] = url
@@ -282,9 +296,15 @@ func handleRemoteAdd(ctx *orpheus.Context) error {
 		fmt.Printf("Fetching from %s...\n", name)
 	}
 
-	// Save changes
+	// Save changes with enhanced error handling
 	if err := saveConfig(); err != nil {
-		fmt.Printf("Warning: could not save configuration: %v\n", err)
+		return orpheus.ExecutionError("remote add", fmt.Sprintf("failed to save configuration: %v", err)).
+			WithUserMessage("Unable to save the remote configuration to disk").
+			WithContext("remote_name", name).
+			WithContext("remote_url", url).
+			WithContext("config_file", "gitlike-config.json").
+			AsRetryable().
+			WithSeverity("warning")
 	}
 
 	return nil
@@ -394,7 +414,11 @@ func handleConfigGet(ctx *orpheus.Context) error {
 
 	value, exists := gitData.Config[key]
 	if !exists {
-		return orpheus.ValidationError("config get", fmt.Sprintf("configuration key '%s' not found", key))
+		return orpheus.NotFoundError("config get", fmt.Sprintf("configuration key '%s' not found", key)).
+			WithUserMessage(fmt.Sprintf("No configuration found for '%s'", key)).
+			WithContext("requested_key", key).
+			WithContext("total_config_keys", len(gitData.Config)).
+			WithContext("suggestion", "use 'config list' to see all available keys")
 	}
 
 	fmt.Println(value)
@@ -525,7 +549,13 @@ func handleBranchDelete(ctx *orpheus.Context) error {
 	force := ctx.GetFlagBool("force")
 
 	if name == "main" && !force {
-		return orpheus.ValidationError("branch delete", "cannot delete main branch without --force")
+		return orpheus.ValidationError("branch delete", "cannot delete main branch without --force").
+			WithUserMessage("Deleting the main branch is a dangerous operation").
+			WithContext("branch_name", name).
+			WithContext("is_main_branch", true).
+			WithContext("force_flag_provided", force).
+			WithContext("required_flag", "--force").
+			WithSeverity("critical")
 	}
 
 	if force {

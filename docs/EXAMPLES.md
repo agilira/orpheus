@@ -66,7 +66,10 @@ func main() {
     // Add subcommands using the native API
     remoteCmd.Subcommand("add", "Add a new remote", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 2 {
-            return orpheus.ValidationError("remote add", "requires name and URL")
+            return orpheus.ValidationError("remote add", "requires name and URL").
+                WithUserMessage("Please provide both remote name and URL").
+                WithContext("expected_args", []string{"name", "url"}).
+                WithContext("provided_args", ctx.ArgCount())
         }
         name, url := ctx.GetArg(0), ctx.GetArg(1)
         fmt.Printf("Added remote: %s -> %s\n", name, url)
@@ -75,7 +78,8 @@ func main() {
 
     remoteCmd.Subcommand("remove", "Remove a remote", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 1 {
-            return orpheus.ValidationError("remote remove", "requires remote name")
+            return orpheus.ValidationError("remote remove", "requires remote name").
+                WithUserMessage("Please specify the name of the remote to remove")
         }
         name := ctx.GetArg(0)
         fmt.Printf("Removed remote: %s\n", name)
@@ -144,6 +148,13 @@ func main() {
     // ./gitlike remote --help    (shows subcommands automatically)
     
     if err := app.Run(os.Args[1:]); err != nil {
+        if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+            log.Printf("Error: %s", orpheusErr.UserMessage())
+            if orpheusErr.IsRetryable() {
+                log.Printf("This operation can be retried")
+            }
+            os.Exit(orpheusErr.ExitCode())
+        }
         log.Fatal(err)
     }
 }

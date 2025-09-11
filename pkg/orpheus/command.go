@@ -223,12 +223,12 @@ func (c *Command) Execute(ctx *Context) error {
 
 	// If no handler is defined and no subcommands, error
 	if c.handler == nil {
-		return NewOrpheusError(ErrorExecution, c.name, "no handler defined for command", 1)
+		return ExecutionError(c.name, "no handler defined for command")
 	}
 
 	// Parse flags for this command
 	if err := c.flags.Parse(argsToparse); err != nil {
-		return NewOrpheusError(ErrorValidation, c.name, "flag parsing failed: "+err.Error(), 1)
+		return ValidationError(c.name, "flag parsing failed: "+err.Error())
 	}
 
 	// Update context with parsed flags

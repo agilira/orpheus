@@ -1,6 +1,6 @@
 module github.com/agilira/orpheus/benchmarks
 
-go 1.23
+go 1.23.11
 
 toolchain go1.24.5
 
@@ -13,6 +13,7 @@ require (
 
 require (
 	github.com/agilira/flash-flags v1.0.1 // indirect
+	github.com/agilira/go-errors v1.1.0 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

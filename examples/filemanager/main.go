@@ -35,10 +35,23 @@ func main() {
 	// Add built-in completion support
 	app.AddCompletionCommand()
 
-	// Run the application
+	// Run the application with enhanced error handling
 	if err := app.Run(os.Args[1:]); err != nil {
 		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", orpheusErr.Error())
+			// Display user-friendly message
+			fmt.Fprintf(os.Stderr, "Error: %s\n", orpheusErr.UserMessage())
+
+			// Show technical details if verbose
+			if os.Getenv("DEBUG") != "" {
+				fmt.Fprintf(os.Stderr, "Technical details: %s\n", orpheusErr.Error())
+				fmt.Fprintf(os.Stderr, "Error code: %s\n", orpheusErr.ErrorCode())
+			}
+
+			// Indicate if retryable
+			if orpheusErr.IsRetryable() {
+				fmt.Fprintf(os.Stderr, "This operation can be retried.\n")
+			}
+
 			os.Exit(orpheusErr.ExitCode())
 		}
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
@@ -112,7 +125,11 @@ func listHandler(ctx *orpheus.Context) error {
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return orpheus.ExecutionError("list", fmt.Sprintf("cannot read directory %s: %v", path, err))
+		return orpheus.ExecutionError("list", fmt.Sprintf("cannot read directory %s: %v", path, err)).
+			WithUserMessage("Unable to read the specified directory").
+			WithContext("path", path).
+			WithContext("error_type", "permission_or_not_found").
+			AsRetryable()
 	}
 
 	count := 0
@@ -212,7 +229,11 @@ func searchHandler(ctx *orpheus.Context) error {
 
 	err := filepath.WalkDir(dir, walkFunc)
 	if err != nil {
-		return orpheus.ExecutionError("search", fmt.Sprintf("search failed: %v", err))
+		return orpheus.ExecutionError("search", fmt.Sprintf("search failed: %v", err)).
+			WithUserMessage("Unable to search in the specified directory").
+			WithContext("directory", dir).
+			WithContext("pattern", pattern).
+			AsRetryable()
 	}
 
 	for _, match := range matches {
@@ -228,7 +249,9 @@ func searchHandler(ctx *orpheus.Context) error {
 
 func infoHandler(ctx *orpheus.Context) error {
 	if ctx.ArgCount() == 0 {
-		return orpheus.ValidationError("info", "missing file path argument")
+		return orpheus.ValidationError("info", "missing file path argument").
+			WithUserMessage("Please specify a file or directory path").
+			WithContext("usage", "filemanager info <path>")
 	}
 
 	path := ctx.GetArg(0)

@@ -1,0 +1,53 @@
+Orpheus CLI Framework v1.0.3
+Released: September 11, 2025
+
+MAJOR ENHANCEMENTS
+
+Enhanced Error Handling System
+- Integrated go-errors library for structured error management
+- Added OrpheusError type with enhanced capabilities:
+  * User-friendly messages separate from technical details
+  * Rich context information attachment
+  * Retry semantics and severity levels
+  * JSON serialization support
+  * Stack trace preservation
+- Structured error codes: ORF1000-ORF1003 for classification
+- Fluent API for error construction and enhancement
+
+Error Classification System
+- ORF1000: Validation errors (exit code 1)
+- ORF1001: Execution errors (exit code 1) 
+- ORF1002: Not found errors (exit code 1)
+- ORF1003: Internal errors (exit code 2)
+
+New Error API Methods
+- ValidationError(), ExecutionError(), NotFoundError(), InternalError()
+- WithUserMessage() for end-user friendly messages
+- WithContext() for debugging information
+- AsRetryable() for retry semantics
+- WithSeverity() for error classification
+- IsValidationError(), IsExecutionError(), IsNotFoundError()
+- UserMessage(), IsRetryable(), ExitCode()
+
+EXAMPLES AND DOCUMENTATION
+
+Enhanced Error Handling Example
+- Complete demonstration of new error features
+- Debug mode support for technical details
+- Comprehensive test suite with 100% coverage
+- Performance benchmarks showing minimal overhead
+
+Updated Documentation
+- Enhanced API.md with complete error handling reference
+- Updated EXAMPLES.md with error handling patterns
+- Professional README improvements
+
+PERFORMANCE
+
+TECHNICAL IMPROVEMENTS
+
+Testing
+- Enhanced test coverage including error scenarios
+- Integration tests for error flow validation  
+- Concurrent error creation testing
+- Benchmark suite for performance validation
