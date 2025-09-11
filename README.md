@@ -25,10 +25,11 @@ Orpheus is designed for Go 1.23+ environments and follows Long-Term Support guid
 
 Orpheus delivers exceptional performance through elegant design:
 ```
-BenchmarkOrpheus_FlagParsingOnly-8       2310162               511.4 ns/op            96 B/op          3 allocs/op
-BenchmarkFlashFlags_Only-8               1257826               946.4 ns/op          1009 B/op         15 allocs/op
-BenchmarkPflag_Only-8                     696459              1588 ns/op            1761 B/op         23 allocs/op
-BenchmarkStdFlag_Only-8                  1504788               790.1 ns/op           945 B/op         13 allocs/op
+BenchmarkOrpheus-8       2283835               512.8 ns/op            96 B/op          3 allocs/op
+BenchmarkCobra-8          279333              3727 ns/op            1752 B/op         29 allocs/op
+BenchmarkUrfaveCli-8       41664             28026 ns/op            9334 B/op        366 allocs/op
+BenchmarkKingpin-8        294334              3419 ns/op            1988 B/op         40 allocs/op
+BenchmarkStdFlag-8       1476625               809.0 ns/op           945 B/op         13 allocs/op
 ```
 *AMD Ryzen 5 7520U with Radeon Graphics - Startup overhead and parsing of a single command with 3 flags*
 
