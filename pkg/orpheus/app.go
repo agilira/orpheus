@@ -125,41 +125,66 @@ func (app *App) SetDefaultCommand(cmdName string) *App {
 
 // Run executes the application with the given arguments.
 func (app *App) Run(args []string) error {
-	// Handle special cases
+	// Handle empty args
 	if len(args) == 0 {
-		if app.defaultCmd != "" {
-			return app.runCommand(app.defaultCmd, []string{})
-		}
-		return app.helpHandler(&Context{App: app})
+		return app.handleEmptyArgs()
 	}
 
-	// Check for global help flag
-	if args[0] == "--help" || args[0] == "-h" {
-		return app.helpHandler(&Context{App: app})
+	// Handle built-in flags
+	if handled, err := app.handleBuiltinFlags(args); handled {
+		return err
 	}
 
-	// Check for version flag
-	if args[0] == "--version" || args[0] == "-v" {
-		if app.version != "" {
-			fmt.Printf("%s version %s\n", app.name, app.version)
-		} else {
-			fmt.Printf("%s (no version set)\n", app.name)
-		}
-		return nil
-	}
-
-	// Parse global flags first
+	// Parse global flags and get command
 	globalArgs, cmdArgs := app.splitGlobalArgs(args)
 	if err := app.globalFlags.Parse(globalArgs); err != nil {
 		return ValidationError("", "global flag parsing failed: "+err.Error())
 	}
 
+	// Handle command execution
+	return app.handleCommandExecution(cmdArgs)
+}
+
+// handleEmptyArgs handles the case when no arguments are provided.
+func (app *App) handleEmptyArgs() error {
+	if app.defaultCmd != "" {
+		return app.runCommand(app.defaultCmd, []string{})
+	}
+	return app.helpHandler(&Context{App: app})
+}
+
+// handleBuiltinFlags handles built-in flags like --help and --version.
+func (app *App) handleBuiltinFlags(args []string) (handled bool, err error) {
+	firstArg := args[0]
+
+	// Check for global help flag
+	if firstArg == "--help" || firstArg == "-h" {
+		return true, app.helpHandler(&Context{App: app})
+	}
+
+	// Check for version flag
+	if firstArg == "--version" || firstArg == "-v" {
+		app.printVersion()
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// printVersion prints the application version.
+func (app *App) printVersion() {
+	if app.version != "" {
+		fmt.Printf("%s version %s\n", app.name, app.version)
+	} else {
+		fmt.Printf("%s (no version set)\n", app.name)
+	}
+}
+
+// handleCommandExecution handles the execution of commands.
+func (app *App) handleCommandExecution(cmdArgs []string) error {
 	// Get command name
 	if len(cmdArgs) == 0 {
-		if app.defaultCmd != "" {
-			return app.runCommand(app.defaultCmd, []string{})
-		}
-		return app.helpHandler(&Context{App: app})
+		return app.handleEmptyArgs()
 	}
 
 	cmdName := cmdArgs[0]
@@ -167,13 +192,18 @@ func (app *App) Run(args []string) error {
 
 	// Handle built-in help command
 	if cmdName == "help" {
-		if len(cmdArgs) > 0 {
-			return app.showCommandHelp(cmdArgs[0])
-		}
-		return app.helpHandler(&Context{App: app})
+		return app.handleHelpCommand(cmdArgs)
 	}
 
 	return app.runCommand(cmdName, cmdArgs)
+}
+
+// handleHelpCommand handles the built-in help command.
+func (app *App) handleHelpCommand(cmdArgs []string) error {
+	if len(cmdArgs) > 0 {
+		return app.showCommandHelp(cmdArgs[0])
+	}
+	return app.helpHandler(&Context{App: app})
 }
 
 // runCommand executes a specific command.
@@ -205,42 +235,71 @@ func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string) {
 			break
 		}
 
-		// Check if this is a boolean global flag
-		isBoolFlag := false
-		if strings.HasPrefix(arg, "--") {
-			flagName := arg[2:]
-			if eqPos := strings.IndexByte(flagName, '='); eqPos != -1 {
-				flagName = flagName[:eqPos]
-			}
-			if flag := app.globalFlags.Lookup(flagName); flag != nil && flag.Type() == "bool" {
-				isBoolFlag = true
-			}
-		} else if len(arg) == 2 && arg[0] == '-' {
-			// Check short flags - we'd need to map them to long names
-			// For now, treat common boolean short flags as boolean
-			shortKey := string(arg[1])
-			if shortKey == "v" || shortKey == "h" || shortKey == "d" {
-				isBoolFlag = true
-			}
-		}
-
-		if isBoolFlag || strings.Contains(arg, "=") {
-			// Boolean flag or flag with embedded value
-			globalArgs = append(globalArgs, arg)
-		} else {
-			// Flag that might need a value
-			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-				globalArgs = append(globalArgs, arg, args[i+1])
-				i++ // Skip the value
-			} else {
-				globalArgs = append(globalArgs, arg)
-			}
+		// Process this flag
+		processed, skipNext := app.processSingleFlag(args, i)
+		globalArgs = append(globalArgs, processed...)
+		if skipNext {
+			i++ // Skip the value
 		}
 	}
 
 	// Everything from the command onwards is command args
 	cmdArgs = args[i:]
 	return globalArgs, cmdArgs
+}
+
+// processSingleFlag processes a single flag and returns the processed args and whether to skip next arg.
+func (app *App) processSingleFlag(args []string, i int) (processed []string, skipNext bool) {
+	arg := args[i]
+
+	// Check if this is a boolean global flag
+	isBoolFlag := app.isBooleanGlobalFlag(arg)
+
+	if isBoolFlag || strings.Contains(arg, "=") {
+		// Boolean flag or flag with embedded value
+		return []string{arg}, false
+	}
+
+	// Flag that might need a value
+	if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+		return []string{arg, args[i+1]}, true
+	}
+
+	return []string{arg}, false
+}
+
+// isBooleanGlobalFlag checks if the given argument is a boolean global flag.
+func (app *App) isBooleanGlobalFlag(arg string) bool {
+	if strings.HasPrefix(arg, "--") {
+		return app.isLongBooleanFlag(arg)
+	}
+
+	if len(arg) == 2 && arg[0] == '-' {
+		return app.isShortBooleanFlag(arg)
+	}
+
+	return false
+}
+
+// isLongBooleanFlag checks if a long flag (--flag) is boolean.
+func (app *App) isLongBooleanFlag(arg string) bool {
+	flagName := arg[2:]
+	if eqPos := strings.IndexByte(flagName, '='); eqPos != -1 {
+		flagName = flagName[:eqPos]
+	}
+
+	if flag := app.globalFlags.Lookup(flagName); flag != nil && flag.Type() == "bool" {
+		return true
+	}
+
+	return false
+}
+
+// isShortBooleanFlag checks if a short flag (-f) is boolean.
+func (app *App) isShortBooleanFlag(arg string) bool {
+	shortKey := string(arg[1])
+	// Treat common boolean short flags as boolean
+	return shortKey == "v" || shortKey == "h" || shortKey == "d"
 }
 
 // helpHandler handles the help command.
