@@ -337,7 +337,7 @@ func printTree(path string, prefix string, depth int, maxDepth int, dirsOnly boo
 
 		if entry.IsDir() {
 			fmt.Printf("%s%s%s/\n", prefix, connector, entry.Name())
-			printTree(filepath.Join(path, entry.Name()), newPrefix, depth+1, maxDepth, dirsOnly)
+			_ = printTree(filepath.Join(path, entry.Name()), newPrefix, depth+1, maxDepth, dirsOnly)
 		} else {
 			fmt.Printf("%s%s%s\n", prefix, connector, entry.Name())
 		}

@@ -101,25 +101,25 @@ func (e *OrpheusError) IsRetryable() bool {
 
 // WithUserMessage adds a user-friendly message and returns the error for chaining
 func (e *OrpheusError) WithUserMessage(msg string) *OrpheusError {
-	e.goError.WithUserMessage(msg)
+	_ = e.goError.WithUserMessage(msg)
 	return e
 }
 
 // WithContext adds context information and returns the error for chaining
 func (e *OrpheusError) WithContext(key string, value interface{}) *OrpheusError {
-	e.goError.WithContext(key, value)
+	_ = e.goError.WithContext(key, value)
 	return e
 }
 
 // AsRetryable marks the error as retryable and returns the error for chaining
 func (e *OrpheusError) AsRetryable() *OrpheusError {
-	e.goError.AsRetryable()
+	_ = e.goError.AsRetryable()
 	return e
 }
 
 // WithSeverity sets the severity level and returns the error for chaining
 func (e *OrpheusError) WithSeverity(severity string) *OrpheusError {
-	e.goError.WithSeverity(severity)
+	_ = e.goError.WithSeverity(severity)
 	return e
 }
 

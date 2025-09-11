@@ -8,7 +8,7 @@
 
 Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
-**[Features](#features) • [Performance](#performance) • [Quick Start](#quick-start) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
+**[Features](#features) • [Performance](#performance) • [Quick Start](#quick-start) • [Observability](#enterprise-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
 
 ## Features
 
@@ -18,6 +18,7 @@ Orpheus is a high-performance CLI framework designed to be super simple and **7x
 - **Auto-completion**: Built-in bash/zsh/fish completion generation
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
+- **Enterprise Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
 
 ## Compatibility and Support
 
@@ -114,6 +115,57 @@ app.AddCommand(remoteCmd)
 //        ./myapp remote list
 ```
 
+### Observability
+
+Zero-overhead observability interfaces for production CLI applications:
+
+```go
+import "context"
+
+// Configure observability (all interfaces are optional)
+app := orpheus.New("myapp").
+    SetLogger(myLogger).           // Structured logging
+    SetAuditLogger(myAuditLogger). // Compliance and security
+    SetTracer(myTracer).           // Distributed tracing
+    SetMetricsCollector(myMetrics) // Performance metrics
+
+app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
+    // Structured logging
+    if logger := ctx.Logger(); logger != nil {
+        logger.Info(context.Background(), "Deployment started",
+            orpheus.StringField("environment", "production"),
+            orpheus.StringField("version", "v1.2.3"),
+        )
+    }
+
+    // Audit trail
+    if audit := ctx.AuditLogger(); audit != nil {
+        audit.LogCommand(context.Background(), "deploy", ctx.Args(), "demo-user")
+        audit.LogAccess(context.Background(), "production", "deploy", true)
+    }
+
+    // Distributed tracing
+    if tracer := ctx.Tracer(); tracer != nil {
+        spanCtx, span := tracer.StartSpan(context.Background(), "deploy_operation")
+        defer span.End()
+        // ... use spanCtx for downstream operations
+    }
+
+    // Performance metrics
+    if metrics := ctx.MetricsCollector(); metrics != nil {
+        counter := metrics.Counter("deployments_total", "Total deployments", "env")
+        counter.Inc(context.Background(), "production")
+    }
+
+    fmt.Println("Deployment completed")
+    return nil
+})
+```
+
+**Performance**: Zero overhead when not configured (0.24 ns/op), minimal overhead when enabled (~24 ns/op)
+
+**[Complete Observability Guide →](./docs/OBSERVABILITY.md)**
+
 **[Complete Examples →](./docs/EXAMPLES.md)**
 
 ## The Philosophy Behind Orpheus
@@ -131,6 +183,7 @@ Every command in Orpheus flows like a musical phrase: clear in purpose, swift in
 - **Context**: Execution context with arguments and flags
 - **Errors**: Type-safe error system with exit codes
 - **Completion**: Auto-completion system for multiple shells
+- **Observability**: Optional interfaces for logging, audit trails, tracing, and metrics
 
 ## Testing
 
@@ -150,6 +203,7 @@ go test ./pkg/orpheus -v -cover
 - **[GitLike Demo](./examples/gitlike/)** - Git-style CLI with subcommands and JSON persistence
 - **[File Manager](./examples/filemanager/)** - Advanced file operations with completion
 - **[Enhanced Errors](./examples/enhanced-errors/)** - Advanced errors handling
+- **[Observability](./examples/observability/)** - Production-ready logging, audit trails, and metrics
 - **[Basic Demo](./cmd/demo/)** - Simple usage patterns and command structures
 
 ## API Reference

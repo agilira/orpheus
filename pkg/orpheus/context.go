@@ -142,3 +142,35 @@ func (ctx *Context) GlobalFlagChanged(name string) bool {
 	}
 	return false
 }
+
+// Logger returns the configured logger, or nil if not set.
+func (ctx *Context) Logger() Logger {
+	if ctx.App != nil {
+		return ctx.App.logger
+	}
+	return nil
+}
+
+// AuditLogger returns the configured audit logger, or nil if not set.
+func (ctx *Context) AuditLogger() AuditLogger {
+	if ctx.App != nil {
+		return ctx.App.auditLogger
+	}
+	return nil
+}
+
+// Tracer returns the configured tracer, or nil if not set.
+func (ctx *Context) Tracer() Tracer {
+	if ctx.App != nil {
+		return ctx.App.tracer
+	}
+	return nil
+}
+
+// MetricsCollector returns the configured metrics collector, or nil if not set.
+func (ctx *Context) MetricsCollector() MetricsCollector {
+	if ctx.App != nil {
+		return ctx.App.metricsCollector
+	}
+	return nil
+}

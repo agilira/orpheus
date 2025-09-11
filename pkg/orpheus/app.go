@@ -27,6 +27,7 @@
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
+
 package orpheus
 
 import (
@@ -38,13 +39,17 @@ import (
 
 // App represents the main CLI application.
 type App struct {
-	name        string
-	description string
-	version     string
-	commands    map[string]*Command
-	globalFlags *flashflags.FlagSet
-	defaultCmd  string
-	helpCommand *Command
+	name             string
+	description      string
+	version          string
+	commands         map[string]*Command
+	globalFlags      *flashflags.FlagSet
+	defaultCmd       string
+	helpCommand      *Command
+	logger           Logger
+	auditLogger      AuditLogger
+	tracer           Tracer
+	metricsCollector MetricsCollector
 }
 
 // New creates a new Orpheus application.
@@ -72,6 +77,50 @@ func (app *App) SetDescription(description string) *App {
 func (app *App) SetVersion(version string) *App {
 	app.version = version
 	return app
+}
+
+// SetLogger sets the logger for the application.
+func (app *App) SetLogger(logger Logger) *App {
+	app.logger = logger
+	return app
+}
+
+// SetAuditLogger sets the audit logger for the application.
+func (app *App) SetAuditLogger(auditLogger AuditLogger) *App {
+	app.auditLogger = auditLogger
+	return app
+}
+
+// SetTracer sets the tracer for the application.
+func (app *App) SetTracer(tracer Tracer) *App {
+	app.tracer = tracer
+	return app
+}
+
+// SetMetricsCollector sets the metrics collector for the application.
+func (app *App) SetMetricsCollector(collector MetricsCollector) *App {
+	app.metricsCollector = collector
+	return app
+}
+
+// Logger returns the configured logger.
+func (app *App) Logger() Logger {
+	return app.logger
+}
+
+// AuditLogger returns the configured audit logger.
+func (app *App) AuditLogger() AuditLogger {
+	return app.auditLogger
+}
+
+// Tracer returns the configured tracer.
+func (app *App) Tracer() Tracer {
+	return app.tracer
+}
+
+// MetricsCollector returns the configured metrics collector.
+func (app *App) MetricsCollector() MetricsCollector {
+	return app.metricsCollector
 }
 
 // AddGlobalFlag adds a global string flag.

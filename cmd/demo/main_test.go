@@ -23,7 +23,7 @@ func captureOutput(fn func()) string {
 
 	fn()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	output, _ := io.ReadAll(r)
@@ -116,7 +116,7 @@ func TestAppCreation(t *testing.T) {
 	// Test app properties (we can't directly access private fields,
 	// but we can test behavior through the help output)
 	output := captureOutput(func() {
-		app.Run([]string{"--help"})
+		_ = app.Run([]string{"--help"})
 	})
 
 	if !strings.Contains(output, "Orpheus CLI Framework Demo Application") {
@@ -563,7 +563,7 @@ func BenchmarkGreetCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
-			app.Run(args)
+			_ = app.Run(args)
 		})
 	}
 }
@@ -576,7 +576,7 @@ func BenchmarkEchoCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
-			app.Run(args)
+			_ = app.Run(args)
 		})
 	}
 }
@@ -589,7 +589,7 @@ func BenchmarkDeployCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
-			app.Run(args)
+			_ = app.Run(args)
 		})
 	}
 }

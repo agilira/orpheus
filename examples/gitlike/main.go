@@ -112,7 +112,7 @@ func saveConfig() error {
 		return err
 	}
 
-	return os.WriteFile(configFile, data, 0644)
+	return os.WriteFile(configFile, data, 0600)
 }
 
 func main() {

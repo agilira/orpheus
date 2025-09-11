@@ -1,0 +1,93 @@
+Orpheus CLI Framework v1.0.4
+Released: September 11, 2025
+
+MAJOR ENHANCEMENTS
+
+Enterprise Observability Framework
+- Comprehensive observability interfaces for production CLI applications
+- Zero-overhead design: 0.24 ns/op when not configured, ~24 ns/op when enabled
+- Full OpenTelemetry compatibility with context propagation
+
+Core Observability Interfaces
+- Logger: Structured logging with 5 levels (Trace, Debug, Info, Warn, Error)
+  * Context-aware logging with field support
+  * WithFields() method for contextual logger creation
+  * Native Go context.Context integration
+- AuditLogger: Compliance and security audit trails
+  * LogCommand() for command execution tracking
+  * LogAccess() for resource access monitoring
+  * LogSecurity() for security event recording
+  * LogPerformance() for operation timing
+- Tracer: Distributed tracing with OpenTelemetry patterns
+  * StartSpan() and SpanFromContext() methods
+  * Span attribute setting and status management
+  * Error recording with configurable options
+- MetricsCollector: Application performance metrics
+  * Counter, Gauge, and Histogram metrics
+  * Label-based dimensional metrics
+  * Context-aware metric recording
+
+Field Helper Functions
+- StringField(), IntField(), Float64Field(), BoolField(), ErrorField()
+- Type-safe field creation for structured logging
+- Consistent API across all observability interfaces
+
+Application Integration
+- Fluent API: SetLogger(), SetAuditLogger(), SetTracer(), SetMetricsCollector()
+- Context methods: Logger(), AuditLogger(), Tracer(), MetricsCollector()
+- Nil-safe access patterns for optional observability
+- Zero-impact on applications not using observability
+
+EXAMPLES AND DOCUMENTATION
+
+Complete Observability Example
+- Production-ready demonstration in examples/observability/
+- SimpleLogger and SimpleAuditLogger implementations
+- Integration patterns with all four interfaces
+- Performance benchmarks and test suite
+
+Comprehensive Documentation
+- Complete OBSERVABILITY.md guide with usage examples
+- OpenTelemetry integration patterns
+- Best practices for production deployments
+- Performance characteristics and overhead analysis
+
+Updated README
+- Observability section with practical examples
+- Performance metrics and benchmark results
+- Integration examples showing all interfaces
+
+PERFORMANCE
+
+Zero-Overhead Design
+- 0.24 ns/op overhead when observability not configured
+- ~24 ns/op overhead with full observability enabled
+- Native Go context performance for correlation
+- Optimized interface calls for high-frequency operations
+
+TECHNICAL IMPROVEMENTS
+
+Type Safety
+- StatusCode enum for span status management
+- SpanOption and ErrorOption interfaces for extensibility
+- Field struct for type-safe logging parameters
+
+Testing
+- Complete test suite with mock implementations
+- Performance benchmarks validating zero-overhead claims
+- Integration tests with all observability components
+- Edge case testing for nil interface handling
+
+Code Organization
+- observability.go: Core interfaces and types
+- observability_test.go: Comprehensive test coverage
+- Clean separation of concerns with optional interfaces
+
+COMPATIBILITY
+
+- Go 1.23+ compatibility maintained
+- OpenTelemetry ecosystem integration ready
+- Backward compatible - existing applications unaffected
+- Production-ready with professional features
+
+This release establishes Orpheus as a professional-grade CLI framework with comprehensive observability capabilities while maintaining its core philosophy of zero dependencies and exceptional performance.
