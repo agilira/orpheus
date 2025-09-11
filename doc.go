@@ -1,7 +1,7 @@
 // Package orpheus provides an ultra-fast CLI framework built on flash-flags.
 //
 // Orpheus is designed to be a lightweight, high-performance cli framework
-// with zero external dependencies (except flash-flags) and a focus on simplicity.
+// with zero external dependencies and a focus on simplicity.
 //
 // Key Features:
 //   - 7-53x faster than alternatives thanks to flash-flags integration
