@@ -1,4 +1,4 @@
-# Orpheus: Blazing-Fast zero-dependency CLI framework for go
+# Orpheus: High-Performance zero-dependency CLI framework for Go
 ### an AGILira library
 
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
@@ -6,7 +6,20 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://codecov.io/gh/agilira/orpheus/branch/main/graph/badge.svg)](https://codecov.io/gh/agilira/orpheus)
 
-Orpheus is a high-performance CLI framework designed to be super simple and **7-53x faster** than popular alternatives with zero external dependencies. Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
+Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
+
+## Features
+
+- **Zero Dependencies**: Zero external dependencies for maximum portability
+- **Native Subcommands**: Git-style nested commands with automatic help generation
+- **Clean API**: Fluent interface for rapid development
+- **Auto-completion**: Built-in bash/zsh/fish completion generation
+- **Type-safe Errors**: Structured error handling with exit codes
+- **Hot-swappable Commands**: Dynamic command registration and modification
+
+## Compatibility and Support
+
+Orpheus is designed for Go 1.23+ environments and follows Long-Term Support guidelines to ensure consistent performance across production deployments.
 
 ## Performance
 
@@ -20,14 +33,6 @@ BenchmarkStdFlag_Only-8                  1504788               790.1 ns/op      
 *AMD Ryzen 5 7520U with Radeon Graphics - Startup overhead and parsing of a single command with 3 flags*
 
 **[Complete Performance Benchmarks →](./benchmarks/benchmark_test.go)**
-
-## Features
-
-- **Zero Dependencies**: Zero external dependencies for maximum portability
-- **Clean API**: Fluent interface for rapid development
-- **Auto-completion**: Built-in bash/zsh/fish completion generation
-- **Type-safe Errors**: Structured error handling with exit codes
-- **Hot-swappable Commands**: Dynamic command registration and modification
 
 ## Quick Start
 
@@ -73,41 +78,31 @@ func main() {
 }
 ```
 
-### Advanced Features
-
-#### Custom Completion
+### Subcommands
 
 ```go
-deployCmd := orpheus.NewCommand("deploy", "Deploy to environment").
-    SetHandler(func(ctx *orpheus.Context) error {
-        env := ctx.GetArg(0)
-        fmt.Printf("Deploying to %s...\n", env)
-        return nil
-    }).
-    SetCompletionHandler(func(req *orpheus.CompletionRequest) *orpheus.CompletionResult {
-        if req.Type == orpheus.CompletionArgs && req.Position == 0 {
-            return &orpheus.CompletionResult{
-                Suggestions: []string{"production", "staging", "development"},
-            }
-        }
-        return &orpheus.CompletionResult{Suggestions: []string{}}
-    })
+// Create a command with subcommands
+remoteCmd := orpheus.NewCommand("remote", "Manage remote repositories")
 
-app.AddCommand(deployCmd)
+// Add subcommands using fluent API
+remoteCmd.Subcommand("add", "Add a remote", func(ctx *orpheus.Context) error {
+    name, url := ctx.GetArg(0), ctx.GetArg(1)
+    fmt.Printf("Added remote: %s -> %s\n", name, url)
+    return nil
+})
+
+remoteCmd.Subcommand("list", "List remotes", func(ctx *orpheus.Context) error {
+    fmt.Println("origin\thttps://github.com/user/repo.git")
+    return nil
+})
+
+app.AddCommand(remoteCmd)
+
+// Usage: ./myapp remote add origin https://github.com/user/repo.git
+//        ./myapp remote list
 ```
 
-#### Shell Completion Setup
-
-```bash
-# Generate completion script
-./myapp completion bash > /etc/bash_completion.d/myapp
-
-# Or for zsh
-./myapp completion zsh > "${fpath[1]}/_myapp"
-
-# Or for fish
-./myapp completion fish > ~/.config/fish/completions/myapp.fish
-```
+**[Complete Examples →](./docs/EXAMPLES.md)**
 
 ## The Philosophy Behind Orpheus
 
@@ -137,66 +132,13 @@ go test ./pkg/orpheus -v -cover
 
 ## Examples
 
-Check the [examples directory](./cmd/demo) for comprehensive usage examples:
+**[Complete Examples →](./docs/EXAMPLES.md)**
 
-- **Basic CLI**: Simple command-line application
-- **Advanced Completion**: Custom completion handlers
-- **Error Handling**: Structured error management
-- **Global Flags**: Application-wide configuration
+Check the [demo directory](./cmd/demo) for comprehensive usage examples and the [Examples directory](./examples/) for practical implementations.
 
 ## API Reference
 
-### App Methods
-
-```go
-// Creation and configuration
-app := orpheus.New("myapp")
-app.SetDescription("Description")
-app.SetVersion("1.0.0")
-
-// Command management
-app.Command("name", "description", handler)
-app.AddCommand(cmd)
-app.SetDefaultCommand("name")
-
-// Global flags
-app.AddGlobalFlag("name", "n", "default", "description")
-app.AddGlobalBoolFlag("verbose", "v", false, "Enable verbose")
-
-// Execution
-err := app.Run(args)
-```
-
-### Command Methods
-
-```go
-// Creation and configuration
-cmd := orpheus.NewCommand("name", "description")
-cmd.SetHandler(handler)
-cmd.SetUsage("custom usage")
-cmd.SetCompletionHandler(completionHandler)
-
-// Flags
-cmd.AddFlag("name", "n", "default", "description")
-cmd.AddBoolFlag("enabled", "e", false, "Enable feature")
-cmd.AddIntFlag("count", "c", 10, "Count value")
-```
-
-### Context Methods
-
-```go
-// Arguments
-count := ctx.ArgCount()
-arg := ctx.GetArg(index)
-
-// Flags (when flash-flags integration is complete)
-value := ctx.GetFlagString("name")
-enabled := ctx.GetFlagBool("enabled")
-count := ctx.GetFlagInt("count")
-
-// Global flags
-verbose := ctx.GetGlobalFlagBool("verbose")
-```
+**[Complete API Reference →](./docs/API.md)**
 
 ## License
 

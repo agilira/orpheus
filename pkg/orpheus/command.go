@@ -8,6 +8,7 @@ package orpheus
 
 import (
 	"fmt"
+	"strings"
 
 	flashflags "github.com/agilira/flash-flags"
 )
@@ -74,6 +75,8 @@ type Command struct {
 	flags             *flashflags.FlagSet
 	handler           CommandHandler
 	completionHandler CompletionHandler
+	subcommands       map[string]*Command
+	parent            *Command
 }
 
 // NewCommand creates a new command with the specified name and description.
@@ -82,6 +85,7 @@ func NewCommand(name, description string) *Command {
 		name:        name,
 		description: description,
 		flags:       flashflags.New(name),
+		subcommands: make(map[string]*Command),
 	}
 }
 
@@ -175,10 +179,6 @@ func (c *Command) AddStringSliceFlag(name, shorthand string, defaultValue []stri
 
 // Execute runs the command with the given context.
 func (c *Command) Execute(ctx *Context) error {
-	if c.handler == nil {
-		return NewOrpheusError(ErrorExecution, c.name, "no handler defined for command", 1)
-	}
-
 	// Parse command-specific flags from remaining args
 	// Skip the command name if it's still in the args
 	argsToparse := ctx.Args
@@ -193,6 +193,40 @@ func (c *Command) Execute(ctx *Context) error {
 		}
 	}
 
+	// Check for subcommands before flag parsing
+	if c.HasSubcommands() && len(argsToparse) > 0 {
+		potentialSubcmd := argsToparse[0]
+
+		// Don't treat flags as subcommands
+		if !strings.HasPrefix(potentialSubcmd, "-") {
+			if subcmd := c.GetSubcommand(potentialSubcmd); subcmd != nil {
+				// Execute subcommand with remaining args
+				newCtx := &Context{
+					App:         ctx.App,
+					Args:        argsToparse[1:], // Remove subcommand name
+					GlobalFlags: ctx.GlobalFlags,
+					Command:     subcmd,
+				}
+				return subcmd.Execute(newCtx)
+			} else {
+				// Subcommand not found - this is an error
+				return NotFoundError(c.name+" "+potentialSubcmd, fmt.Sprintf("unknown subcommand '%s' for command '%s'", potentialSubcmd, c.name))
+			}
+		}
+	}
+
+	// If no subcommand provided and this command has subcommands but no handler,
+	// show help
+	if c.HasSubcommands() && c.handler == nil {
+		return c.showHelp(ctx)
+	}
+
+	// If no handler is defined and no subcommands, error
+	if c.handler == nil {
+		return NewOrpheusError(ErrorExecution, c.name, "no handler defined for command", 1)
+	}
+
+	// Parse flags for this command
 	if err := c.flags.Parse(argsToparse); err != nil {
 		return NewOrpheusError(ErrorValidation, c.name, "flag parsing failed: "+err.Error(), 1)
 	}
@@ -208,6 +242,52 @@ func (c *Command) Execute(ctx *Context) error {
 // Flags returns the command's flag set for advanced usage.
 func (c *Command) Flags() *flashflags.FlagSet {
 	return c.flags
+}
+
+// AddSubcommand adds a subcommand to this command.
+func (c *Command) AddSubcommand(cmd *Command) *Command {
+	cmd.parent = c
+	c.subcommands[cmd.name] = cmd
+	return c
+}
+
+// Subcommand creates and adds a subcommand with the specified name, description, and handler.
+func (c *Command) Subcommand(name, description string, handler CommandHandler) *Command {
+	subcmd := NewCommand(name, description).SetHandler(handler)
+	c.AddSubcommand(subcmd)
+	return c
+}
+
+// GetSubcommands returns a copy of the subcommands map for introspection.
+func (c *Command) GetSubcommands() map[string]*Command {
+	subcommands := make(map[string]*Command)
+	for name, cmd := range c.subcommands {
+		subcommands[name] = cmd
+	}
+	return subcommands
+}
+
+// HasSubcommands returns true if this command has subcommands.
+func (c *Command) HasSubcommands() bool {
+	return len(c.subcommands) > 0
+}
+
+// GetSubcommand returns a subcommand by name, or nil if not found.
+func (c *Command) GetSubcommand(name string) *Command {
+	return c.subcommands[name]
+}
+
+// Parent returns the parent command, or nil if this is a root command.
+func (c *Command) Parent() *Command {
+	return c.parent
+}
+
+// FullName returns the full command path (e.g., "git remote add").
+func (c *Command) FullName() string {
+	if c.parent == nil {
+		return c.name
+	}
+	return c.parent.FullName() + " " + c.name
 }
 
 // showHelp displays help for the command.

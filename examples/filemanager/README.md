@@ -152,3 +152,7 @@ func searchHandler(ctx *orpheus.Context) error {
 5. **Flexible Arguments**: Mix of flags and positional arguments
 6. **Rich Help**: Long descriptions and usage examples
 7. **Performance**: Fast command parsing and execution
+
+---
+
+Orpheus • an AGILira library

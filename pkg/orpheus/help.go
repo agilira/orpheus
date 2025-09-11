@@ -29,7 +29,11 @@ func (h *HelpGenerator) GenerateCommandHelp(cmd *Command) string {
 	var sb strings.Builder
 
 	// Header
-	sb.WriteString(fmt.Sprintf("Usage: %s %s\n\n", h.app.name, cmd.Usage()))
+	usage := cmd.Usage()
+	if cmd.HasSubcommands() {
+		usage = cmd.name + " <subcommand> [flags]"
+	}
+	sb.WriteString(fmt.Sprintf("Usage: %s %s\n\n", h.app.name, usage))
 
 	// Description
 	if cmd.Description() != "" {
@@ -39,6 +43,31 @@ func (h *HelpGenerator) GenerateCommandHelp(cmd *Command) string {
 	// Long description (if available)
 	if cmd.longDescription != "" {
 		sb.WriteString(fmt.Sprintf("%s\n\n", cmd.longDescription))
+	}
+
+	// Subcommands (if available)
+	if cmd.HasSubcommands() {
+		sb.WriteString("Available Subcommands:\n")
+		subcommands := cmd.GetSubcommands()
+
+		// Sort subcommand names for consistent output
+		var names []string
+		for name := range subcommands {
+			names = append(names, name)
+		}
+		for i := 0; i < len(names)-1; i++ {
+			for j := i + 1; j < len(names); j++ {
+				if names[i] > names[j] {
+					names[i], names[j] = names[j], names[i]
+				}
+			}
+		}
+
+		for _, name := range names {
+			subcmd := subcommands[name]
+			sb.WriteString(fmt.Sprintf("  %-20s %s\n", name, subcmd.Description()))
+		}
+		sb.WriteString("\n")
 	}
 
 	// Examples (if available)
