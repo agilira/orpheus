@@ -36,9 +36,13 @@ jobs:
 
       - name: Run benchmarks (quick)
         run: |
-          cd benchmarks
-          go mod download
-          go test -bench=. -benchtime=1s
+          if [ -d "benchmarks" ]; then
+            cd benchmarks
+            go mod download
+            go test -bench=. -benchtime=1s
+          else
+            echo "No benchmarks directory found, skipping"
+          fi
 
       - name: Check if PR can be auto-merged
         id: auto-merge-check
