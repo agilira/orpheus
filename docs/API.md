@@ -147,6 +147,55 @@ return orpheus.ValidationError("command", "message")
 return orpheus.NewOrpheusError(orpheus.ErrorExecution, "command", "message", 1)
 ```
 
+### End-to-End Error Integration
+
+```go
+package main
+
+import (
+    "log"
+    "os"
+    
+    "github.com/agilira/orpheus/pkg/orpheus"
+)
+
+func main() {
+    app := orpheus.New("myapp").SetVersion("1.0.0")
+    
+    deployCmd := orpheus.NewCommand("deploy", "Deploy application").
+        SetHandler(func(ctx *orpheus.Context) error {
+            env := ctx.GetArg(0)
+            if env == "" {
+                return orpheus.ValidationError("deploy", "environment argument required")
+            }
+            
+            if env == "production" && !ctx.GetFlagBool("confirm") {
+                return orpheus.NewOrpheusError(
+                    orpheus.ErrorValidation, 
+                    "deploy", 
+                    "production deployment requires --confirm flag", 
+                    2,
+                )
+            }
+            
+            // Deployment logic here
+            return nil
+        }).
+        AddBoolFlag("confirm", "c", false, "Confirm production deployment")
+    
+    app.AddCommand(deployCmd)
+    
+    // Handle errors with proper exit codes
+    if err := app.Run(os.Args[1:]); err != nil {
+        if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+            log.Printf("Error: %s", orpheusErr.Error())
+            os.Exit(orpheusErr.ExitCode())
+        }
+        log.Fatal(err)
+    }
+}
+```
+
 ## Completion System
 
 ### Completion Request
