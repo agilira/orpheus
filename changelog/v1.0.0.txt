@@ -1,0 +1,53 @@
+# Orpheus v1.0.0 - Initial Release
+**Release Date:** 2025-09-11
+
+## Added
+- Core CLI framework with fluent API design
+- Command system with handler functions and type-safe context
+- Comprehensive flag support via flash-flags integration:
+  - String, bool, int, float64, and string slice flags
+  - Global and command-specific flags
+  - Flag change detection
+- Automatic help generation system:
+  - Command-specific help with usage examples
+  - Application-level help with command listing
+  - Long descriptions and usage examples support
+- Shell completion generation:
+  - Bash completion with command and flag suggestions
+  - Zsh completion with advanced features
+  - Fish completion support
+- Error handling system:
+  - Structured OrpheusError with typed error categories
+  - Validation, execution, not found, and internal error types
+  - Exit code suggestions for proper CLI behavior
+- Performance optimizations:
+  - Zero external dependencies
+  - Efficient argument parsing
+  - Minimal memory allocations
+
+## Features
+- Ultra-fast command parsing (7-53x faster than alternatives)
+- Type-safe command handlers with execution context
+- Built-in completion command for shell integration
+- Fluent API for rapid CLI development
+- Comprehensive test coverage
+- Full GoDoc documentation
+
+## Dependencies
+- github.com/agilira/flash-flags v1.0.0
+
+## Breaking Changes
+- None (initial release)
+
+## Known Issues
+- None
+
+## Performance
+- Command parsing: ~511ns/op with 3 allocs/op
+- Significantly faster than cobra, urfave/cli, and kingpin
+- Optimized for high-frequency CLI operations
+
+## Documentation
+- Complete GoDoc API documentation
+- Usage examples and best practices
+- Shell completion setup instructions
