@@ -68,6 +68,8 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+        verbose: true
+        disable_search: false
 
   build:
     name: Build Matrix

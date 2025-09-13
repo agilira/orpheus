@@ -1,0 +1,39 @@
+# Codecov Configuration for Orpheus
+# https://docs.codecov.com/docs/codecovyml-reference
+
+coverage:
+  # Global coverage target (disable by setting to 0%)
+  target:
+    default:
+      target: auto
+      threshold: 1%
+      
+  # Status checks configuration  
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+
+# Comment configuration - disable automatic comments on PRs
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: false
+
+# Ignore files/directories for coverage
+ignore:
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "**/vendor/**"
+  - "examples/**"
+  - "cmd/demo/**"
+  - "benchmarks/**"
