@@ -116,23 +116,27 @@ type Field struct {
 	Value interface{}
 }
 
-// Helper functions for creating fields
+// StringField creates a string field for logging
 func StringField(key, value string) Field {
 	return Field{Key: key, Value: value}
 }
 
+// IntField creates an integer field for logging
 func IntField(key string, value int) Field {
 	return Field{Key: key, Value: value}
 }
 
+// Float64Field creates a float64 field for logging
 func Float64Field(key string, value float64) Field {
 	return Field{Key: key, Value: value}
 }
 
+// BoolField creates a boolean field for logging
 func BoolField(key string, value bool) Field {
 	return Field{Key: key, Value: value}
 }
 
+// ErrorField creates an error field for logging
 func ErrorField(err error) Field {
 	return Field{Key: "error", Value: err}
 }
@@ -151,8 +155,11 @@ type ErrorOption interface {
 type StatusCode int
 
 const (
+	// StatusCodeUnset indicates the status is unset
 	StatusCodeUnset StatusCode = iota
+	// StatusCodeOK indicates successful completion
 	StatusCodeOK
+	// StatusCodeError indicates an error occurred
 	StatusCodeError
 )
 

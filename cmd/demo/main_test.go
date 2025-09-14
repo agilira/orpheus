@@ -18,15 +18,24 @@ import (
 // captureOutput captures stdout during function execution
 func captureOutput(fn func()) string {
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		return ""
+	}
 	os.Stdout = w
 
 	fn()
 
-	_ = w.Close()
+	if err := w.Close(); err != nil {
+		os.Stdout = oldStdout
+		return ""
+	}
 	os.Stdout = oldStdout
 
-	output, _ := io.ReadAll(r)
+	output, err := io.ReadAll(r)
+	if err != nil {
+		return ""
+	}
 	return string(output)
 }
 
@@ -116,7 +125,10 @@ func TestAppCreation(t *testing.T) {
 	// Test app properties (we can't directly access private fields,
 	// but we can test behavior through the help output)
 	output := captureOutput(func() {
-		_ = app.Run([]string{"--help"})
+		if err := app.Run([]string{"--help"}); err != nil {
+			// Help command should not error in normal circumstances
+			// but we don't fail the test as this might be expected behavior
+		}
 	})
 
 	if !strings.Contains(output, "Orpheus CLI Framework Demo Application") {
@@ -563,7 +575,9 @@ func BenchmarkGreetCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
-			_ = app.Run(args)
+			if err := app.Run(args); err != nil {
+				b.Errorf("Unexpected error in benchmark: %v", err)
+			}
 		})
 	}
 }
@@ -576,7 +590,9 @@ func BenchmarkEchoCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
-			_ = app.Run(args)
+			if err := app.Run(args); err != nil {
+				b.Errorf("Unexpected error in benchmark: %v", err)
+			}
 		})
 	}
 }
@@ -589,7 +605,9 @@ func BenchmarkDeployCommand(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
-			_ = app.Run(args)
+			if err := app.Run(args); err != nil {
+				b.Errorf("Unexpected error in benchmark: %v", err)
+			}
 		})
 	}
 }

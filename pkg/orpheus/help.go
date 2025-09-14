@@ -28,14 +28,28 @@ func NewHelpGenerator(app *App) *HelpGenerator {
 func (h *HelpGenerator) GenerateCommandHelp(cmd *Command) string {
 	var sb strings.Builder
 
-	// Header
+	// Build help sections
+	h.addCommandUsage(&sb, cmd)
+	h.addCommandDescription(&sb, cmd)
+	h.addSubcommands(&sb, cmd)
+	h.addExamples(&sb, cmd)
+	h.addCommandFlags(&sb, cmd)
+	h.addGlobalFlags(&sb)
+
+	return sb.String()
+}
+
+// addCommandUsage adds the usage line to the help text
+func (h *HelpGenerator) addCommandUsage(sb *strings.Builder, cmd *Command) {
 	usage := cmd.Usage()
 	if cmd.HasSubcommands() {
 		usage = cmd.name + " <subcommand> [flags]"
 	}
 	sb.WriteString(fmt.Sprintf("Usage: %s %s\n\n", h.app.name, usage))
+}
 
-	// Description
+// addCommandDescription adds the command description to the help text
+func (h *HelpGenerator) addCommandDescription(sb *strings.Builder, cmd *Command) {
 	if cmd.Description() != "" {
 		sb.WriteString(fmt.Sprintf("%s\n\n", cmd.Description()))
 	}
@@ -44,53 +58,71 @@ func (h *HelpGenerator) GenerateCommandHelp(cmd *Command) string {
 	if cmd.longDescription != "" {
 		sb.WriteString(fmt.Sprintf("%s\n\n", cmd.longDescription))
 	}
+}
 
-	// Subcommands (if available)
-	if cmd.HasSubcommands() {
-		sb.WriteString("Available Subcommands:\n")
-		subcommands := cmd.GetSubcommands()
+// addSubcommands adds the subcommands section to the help text
+func (h *HelpGenerator) addSubcommands(sb *strings.Builder, cmd *Command) {
+	if !cmd.HasSubcommands() {
+		return
+	}
 
-		// Sort subcommand names for consistent output
-		var names []string
-		for name := range subcommands {
-			names = append(names, name)
-		}
-		for i := 0; i < len(names)-1; i++ {
-			for j := i + 1; j < len(names); j++ {
-				if names[i] > names[j] {
-					names[i], names[j] = names[j], names[i]
-				}
+	sb.WriteString("Available Subcommands:\n")
+	subcommands := cmd.GetSubcommands()
+	names := h.sortSubcommandNames(subcommands)
+
+	for _, name := range names {
+		subcmd := subcommands[name]
+		sb.WriteString(fmt.Sprintf("  %-20s %s\n", name, subcmd.Description()))
+	}
+	sb.WriteString("\n")
+}
+
+// sortSubcommandNames sorts subcommand names for consistent output
+func (h *HelpGenerator) sortSubcommandNames(subcommands map[string]*Command) []string {
+	var names []string
+	for name := range subcommands {
+		names = append(names, name)
+	}
+
+	// Simple bubble sort for small arrays
+	for i := 0; i < len(names)-1; i++ {
+		for j := i + 1; j < len(names); j++ {
+			if names[i] > names[j] {
+				names[i], names[j] = names[j], names[i]
 			}
 		}
+	}
+	return names
+}
 
-		for _, name := range names {
-			subcmd := subcommands[name]
-			sb.WriteString(fmt.Sprintf("  %-20s %s\n", name, subcmd.Description()))
-		}
-		sb.WriteString("\n")
+// addExamples adds the examples section to the help text
+func (h *HelpGenerator) addExamples(sb *strings.Builder, cmd *Command) {
+	if len(cmd.examples) == 0 {
+		return
 	}
 
-	// Examples (if available)
-	if len(cmd.examples) > 0 {
-		sb.WriteString("Examples:\n")
-		for _, example := range cmd.examples {
-			sb.WriteString(fmt.Sprintf("  %s\n", example))
-		}
-		sb.WriteString("\n")
+	sb.WriteString("Examples:\n")
+	for _, example := range cmd.examples {
+		sb.WriteString(fmt.Sprintf("  %s\n", example))
+	}
+	sb.WriteString("\n")
+}
+
+// addCommandFlags adds the command-specific flags section
+func (h *HelpGenerator) addCommandFlags(sb *strings.Builder, cmd *Command) {
+	if !h.hasCommandFlags(cmd) {
+		return
 	}
 
-	// Command-specific flags
-	if h.hasCommandFlags(cmd) {
-		sb.WriteString("Flags:\n")
-		sb.WriteString(h.generateFlagHelp(cmd))
-		sb.WriteString("\n")
-	}
+	sb.WriteString("Flags:\n")
+	sb.WriteString(h.generateFlagHelp(cmd))
+	sb.WriteString("\n")
+}
 
-	// Global flags
+// addGlobalFlags adds the global flags section
+func (h *HelpGenerator) addGlobalFlags(sb *strings.Builder) {
 	sb.WriteString("Global Flags:\n")
 	sb.WriteString(h.generateGlobalFlagHelp())
-
-	return sb.String()
 }
 
 // GenerateAppHelp generates the main application help.

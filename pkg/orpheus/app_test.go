@@ -7,6 +7,7 @@
 package orpheus_test
 
 import (
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -153,11 +154,14 @@ func TestCommandNotFound(t *testing.T) {
 func TestVersionFlag(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
 	os.Stdout = w
 
 	app := orpheus.New("testapp").SetVersion("1.2.3")
-	err := app.Run([]string{"--version"})
+	err = app.Run([]string{"--version"})
 
 	if closeErr := w.Close(); closeErr != nil {
 		t.Errorf("failed to close pipe: %v", closeErr)
@@ -169,7 +173,11 @@ func TestVersionFlag(t *testing.T) {
 	}
 
 	buf := make([]byte, 1024)
-	n, _ := r.Read(buf)
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Errorf("failed to read from pipe: %v", err)
+		return
+	}
 	output := string(buf[:n])
 
 	expected := "testapp version 1.2.3\n"
@@ -179,11 +187,13 @@ func TestVersionFlag(t *testing.T) {
 }
 
 func TestHelpGeneration(t *testing.T) {
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	app := createTestAppWithCommands()
+	output := captureHelpOutput(t, app)
+	validateHelpContent(t, output)
+}
 
+// createTestAppWithCommands creates a test app with sample commands
+func createTestAppWithCommands() *orpheus.App {
 	app := orpheus.New("testapp").
 		SetDescription("Test application for help").
 		SetVersion("1.0.0")
@@ -196,7 +206,20 @@ func TestHelpGeneration(t *testing.T) {
 		return nil
 	})
 
-	err := app.Run([]string{"--help"})
+	return app
+}
+
+// captureHelpOutput captures stdout from help command execution
+func captureHelpOutput(t *testing.T, app *orpheus.App) string {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = w
+
+	err = app.Run([]string{"--help"})
 
 	if closeErr := w.Close(); closeErr != nil {
 		t.Errorf("failed to close pipe: %v", closeErr)
@@ -208,36 +231,33 @@ func TestHelpGeneration(t *testing.T) {
 	}
 
 	buf := make([]byte, 2048)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
-
-	// Check that help contains expected elements
-	if !strings.Contains(output, "Test application for help") {
-		t.Error("help should contain app description")
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Errorf("failed to read from pipe: %v", err)
 	}
 
-	if !strings.Contains(output, "Usage: testapp [command] [flags]") {
-		t.Error("help should contain usage line")
+	return string(buf[:n])
+}
+
+// validateHelpContent validates that help output contains expected elements
+func validateHelpContent(t *testing.T, output string) {
+	expectedElements := []struct {
+		content string
+		message string
+	}{
+		{"Test application for help", "help should contain app description"},
+		{"Usage: testapp [command] [flags]", "help should contain usage line"},
+		{"cmd1", "help should contain cmd1"},
+		{"cmd2", "help should contain cmd2"},
+		{"First command", "help should contain cmd1 description"},
+		{"--help", "help should contain --help flag"},
+		{"--version", "help should contain --version flag"},
 	}
 
-	if !strings.Contains(output, "cmd1") {
-		t.Error("help should contain cmd1")
-	}
-
-	if !strings.Contains(output, "cmd2") {
-		t.Error("help should contain cmd2")
-	}
-
-	if !strings.Contains(output, "First command") {
-		t.Error("help should contain cmd1 description")
-	}
-
-	if !strings.Contains(output, "--help") {
-		t.Error("help should contain --help flag")
-	}
-
-	if !strings.Contains(output, "--version") {
-		t.Error("help should contain --version flag")
+	for _, element := range expectedElements {
+		if !strings.Contains(output, element.content) {
+			t.Error(element.message)
+		}
 	}
 }
 

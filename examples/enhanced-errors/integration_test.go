@@ -6,6 +6,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -14,14 +15,30 @@ import (
 
 // TestIntegrationErrorProperties tests error properties without output capture
 func TestIntegrationErrorProperties(t *testing.T) {
-	tests := []struct {
-		name            string
-		args            []string
-		expectError     bool
-		expectExitCode  int
-		expectRetryable bool
-		expectSeverity  string
-	}{
+	tests := createIntegrationTests()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := createTestApp()
+			err := app.Run(tt.args)
+			validateIntegrationResult(t, err, tt)
+		})
+	}
+}
+
+// integrationTest represents a test case for integration testing
+type integrationTest struct {
+	name            string
+	args            []string
+	expectError     bool
+	expectExitCode  int
+	expectRetryable bool
+	expectSeverity  string
+}
+
+// createIntegrationTests creates test cases for integration testing
+func createIntegrationTests() []integrationTest {
+	return []integrationTest{
 		{
 			name:            "validation error properties",
 			args:            []string{"validate"},
@@ -44,44 +61,63 @@ func TestIntegrationErrorProperties(t *testing.T) {
 			expectRetryable: false,
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := createTestApp()
-			err := app.Run(tt.args)
+// validateIntegrationResult validates the result of integration test execution
+func validateIntegrationResult(t *testing.T, err error, tt integrationTest) {
+	if err := validateErrorExpectation(t, err, tt.expectError); err != nil {
+		return
+	}
 
-			// Verify error expectation
-			if tt.expectError && err == nil {
-				t.Errorf("expected error but got none")
-				return
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
+	if tt.expectError {
+		validateIntegrationErrorProperties(t, err, tt)
+	}
+}
 
-			// Verify error properties
-			if tt.expectError {
-				orpheusErr, ok := err.(*orpheus.OrpheusError)
-				if !ok {
-					t.Errorf("expected OrpheusError but got %T", err)
-					return
-				}
+// validateErrorExpectation validates whether error matches expectation
+func validateErrorExpectation(t *testing.T, err error, expectError bool) error {
+	if expectError && err == nil {
+		t.Errorf("expected error but got none")
+		return fmt.Errorf("missing expected error")
+	}
+	if !expectError && err != nil {
+		t.Errorf("unexpected error: %v", err)
+		return fmt.Errorf("unexpected error")
+	}
+	return nil
+}
 
-				if orpheusErr.ExitCode() != tt.expectExitCode {
-					t.Errorf("expected exit code %d but got %d", tt.expectExitCode, orpheusErr.ExitCode())
-				}
+// validateIntegrationErrorProperties validates specific error properties for integration tests
+func validateIntegrationErrorProperties(t *testing.T, err error, tt integrationTest) {
+	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	if !ok {
+		t.Errorf("expected OrpheusError but got %T", err)
+		return
+	}
 
-				if orpheusErr.IsRetryable() != tt.expectRetryable {
-					t.Errorf("expected retryable=%v but got %v", tt.expectRetryable, orpheusErr.IsRetryable())
-				}
+	validateExitCode(t, orpheusErr, tt.expectExitCode)
+	validateRetryable(t, orpheusErr, tt.expectRetryable)
+	validateUserMessage(t, orpheusErr)
+}
 
-				// Verify user message is set
-				if orpheusErr.UserMessage() == "" {
-					t.Errorf("expected user message but got empty string")
-				}
-			}
-		})
+// validateExitCode validates the exit code property
+func validateExitCode(t *testing.T, orpheusErr *orpheus.OrpheusError, expected int) {
+	if orpheusErr.ExitCode() != expected {
+		t.Errorf("expected exit code %d but got %d", expected, orpheusErr.ExitCode())
+	}
+}
+
+// validateRetryable validates the retryable property
+func validateRetryable(t *testing.T, orpheusErr *orpheus.OrpheusError, expected bool) {
+	if orpheusErr.IsRetryable() != expected {
+		t.Errorf("expected retryable=%v but got %v", expected, orpheusErr.IsRetryable())
+	}
+}
+
+// validateUserMessage validates that user message is set
+func validateUserMessage(t *testing.T, orpheusErr *orpheus.OrpheusError) {
+	if orpheusErr.UserMessage() == "" {
+		t.Errorf("expected user message but got empty string")
 	}
 }
 

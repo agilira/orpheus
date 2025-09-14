@@ -113,129 +113,243 @@ func setupTreeCommand(app *orpheus.App) {
 // Command handlers
 
 func listHandler(ctx *orpheus.Context) error {
-	path := ctx.GetFlagString("path")
-	showAll := ctx.GetFlagBool("all")
-	longFormat := ctx.GetFlagBool("long")
-	limit := ctx.GetFlagInt("limit")
-	verbose := ctx.GetGlobalFlagBool("verbose")
+	listParams := extractListParams(ctx)
 
-	if verbose {
-		fmt.Printf("Listing directory: %s\n", path)
+	if listParams.verbose {
+		fmt.Printf("Listing directory: %s\n", listParams.path)
 	}
 
-	entries, err := os.ReadDir(path)
+	entries, err := readDirectory(listParams.path)
 	if err != nil {
-		return orpheus.ExecutionError("list", fmt.Sprintf("cannot read directory %s: %v", path, err)).
-			WithUserMessage("Unable to read the specified directory").
-			WithContext("path", path).
-			WithContext("error_type", "permission_or_not_found").
-			AsRetryable()
+		return err
 	}
 
-	count := 0
-	for _, entry := range entries {
-		// Skip hidden files unless --all is specified
-		if !showAll && strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
+	count := displayEntries(entries, listParams)
 
-		// Apply limit if specified
-		if limit > 0 && count >= limit {
-			break
-		}
-
-		if longFormat {
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			fmt.Printf("%s %8d %s %s\n",
-				info.Mode(),
-				info.Size(),
-				info.ModTime().Format("Jan 02 15:04"),
-				entry.Name())
-		} else {
-			if entry.IsDir() {
-				fmt.Printf("%s/\n", entry.Name())
-			} else {
-				fmt.Printf("%s\n", entry.Name())
-			}
-		}
-		count++
-	}
-
-	if verbose {
+	if listParams.verbose {
 		fmt.Printf("Listed %d items\n", count)
 	}
 
 	return nil
 }
 
-func searchHandler(ctx *orpheus.Context) error {
-	pattern := ctx.GetFlagString("pattern")
-	dir := ctx.GetFlagString("dir")
-	extensions := ctx.GetFlagStringSlice("ext")
-	recursive := ctx.GetFlagBool("recursive")
-	verbose := ctx.GetGlobalFlagBool("verbose")
+// listParams holds listing configuration
+type listParams struct {
+	path       string
+	showAll    bool
+	longFormat bool
+	limit      int
+	verbose    bool
+}
 
-	if verbose {
-		fmt.Printf("Searching for pattern '%s' in %s\n", pattern, dir)
-		if len(extensions) > 0 {
-			fmt.Printf("Filtering extensions: %s\n", strings.Join(extensions, ", "))
+// extractListParams extracts listing parameters from context
+func extractListParams(ctx *orpheus.Context) listParams {
+	return listParams{
+		path:       ctx.GetFlagString("path"),
+		showAll:    ctx.GetFlagBool("all"),
+		longFormat: ctx.GetFlagBool("long"),
+		limit:      ctx.GetFlagInt("limit"),
+		verbose:    ctx.GetGlobalFlagBool("verbose"),
+	}
+}
+
+// readDirectory reads directory entries with error handling
+func readDirectory(path string) ([]fs.DirEntry, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, orpheus.ExecutionError("list", fmt.Sprintf("cannot read directory %s: %v", path, err)).
+			WithUserMessage("Unable to read the specified directory").
+			WithContext("path", path).
+			WithContext("error_type", "permission_or_not_found").
+			AsRetryable()
+	}
+	return entries, nil
+}
+
+// displayEntries formats and displays directory entries
+func displayEntries(entries []fs.DirEntry, params listParams) int {
+	count := 0
+
+	for _, entry := range entries {
+		if shouldSkipEntry(entry, params, count) {
+			continue
 		}
+
+		displayEntry(entry, params.longFormat)
+		count++
 	}
 
+	return count
+}
+
+// shouldSkipEntry determines if an entry should be skipped
+func shouldSkipEntry(entry fs.DirEntry, params listParams, count int) bool {
+	// Skip hidden files unless --all is specified
+	if !params.showAll && strings.HasPrefix(entry.Name(), ".") {
+		return true
+	}
+
+	// Apply limit if specified
+	if params.limit > 0 && count >= params.limit {
+		return true
+	}
+
+	return false
+}
+
+// displayEntry displays a single directory entry
+func displayEntry(entry fs.DirEntry, longFormat bool) {
+	if longFormat {
+		displayLongFormat(entry)
+	} else {
+		displayShortFormat(entry)
+	}
+}
+
+// displayLongFormat displays entry in long format
+func displayLongFormat(entry fs.DirEntry) {
+	info, err := entry.Info()
+	if err != nil {
+		return
+	}
+	fmt.Printf("%s %8d %s %s\n",
+		info.Mode(),
+		info.Size(),
+		info.ModTime().Format("Jan 02 15:04"),
+		entry.Name())
+}
+
+// displayShortFormat displays entry in short format
+func displayShortFormat(entry fs.DirEntry) {
+	if entry.IsDir() {
+		fmt.Printf("%s/\n", entry.Name())
+	} else {
+		fmt.Printf("%s\n", entry.Name())
+	}
+}
+
+func searchHandler(ctx *orpheus.Context) error {
+	searchParams := extractSearchParams(ctx)
+
+	if searchParams.verbose {
+		logSearchStart(searchParams)
+	}
+
+	matches, err := performSearch(searchParams)
+	if err != nil {
+		return err
+	}
+
+	displayResults(matches, searchParams.verbose)
+	return nil
+}
+
+// searchParams holds search configuration
+type searchParams struct {
+	pattern    string
+	dir        string
+	extensions []string
+	recursive  bool
+	verbose    bool
+}
+
+// extractSearchParams extracts search parameters from context
+func extractSearchParams(ctx *orpheus.Context) searchParams {
+	return searchParams{
+		pattern:    ctx.GetFlagString("pattern"),
+		dir:        ctx.GetFlagString("dir"),
+		extensions: ctx.GetFlagStringSlice("ext"),
+		recursive:  ctx.GetFlagBool("recursive"),
+		verbose:    ctx.GetGlobalFlagBool("verbose"),
+	}
+}
+
+// logSearchStart logs the start of search operation
+func logSearchStart(params searchParams) {
+	fmt.Printf("Searching for pattern '%s' in %s\n", params.pattern, params.dir)
+	if len(params.extensions) > 0 {
+		fmt.Printf("Filtering extensions: %s\n", strings.Join(params.extensions, ", "))
+	}
+}
+
+// performSearch executes the file search
+func performSearch(params searchParams) ([]string, error) {
 	var matches []string
-	walkFunc := func(path string, d fs.DirEntry, err error) error {
+
+	walkFunc := createWalkFunc(&matches, params)
+	err := filepath.WalkDir(params.dir, walkFunc)
+
+	if err != nil {
+		return nil, orpheus.ExecutionError("search", fmt.Sprintf("search failed: %v", err)).
+			WithUserMessage("Unable to search in the specified directory").
+			WithContext("directory", params.dir).
+			WithContext("pattern", params.pattern).
+			AsRetryable()
+	}
+
+	return matches, nil
+}
+
+// createWalkFunc creates the walk function for file traversal
+func createWalkFunc(matches *[]string, params searchParams) func(string, fs.DirEntry, error) error {
+	return func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
 
-		// If it's a directory, check if we should recurse
 		if d.IsDir() {
-			// If not recursive and this is not the root directory, skip
-			if !recursive && path != dir {
-				return filepath.SkipDir
-			}
-			return nil // Continue into directory
+			return handleDirectory(path, params.dir, params.recursive)
 		}
 
-		// Check extension filter
-		if len(extensions) > 0 {
-			ext := strings.TrimPrefix(filepath.Ext(path), ".")
-			found := false
-			for _, allowedExt := range extensions {
-				if ext == allowedExt {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return nil
-			}
-		}
+		return handleFile(path, matches, params)
+	}
+}
 
-		// Check pattern match
-		matched, err := filepath.Match(pattern, filepath.Base(path))
-		if err != nil {
-			return nil
-		}
-		if matched {
-			matches = append(matches, path)
-		}
+// handleDirectory processes directory entries during walk
+func handleDirectory(path, rootDir string, recursive bool) error {
+	// If not recursive and this is not the root directory, skip
+	if !recursive && path != rootDir {
+		return filepath.SkipDir
+	}
+	return nil // Continue into directory
+}
 
+// handleFile processes file entries during walk
+func handleFile(path string, matches *[]string, params searchParams) error {
+	if !matchesExtension(path, params.extensions) {
 		return nil
 	}
 
-	err := filepath.WalkDir(dir, walkFunc)
-	if err != nil {
-		return orpheus.ExecutionError("search", fmt.Sprintf("search failed: %v", err)).
-			WithUserMessage("Unable to search in the specified directory").
-			WithContext("directory", dir).
-			WithContext("pattern", pattern).
-			AsRetryable()
+	if matchesPattern(path, params.pattern) {
+		*matches = append(*matches, path)
 	}
 
+	return nil
+}
+
+// matchesExtension checks if file matches extension filter
+func matchesExtension(path string, extensions []string) bool {
+	if len(extensions) == 0 {
+		return true
+	}
+
+	ext := strings.TrimPrefix(filepath.Ext(path), ".")
+	for _, allowedExt := range extensions {
+		if ext == allowedExt {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesPattern checks if file matches the search pattern
+func matchesPattern(path, pattern string) bool {
+	matched, err := filepath.Match(pattern, filepath.Base(path))
+	return err == nil && matched
+}
+
+// displayResults shows search results to user
+func displayResults(matches []string, verbose bool) {
 	for _, match := range matches {
 		fmt.Println(match)
 	}
@@ -243,8 +357,6 @@ func searchHandler(ctx *orpheus.Context) error {
 	if verbose {
 		fmt.Printf("Found %d matches\n", len(matches))
 	}
-
-	return nil
 }
 
 func infoHandler(ctx *orpheus.Context) error {

@@ -179,55 +179,92 @@ func (c *Command) AddStringSliceFlag(name, shorthand string, defaultValue []stri
 
 // Execute runs the command with the given context.
 func (c *Command) Execute(ctx *Context) error {
-	// Parse command-specific flags from remaining args
-	// Skip the command name if it's still in the args
-	argsToparse := ctx.Args
-	if len(argsToparse) > 0 && argsToparse[0] == c.name {
-		argsToparse = argsToparse[1:]
-	}
+	argsToparse := c.prepareArgs(ctx.Args)
 
 	// Check for help flags before parsing
-	for _, arg := range argsToparse {
-		if arg == "--help" || arg == "-h" {
-			return c.showHelp(ctx)
-		}
+	if c.hasHelpFlag(argsToparse) {
+		return c.showHelp(ctx)
 	}
 
-	// Check for subcommands before flag parsing
-	if c.HasSubcommands() && len(argsToparse) > 0 {
-		potentialSubcmd := argsToparse[0]
-
-		// Don't treat flags as subcommands
-		if !strings.HasPrefix(potentialSubcmd, "-") {
-			if subcmd := c.GetSubcommand(potentialSubcmd); subcmd != nil {
-				// Execute subcommand with remaining args
-				newCtx := &Context{
-					App:         ctx.App,
-					Args:        argsToparse[1:], // Remove subcommand name
-					GlobalFlags: ctx.GlobalFlags,
-					Command:     subcmd,
-				}
-				return subcmd.Execute(newCtx)
-			} else {
-				// Subcommand not found - this is an error
-				return NotFoundError(c.name+" "+potentialSubcmd, fmt.Sprintf("unknown subcommand '%s' for command '%s'", potentialSubcmd, c.name))
-			}
-		}
+	// Handle subcommands if they exist
+	if err := c.handleSubcommands(ctx, argsToparse); err != nil {
+		return err
 	}
 
-	// If no subcommand provided and this command has subcommands but no handler,
-	// show help
+	// If no subcommand provided and this command has subcommands but no handler, show help
 	if c.HasSubcommands() && c.handler == nil {
 		return c.showHelp(ctx)
 	}
 
+	// Validate handler existence
+	if err := c.validateHandler(); err != nil {
+		return err
+	}
+
+	// Parse and execute
+	return c.parseAndExecute(ctx, argsToparse)
+}
+
+// prepareArgs removes the command name from args if present
+func (c *Command) prepareArgs(args []string) []string {
+	if len(args) > 0 && args[0] == c.name {
+		return args[1:]
+	}
+	return args
+}
+
+// hasHelpFlag checks if help flag is present in args
+func (c *Command) hasHelpFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			return true
+		}
+	}
+	return false
+}
+
+// handleSubcommands processes subcommand execution
+func (c *Command) handleSubcommands(ctx *Context, args []string) error {
+	if !c.HasSubcommands() || len(args) == 0 {
+		return nil
+	}
+
+	potentialSubcmd := args[0]
+
+	// Don't treat flags as subcommands
+	if strings.HasPrefix(potentialSubcmd, "-") {
+		return nil
+	}
+
+	if subcmd := c.GetSubcommand(potentialSubcmd); subcmd != nil {
+		// Execute subcommand with remaining args
+		newCtx := &Context{
+			App:         ctx.App,
+			Args:        args[1:], // Remove subcommand name
+			GlobalFlags: ctx.GlobalFlags,
+			Command:     subcmd,
+		}
+		return subcmd.Execute(newCtx)
+	}
+
+	// Subcommand not found - this is an error
+	return NotFoundError(c.name+" "+potentialSubcmd, fmt.Sprintf("unknown subcommand '%s' for command '%s'", potentialSubcmd, c.name))
+}
+
+// validateHandler checks if the command has a valid handler
+func (c *Command) validateHandler() error {
 	// If no handler is defined and no subcommands, error
-	if c.handler == nil {
+	if c.handler == nil && !c.HasSubcommands() {
 		return ExecutionError(c.name, "no handler defined for command")
 	}
 
+	return nil
+}
+
+// parseAndExecute handles flag parsing and handler execution
+func (c *Command) parseAndExecute(ctx *Context, args []string) error {
 	// Parse flags for this command
-	if err := c.flags.Parse(argsToparse); err != nil {
+	if err := c.flags.Parse(args); err != nil {
 		return ValidationError(c.name, "flag parsing failed: "+err.Error())
 	}
 

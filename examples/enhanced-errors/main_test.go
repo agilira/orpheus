@@ -216,14 +216,30 @@ func TestProcessCommand(t *testing.T) {
 
 // TestCriticalCommand tests the critical command behavior
 func TestCriticalCommand(t *testing.T) {
-	tests := []struct {
-		name          string
-		args          []string
-		expectError   bool
-		expectCode    string
-		expectUserMsg string
-		expectExit    int
-	}{
+	tests := createCriticalCommandTests()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := createTestApp()
+			err := app.Run(tt.args)
+			validateCriticalCommandResult(t, err, tt)
+		})
+	}
+}
+
+// criticalCommandTest represents a test case for critical command
+type criticalCommandTest struct {
+	name          string
+	args          []string
+	expectError   bool
+	expectCode    string
+	expectUserMsg string
+	expectExit    int
+}
+
+// createCriticalCommandTests creates test cases for critical command
+func createCriticalCommandTests() []criticalCommandTest {
+	return []criticalCommandTest{
 		{
 			name:        "no simulation",
 			args:        []string{"critical"},
@@ -238,41 +254,52 @@ func TestCriticalCommand(t *testing.T) {
 			expectExit:    2,
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := createTestApp()
-			err := app.Run(tt.args)
+// validateCriticalCommandResult validates the result of critical command execution
+func validateCriticalCommandResult(t *testing.T, err error, tt criticalCommandTest) {
+	if tt.expectError {
+		validateCriticalCommandError(t, err, tt)
+	} else {
+		validateCriticalCommandSuccess(t, err)
+	}
+}
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got none")
-					return
-				}
+// validateCriticalCommandError validates error cases
+func validateCriticalCommandError(t *testing.T, err error, tt criticalCommandTest) {
+	if err == nil {
+		t.Errorf("expected error but got none")
+		return
+	}
 
-				orpheusErr, ok := err.(*orpheus.OrpheusError)
-				if !ok {
-					t.Errorf("expected OrpheusError but got %T", err)
-					return
-				}
+	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	if !ok {
+		t.Errorf("expected OrpheusError but got %T", err)
+		return
+	}
 
-				if string(orpheusErr.ErrorCode()) != tt.expectCode {
-					t.Errorf("expected error code %s but got %s", tt.expectCode, orpheusErr.ErrorCode())
-				}
+	validateErrorProperties(t, orpheusErr, tt)
+}
 
-				if tt.expectUserMsg != "" && orpheusErr.UserMessage() != tt.expectUserMsg {
-					t.Errorf("expected user message '%s' but got '%s'", tt.expectUserMsg, orpheusErr.UserMessage())
-				}
+// validateErrorProperties validates specific error properties
+func validateErrorProperties(t *testing.T, orpheusErr *orpheus.OrpheusError, tt criticalCommandTest) {
+	if string(orpheusErr.ErrorCode()) != tt.expectCode {
+		t.Errorf("expected error code %s but got %s", tt.expectCode, orpheusErr.ErrorCode())
+	}
 
-				if tt.expectExit != 0 && orpheusErr.ExitCode() != tt.expectExit {
-					t.Errorf("expected exit code %d but got %d", tt.expectExit, orpheusErr.ExitCode())
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-			}
-		})
+	if tt.expectUserMsg != "" && orpheusErr.UserMessage() != tt.expectUserMsg {
+		t.Errorf("expected user message '%s' but got '%s'", tt.expectUserMsg, orpheusErr.UserMessage())
+	}
+
+	if tt.expectExit != 0 && orpheusErr.ExitCode() != tt.expectExit {
+		t.Errorf("expected exit code %d but got %d", tt.expectExit, orpheusErr.ExitCode())
+	}
+}
+
+// validateCriticalCommandSuccess validates successful cases
+func validateCriticalCommandSuccess(t *testing.T, err error) {
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 

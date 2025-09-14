@@ -1,3 +1,9 @@
+// benchmark_test.go: Orpheus benchmarks with various CLI frameworks
+//
+// Copyright (c) 2025 AGILira - A. Giordano
+// Series: an AGILira library
+// SPDX-License-Identifier: MPL-2.0
+
 package benchmarks
 
 import (

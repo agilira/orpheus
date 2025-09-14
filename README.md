@@ -5,6 +5,7 @@
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://codecov.io/gh/agilira/orpheus/branch/main/graph/badge.svg)](https://codecov.io/gh/agilira/orpheus)
+[![Go Reference](https://pkg.go.dev/badge/github.com/agilira/orpheus.svg)](https://pkg.go.dev/github.com/agilira/orpheus)
 
 Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
@@ -30,11 +31,11 @@ Benchmark results comparing CLI framework performance:
 
 ```
 AMD Ryzen 5 7520U with Radeon Graphics
-BenchmarkOrpheus-8       2283835               512.8 ns/op           96 B/op          3 allocs/op
-BenchmarkCobra-8          279333                3727 ns/op           1752 B/op        29 allocs/op
-BenchmarkUrfaveCli-8       41664               28026 ns/op           9334 B/op        366 allocs/op
-BenchmarkKingpin-8        294334                3419 ns/op           1988 B/op        40 allocs/op
-BenchmarkStdFlag-8       1476625               809.0 ns/op           945 B/op         13 allocs/op
+BenchmarkOrpheus-8       2283835           512.8 ns/op          96 B/op          3 allocs/op
+BenchmarkCobra-8          279333           3727 ns/op           1752 B/op        29 allocs/op
+BenchmarkUrfaveCli-8       41664           28026 ns/op          9334 B/op        366 allocs/op
+BenchmarkKingpin-8        294334           3419 ns/op           1988 B/op        40 allocs/op
+BenchmarkStdFlag-8       1476625           809.0 ns/op          945 B/op         13 allocs/op
 ```
 
 **Scenario**: Command parsing with 3 flags (string, bool, string) and handler execution.
