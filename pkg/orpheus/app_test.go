@@ -1,4 +1,4 @@
-// app_test.go: tests for the main CLI application
+// app_test.go: tests for Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

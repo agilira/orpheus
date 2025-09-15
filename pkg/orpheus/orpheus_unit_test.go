@@ -1,4 +1,4 @@
-// orpheus_unit_test.go: Additional tests for Orpheus
+// orpheus_unit_test.go: unit tests for Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

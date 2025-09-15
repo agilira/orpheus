@@ -3,7 +3,7 @@ Released: September 11, 2025
 
 MAJOR ENHANCEMENTS
 
-Enterprise Observability Framework
+Production Observability Framework
 - Comprehensive observability interfaces for production CLI applications
 - Zero-overhead design: 0.24 ns/op when not configured, ~24 ns/op when enabled
 - Full OpenTelemetry compatibility with context propagation

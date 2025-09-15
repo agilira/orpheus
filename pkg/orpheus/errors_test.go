@@ -1,4 +1,4 @@
-// errors_test.go: errors tests for Orpheus with go-errors integration
+// errors_test.go: errors tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

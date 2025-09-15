@@ -1,4 +1,4 @@
-// main.go: File Manager example using Orpheus framework
+// main.go: Orpheus app: File Manager app example
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // SPDX-License-Identifier: MPL-2.0

@@ -1,6 +1,6 @@
 // Git-like CLI Demo with Subcommands
 //
-// This example demonstrates Orpheus's native subcommand support,
+// This example demonstrates Orpheus's subcommand support,
 // showing a git-like interface with nested commands such as:
 // - remote add/remove/list
 // - config set/get/list
@@ -14,7 +14,6 @@
 //   gitlike status
 //
 // Copyright (c) 2025 AGILira - A. Giordano
-// Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
 package main

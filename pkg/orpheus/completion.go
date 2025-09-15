@@ -1,4 +1,4 @@
-// cmpletion.go: auto-completion for bash/zsh
+// completion.go: auto-completion bash/zsh
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

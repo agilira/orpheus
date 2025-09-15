@@ -1,4 +1,4 @@
-// app_test.go: Orpheus app example
+// app_test.go: Orpheus app: basic example
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

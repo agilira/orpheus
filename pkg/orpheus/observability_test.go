@@ -1,4 +1,4 @@
-// observability_test.go: tests for observability interfaces for orpheus
+// observability_test.go: tests to verify that observability interfaces work correctly
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

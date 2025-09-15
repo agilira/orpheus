@@ -1,4 +1,4 @@
-// errors.go: errors definitions for Orpheus
+// errors.go: errors definitions using agilira/go-errors
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

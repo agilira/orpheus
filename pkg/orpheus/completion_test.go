@@ -1,4 +1,4 @@
-// cmpletion.go: auto-completion tests
+// completion_test.go: auto-completion tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

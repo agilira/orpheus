@@ -1,4 +1,4 @@
-// main_test.go: enhanced-errors example tests
+// main_test.go: Orpheus app: enhanced-errors example tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // SPDX-License-Identifier: MPL-2.0

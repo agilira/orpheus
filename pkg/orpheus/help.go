@@ -1,4 +1,4 @@
-// help.go: automatic help generation for Orpheus
+// help.go: automatic help generation in Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

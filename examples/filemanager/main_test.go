@@ -1,4 +1,4 @@
-// main_test.go: File Manager example tests
+// main_test.go: Orpheus app: File Manager app example tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // SPDX-License-Identifier: MPL-2.0

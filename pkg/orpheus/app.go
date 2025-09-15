@@ -1,4 +1,4 @@
-// Package orpheus provides an ultra-fast, lightweight CLI framework for Go applications.
+// Package orpheus provides an ultra-fast, powerful, lightweight CLI framework for Go applications.
 //
 // Orpheus is designed to be simple, performant, and feature-complete, offering:
 //   - Ultra-fast command parsing and execution

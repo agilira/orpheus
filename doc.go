@@ -5,7 +5,7 @@
 //
 // Key Features:
 //   - 7x-53x faster than alternatives thanks to flash-flags integration
-//   - Zero external dependencies beyond flash-flags
+//   - Zero external dependencies
 //   - Simple, intuitive API for rapid development
 //   - Built-in auto-completion support
 //   - Memory-efficient command dispatch

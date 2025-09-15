@@ -1,4 +1,4 @@
-// integrations_test.go: integration tests for Orpheus
+// integrations_test.go: Orpheus application framework integration tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

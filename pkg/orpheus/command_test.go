@@ -1,4 +1,4 @@
-// command_test.go: tests for commands in orpheus
+// command_test.go: tests for commands in Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

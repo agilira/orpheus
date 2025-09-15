@@ -1,4 +1,4 @@
-// context_test.go: context tests
+// context_test.go: Orpheus application framework context tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

@@ -9,7 +9,7 @@
 
 Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
-**[Features](#features) • [Performance](#performance) • [Quick Start](#quick-start) • [Observability](#enterprise-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
+**[Features](#features) • [Performance](#performance) • [Quick Start](#quick-start) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
 
 ## Features
 
@@ -19,7 +19,7 @@ Orpheus is a high-performance CLI framework designed to be super simple and **7x
 - **Auto-completion**: Built-in bash/zsh/fish completion generation
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
-- **Enterprise Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
+- **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
 
 ## Compatibility and Support
 

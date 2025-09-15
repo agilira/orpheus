@@ -1,4 +1,4 @@
-// benchmark_test.go: Orpheus benchmarks with various CLI frameworks
+// benchmark_test.go: benchmarks with various popular CLI frameworks
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
@@ -8,7 +8,6 @@ package benchmarks
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 
@@ -177,9 +176,4 @@ func BenchmarkStdFlag(b *testing.B) {
 		_ = *verbose
 		_ = *timeout
 	}
-}
-
-func main() {
-	fmt.Println("Running CLI Framework Benchmarks...")
-	fmt.Println("Use: go test -bench=. -benchmem")
 }

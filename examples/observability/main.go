@@ -1,3 +1,8 @@
+// main.go: Orpheus app: observability example
+//
+// Copyright (c) 2025 AGILira - A. Giordano
+// SPDX-License-Identifier: MPL-2.0
+
 package main
 
 import (

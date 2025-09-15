@@ -1,4 +1,4 @@
-// Enhanced Error Handling Demo
+// Enhanced Orpheus app: enhanced-errors example
 //
 // This example demonstrates Orpheus's enhanced error handling with go-errors integration,
 // showing structured errors, user-friendly messages, context information, and retry semantics.
@@ -10,7 +10,6 @@
 //   DEBUG=1 enhanced-errors validate --data invalid  (shows technical details)
 //
 // Copyright (c) 2025 AGILira - A. Giordano
-// Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
 package main

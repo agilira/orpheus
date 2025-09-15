@@ -1,4 +1,4 @@
-// observability.go: observability interfaces for orpheus
+// observability.go: observability interfaces for audit logging, tracing, and metrics
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

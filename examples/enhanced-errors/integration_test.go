@@ -1,4 +1,4 @@
-// integration_test.go: enhanced-errors integration tests
+// integration_test.go: Orpheus app: enhanced-errors integration tests
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // SPDX-License-Identifier: MPL-2.0
@@ -33,7 +33,6 @@ type integrationTest struct {
 	expectError     bool
 	expectExitCode  int
 	expectRetryable bool
-	expectSeverity  string
 }
 
 // createIntegrationTests creates test cases for integration testing

@@ -1,4 +1,4 @@
-// context.go: represents the execution context for a command
+// context.go: context represents the execution context for a command
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
@@ -10,7 +10,6 @@ import (
 	flashflags "github.com/agilira/flash-flags"
 )
 
-// Context represents the execution context for a command.
 // It provides access to parsed arguments, flags, and application state.
 type Context struct {
 	// App is the application instance

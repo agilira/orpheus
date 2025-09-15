@@ -1,4 +1,4 @@
-// final_coverage_test.go: additional tests for Orpheus
+// final_coverage_test.go: unit tests for Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
@@ -12,8 +12,6 @@ import (
 
 	"github.com/agilira/orpheus/pkg/orpheus"
 )
-
-// Additional tests to push coverage to 90%
 
 func TestGenerateHelpDirectly(t *testing.T) {
 	app := orpheus.New("testapp")

@@ -26,7 +26,6 @@ jobs:
     - name: Install Dependencies
       run: |
         go install honnef.co/go/tools/cmd/staticcheck@latest
-        go install github.com/mgechev/revive@latest
         go install github.com/securego/gosec/v2/cmd/gosec@latest
 
     - name: Go Format Check

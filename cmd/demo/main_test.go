@@ -1,4 +1,4 @@
-// main_test.go: Comprehensive test suite for Orpheus demo application
+// main_test.go: Comprehensive test suite for Orpheus demo app
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // SPDX-License-Identifier: MPL-2.0

@@ -1,4 +1,4 @@
-// subcommands_test.go: tests for subcommands functionality
+// subcommands_test.go: tests for subcommands functionality in Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library

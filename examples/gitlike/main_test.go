@@ -1,7 +1,6 @@
-// Test suite for gitlike CLI demo - Optimized for speed
+// Test suite for gitlike CLI demo
 //
 // Copyright (c) 2025 AGILira - A. Giordano
-// Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
 package main

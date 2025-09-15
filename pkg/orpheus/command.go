@@ -1,4 +1,4 @@
-// command.go: commands in orpheus
+// command.go: commands in Orpheus application framework
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
