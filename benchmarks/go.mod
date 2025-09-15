@@ -2,8 +2,6 @@ module github.com/agilira/orpheus/benchmarks
 
 go 1.23.11
 
-toolchain go1.24.5
-
 require (
 	github.com/agilira/orpheus v0.0.0
 	github.com/alecthomas/kingpin/v2 v2.4.0

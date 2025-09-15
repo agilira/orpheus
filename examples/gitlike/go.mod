@@ -2,8 +2,6 @@ module gitlike
 
 go 1.23.11
 
-toolchain go1.24.5
-
 require github.com/agilira/orpheus v1.0.2
 
 require (
