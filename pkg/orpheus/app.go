@@ -344,13 +344,29 @@ func (app *App) isLongBooleanFlag(arg string) bool {
 }
 
 // isShortBooleanFlag checks if a short flag (-f) is boolean.
+// It dynamically checks both built-in flags and custom global flags using
+// the flash-flags ShortKey() method for accurate flag type detection.
 func (app *App) isShortBooleanFlag(arg string) bool {
 	shortKey := string(arg[1])
-	// Treat common boolean short flags as boolean
-	return shortKey == "v" || shortKey == "h" || shortKey == "d"
-}
 
-// helpHandler handles the help command.
+	// Check built-in boolean short flags that are always present
+	if shortKey == "v" || shortKey == "h" {
+		return true
+	}
+
+	// Dynamically check custom global flags using ShortKey() method
+	if app.globalFlags != nil {
+		var isBool bool
+		app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
+			if flag.ShortKey() == shortKey && flag.Type() == "bool" {
+				isBool = true
+			}
+		})
+		return isBool
+	}
+
+	return false
+} // helpHandler handles the help command.
 func (app *App) helpHandler(ctx *Context) error {
 	generator := NewHelpGenerator(app)
 	fmt.Printf("%s", generator.GenerateAppHelp())
@@ -370,39 +386,12 @@ func (app *App) showCommandHelp(cmdName string) error {
 }
 
 // GenerateHelp generates the main help text for the application.
-// This method provides a simple help text format and can be used
-// when you need to get the help content as a string instead of
+// This method provides consistent help formatting by delegating to HelpGenerator.
+// Use this method when you need to get the help content as a string instead of
 // printing it directly.
 func (app *App) GenerateHelp() string {
-	var sb strings.Builder
-
-	// Header
-	if app.description != "" {
-		sb.WriteString(app.description + "\n\n")
-	}
-
-	sb.WriteString(fmt.Sprintf("Usage: %s [command] [flags]\n\n", app.name))
-
-	// Available commands
-	if len(app.commands) > 0 {
-		sb.WriteString("Available Commands:\n")
-		for name, cmd := range app.commands {
-			sb.WriteString(fmt.Sprintf("  %-12s %s\n", name, cmd.Description()))
-		}
-		sb.WriteString("\n")
-	}
-
-	// Global flags
-	sb.WriteString("Global Flags:\n")
-	sb.WriteString("  -h, --help      Show help\n")
-	if app.version != "" {
-		sb.WriteString("  -v, --version   Show version\n")
-	}
-	sb.WriteString("\n")
-
-	sb.WriteString(fmt.Sprintf("Use \"%s help [command]\" for more information about a command.\n", app.name))
-
-	return sb.String()
+	generator := NewHelpGenerator(app)
+	return generator.GenerateAppHelp()
 }
 
 // GetCommands returns a copy of the commands map for introspection.

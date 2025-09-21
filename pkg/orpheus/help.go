@@ -84,14 +84,8 @@ func (h *HelpGenerator) sortSubcommandNames(subcommands map[string]*Command) []s
 		names = append(names, name)
 	}
 
-	// Simple bubble sort for small arrays
-	for i := 0; i < len(names)-1; i++ {
-		for j := i + 1; j < len(names); j++ {
-			if names[i] > names[j] {
-				names[i], names[j] = names[j], names[i]
-			}
-		}
-	}
+	// Use efficient standard library sorting
+	sort.Strings(names)
 	return names
 }
 
