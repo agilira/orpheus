@@ -38,24 +38,30 @@ func TestSubcommandCreation(t *testing.T) {
 func TestSubcommandFluent(t *testing.T) {
 	var executed bool
 
-	cmd := NewCommand("parent", "Parent command").
-		Subcommand("child", "Child command", func(ctx *Context) error {
-			executed = true
-			return nil
-		})
+	parent := NewCommand("parent", "Parent command")
+	child := parent.Subcommand("child", "Child command", func(ctx *Context) error {
+		executed = true
+		return nil
+	})
 
-	if !cmd.HasSubcommands() {
-		t.Error("Expected command to have subcommands")
+	// After the fix, Subcommand() returns the child, not the parent
+	if child.Name() != "child" {
+		t.Errorf("Expected child command name 'child', got '%s'", child.Name())
 	}
 
-	subcmd := cmd.GetSubcommand("child")
+	// Check that the parent has subcommands
+	if !parent.HasSubcommands() {
+		t.Error("Expected parent command to have subcommands")
+	}
+
+	subcmd := parent.GetSubcommand("child")
 	if subcmd == nil {
 		t.Fatal("Expected to find child subcommand")
 	}
 
-	// Test execution
+	// Test execution using the child command directly
 	ctx := &Context{Args: []string{}}
-	err := subcmd.Execute(ctx)
+	err := child.Execute(ctx)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -277,5 +283,35 @@ func TestNestedSubcommands(t *testing.T) {
 
 	if executedPath != "config user set" {
 		t.Errorf("Expected 'config user set', got '%s'", executedPath)
+	}
+}
+
+func TestSubcommandReturnsCreatedSubcommand(t *testing.T) {
+	var flagValue string
+
+	parent := NewCommand("parent", "Parent command")
+
+	// Test that Subcommand() returns the created subcommand, not the parent
+	child := parent.Subcommand("child", "Child command", func(ctx *Context) error {
+		flagValue = ctx.GetFlagString("test-flag")
+		return nil
+	}).AddFlag("test-flag", "f", "default", "Test flag")
+
+	// Verify that child is the subcommand, not the parent
+	if child.Name() != "child" {
+		t.Errorf("Expected subcommand name 'child', got '%s'", child.Name())
+	}
+
+	// Verify that the flag was added to the subcommand
+	app := New("testapp")
+	app.AddCommand(parent)
+
+	err := app.Run([]string{"parent", "child", "--test-flag", "value"})
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if flagValue != "value" {
+		t.Errorf("Expected flag value 'value', got '%s'", flagValue)
 	}
 }

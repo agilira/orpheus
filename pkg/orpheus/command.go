@@ -292,7 +292,7 @@ func (c *Command) AddSubcommand(cmd *Command) *Command {
 func (c *Command) Subcommand(name, description string, handler CommandHandler) *Command {
 	subcmd := NewCommand(name, description).SetHandler(handler)
 	c.AddSubcommand(subcmd)
-	return c
+	return subcmd
 }
 
 // GetSubcommands returns a copy of the subcommands map for introspection.

@@ -98,22 +98,22 @@ func main() {
 // Create a command with subcommands
 remoteCmd := orpheus.NewCommand("remote", "Manage remote repositories")
 
-// Add subcommands using fluent API
+// Add subcommands using fluent API (v1.0.7+ - now works correctly)
 remoteCmd.Subcommand("add", "Add a remote", func(ctx *orpheus.Context) error {
     name, url := ctx.GetArg(0), ctx.GetArg(1)
     fmt.Printf("Added remote: %s -> %s\n", name, url)
     return nil
-})
+}).AddFlag("--force", "Force add remote")
 
 remoteCmd.Subcommand("list", "List remotes", func(ctx *orpheus.Context) error {
     fmt.Println("origin\thttps://github.com/user/repo.git")
     return nil
-})
+}).AddFlag("--verbose", "Show detailed information")
 
 app.AddCommand(remoteCmd)
 
-// Usage: ./myapp remote add origin https://github.com/user/repo.git
-//        ./myapp remote list
+// Usage: ./myapp remote add --force origin https://github.com/user/repo.git
+//        ./myapp remote list --verbose
 ```
 
 ### Observability
