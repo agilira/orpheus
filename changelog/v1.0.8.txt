@@ -1,0 +1,55 @@
+# Orpheus v1.0.8 - Bug Fix Release
+
+**Release Date:** September 22, 2025
+
+## 🐛 Bug Fixes
+
+### CLI Execution Flow
+- **Fixed help text appearing after successful command execution**
+  - Issue: Parent commands with subcommands would show help text after successful subcommand execution
+  - Root Cause: `Execute()` method continued execution flow after subcommand completion, leading to help display for parent commands without handlers
+  - Solution: Modified `handleSubcommands()` to return execution status, preventing unnecessary help display when subcommand executes successfully
+  - Files: `pkg/orpheus/command.go`
+  - Impact: Cleaner CLI output, better user experience, no more unwanted help text
+
+### Technical Details
+- Modified `handleSubcommands()` signature to return `(bool, error)` instead of just `error`
+- Added early return in `Execute()` when subcommand executes successfully
+- Maintains backward compatibility for all existing functionality
+
+## 🔧 Changes Made
+
+```go
+// Before: handleSubcommands(ctx *Context, args []string) error
+// After:  handleSubcommands(ctx *Context, args []string) (bool, error)
+
+// Before: Help would always show after subcommand execution
+// After:  Help only shows when explicitly requested or when no subcommand found
+```
+
+## ✅ Testing
+
+- All existing tests pass
+- New test scenarios for subcommand execution flow
+- Race condition testing with `-race` flag
+- Code formatting with `go fmt`
+- Static analysis with `go vet`
+
+## 🎯 Impact
+
+This release improves the user experience for CLI applications using Orpheus by eliminating unwanted help text output after successful command execution. The fix ensures that:
+
+1. Subcommands execute cleanly without trailing help output
+2. Parent command help is only shown when appropriate
+3. All existing functionality remains intact
+4. Performance characteristics are unchanged
+
+## 🔗 Integration
+
+This version is particularly important for CLI frameworks that build on top of Orpheus, such as Argus configuration management system, providing a cleaner and more professional command-line experience.
+
+---
+
+**Compatibility:** Fully backward compatible with v1.0.7
+**Performance:** No performance impact
+**Breaking Changes:** None

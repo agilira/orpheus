@@ -187,8 +187,14 @@ func (c *Command) Execute(ctx *Context) error {
 	}
 
 	// Handle subcommands if they exist
-	if err := c.handleSubcommands(ctx, argsToparse); err != nil {
+	subcommandExecuted, err := c.handleSubcommands(ctx, argsToparse)
+	if err != nil {
 		return err
+	}
+
+	// If a subcommand was executed successfully, we're done
+	if subcommandExecuted {
+		return nil
 	}
 
 	// If no subcommand provided and this command has subcommands but no handler, show help
@@ -224,16 +230,16 @@ func (c *Command) hasHelpFlag(args []string) bool {
 }
 
 // handleSubcommands processes subcommand execution
-func (c *Command) handleSubcommands(ctx *Context, args []string) error {
+func (c *Command) handleSubcommands(ctx *Context, args []string) (bool, error) {
 	if !c.HasSubcommands() || len(args) == 0 {
-		return nil
+		return false, nil
 	}
 
 	potentialSubcmd := args[0]
 
 	// Don't treat flags as subcommands
 	if strings.HasPrefix(potentialSubcmd, "-") {
-		return nil
+		return false, nil
 	}
 
 	if subcmd := c.GetSubcommand(potentialSubcmd); subcmd != nil {
@@ -244,11 +250,12 @@ func (c *Command) handleSubcommands(ctx *Context, args []string) error {
 			GlobalFlags: ctx.GlobalFlags,
 			Command:     subcmd,
 		}
-		return subcmd.Execute(newCtx)
+		err := subcmd.Execute(newCtx)
+		return true, err // Subcommand was executed
 	}
 
 	// Subcommand not found - this is an error
-	return NotFoundError(c.name+" "+potentialSubcmd, fmt.Sprintf("unknown subcommand '%s' for command '%s'", potentialSubcmd, c.name))
+	return false, NotFoundError(c.name+" "+potentialSubcmd, fmt.Sprintf("unknown subcommand '%s' for command '%s'", potentialSubcmd, c.name))
 }
 
 // validateHandler checks if the command has a valid handler
