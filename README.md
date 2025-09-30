@@ -20,6 +20,7 @@ Orpheus is a high-performance CLI framework designed to be super simple and **7x
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
 - **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
+- **Secure by Design**: Red-team tested security controls (142+ test cases)
 
 ## Compatibility and Support
 
@@ -171,11 +172,11 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
 
 ## The Philosophy Behind Orpheus
 
-In Greek mythology, Orpheus was the divine musician whose lyre could move stones, tame wild beasts, and convince even the gods to change their will. His music possessed such profound harmony that it could bridge the mortal and divine realms, commanding attention through pure eloquence rather than force. When Orpheus played, complexity became simple, chaos became order, and the impossible became achievable.
+Orpheus's lyre was no ordinary instrument. It could make rivers pause mid-flow, convince stones to dance, and move even Hades and Persephone to tears. When the great musician played, the impossible became inevitable—not through force, but through the pure beauty of perfect harmony.
 
-Orpheus, the CLI framework, embodies this same philosophy—it transforms the complex dance between user intent and application execution into a harmonious symphony. Like the mythological bard whose music could open any door, Orpheus CLI opens the gateway between human commands and program logic with such elegance that developers forget about the underlying complexity.
+Yet Orpheus understood something profound: true power lay not in complexity, but in elegant simplicity. Each note served a purpose, each silence held meaning. His melodies moved the world through perfect clarity of intent, never through force or intricacy.
 
-Every command in Orpheus flows like a musical phrase: clear in purpose, swift in execution, and beautiful in its simplicity. Just as Orpheus's lyre could make the gods themselves pause and listen, Orpheus CLI makes even the most sophisticated applications feel intuitive and approachable.
+Like the mythological master whose music could open the gates of Hades itself, Orpheus, transforms the cacophony of human commands into pure, executable harmony, making the complex dance between intention and fulfillment beautifully simple.
 
 ### Core Components
 

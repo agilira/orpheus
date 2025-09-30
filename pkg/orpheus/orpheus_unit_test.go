@@ -183,6 +183,22 @@ func TestGetFlagFloat64(t *testing.T) {
 	if ratio != 2.7 {
 		t.Errorf("expected ratio = 2.7, got %f", ratio)
 	}
+
+	// Test getting non-existent flag (should return default value)
+	var nonExistentRatio float64
+	cmd.SetHandler(func(ctx *orpheus.Context) error {
+		nonExistentRatio = ctx.GetFlagFloat64("nonexistent")
+		return nil
+	})
+
+	err = app.Run([]string{"test"})
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	if nonExistentRatio != 0.0 {
+		t.Errorf("expected nonexistent flag to return 0.0, got %f", nonExistentRatio)
+	}
 }
 
 func TestGetFlagStringSlice(t *testing.T) {
@@ -212,6 +228,22 @@ func TestGetFlagStringSlice(t *testing.T) {
 		if i >= len(tags) || tags[i] != expected {
 			t.Errorf("expected tag[%d] = '%s', got '%s'", i, expected, tags[i])
 		}
+	}
+
+	// Test getting non-existent flag (should return nil or empty slice)
+	var nonExistentTags []string
+	cmd.SetHandler(func(ctx *orpheus.Context) error {
+		nonExistentTags = ctx.GetFlagStringSlice("nonexistent")
+		return nil
+	})
+
+	err = app.Run([]string{"test"})
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	if len(nonExistentTags) != 0 {
+		t.Errorf("expected nonexistent flag to return empty slice, got %v", nonExistentTags)
 	}
 }
 

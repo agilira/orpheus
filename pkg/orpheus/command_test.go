@@ -186,3 +186,36 @@ func TestCommandNoHandler(t *testing.T) {
 		t.Error("expected error when no handler is set")
 	}
 }
+
+// TestCommandWithDuplicateName tests command execution when args contain command name
+func TestCommandWithDuplicateName(t *testing.T) {
+	var receivedArgs []string
+
+	cmd := orpheus.NewCommand("test", "Test command").
+		SetHandler(func(ctx *orpheus.Context) error {
+			receivedArgs = ctx.Args
+			return nil
+		})
+
+	// Create app and add command
+	app := orpheus.New("testapp")
+	app.AddCommand(cmd)
+
+	// Test with command name in args - should be stripped by prepareArgs
+	err := app.Run([]string{"test", "test", "arg1", "arg2"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// The command receives all args after "test" command name
+	expectedArgs := []string{"test", "arg1", "arg2"}
+	if len(receivedArgs) != len(expectedArgs) {
+		t.Errorf("expected %d args, got %d", len(expectedArgs), len(receivedArgs))
+	}
+
+	for i, expected := range expectedArgs {
+		if i < len(receivedArgs) && receivedArgs[i] != expected {
+			t.Errorf("expected arg[%d] = '%s', got '%s'", i, expected, receivedArgs[i])
+		}
+	}
+}

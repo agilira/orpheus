@@ -2,7 +2,7 @@
 
 **Release Date:** September 22, 2025
 
-## 🐛 Bug Fixes
+## Bug Fixes
 
 ### CLI Execution Flow
 - **Fixed help text appearing after successful command execution**
@@ -27,7 +27,7 @@
 // After:  Help only shows when explicitly requested or when no subcommand found
 ```
 
-## ✅ Testing
+## Testing
 
 - All existing tests pass
 - New test scenarios for subcommand execution flow
@@ -35,7 +35,7 @@
 - Code formatting with `go fmt`
 - Static analysis with `go vet`
 
-## 🎯 Impact
+## Impact
 
 This release improves the user experience for CLI applications using Orpheus by eliminating unwanted help text output after successful command execution. The fix ensures that:
 
@@ -44,7 +44,7 @@ This release improves the user experience for CLI applications using Orpheus by 
 3. All existing functionality remains intact
 4. Performance characteristics are unchanged
 
-## 🔗 Integration
+## Integration
 
 This version is particularly important for CLI frameworks that build on top of Orpheus, such as Argus configuration management system, providing a cleaner and more professional command-line experience.
 

@@ -299,3 +299,71 @@ func TestGlobalFlags(t *testing.T) {
 		t.Errorf("expected 0 commands after adding global flags, got %d", len(commands))
 	}
 }
+
+// TestObservabilityGettersInApp verifies that observability component getters work correctly
+func TestObservabilityGettersInApp(t *testing.T) {
+	// Test with nil observability components (default state)
+	t.Run("NilObservabilityComponents", func(t *testing.T) {
+		app := orpheus.New("testapp")
+
+		if logger := app.Logger(); logger != nil {
+			t.Error("Expected nil logger when not configured")
+		}
+		if audit := app.AuditLogger(); audit != nil {
+			t.Error("Expected nil audit logger when not configured")
+		}
+		if tracer := app.Tracer(); tracer != nil {
+			t.Error("Expected nil tracer when not configured")
+		}
+		if metrics := app.MetricsCollector(); metrics != nil {
+			t.Error("Expected nil metrics collector when not configured")
+		}
+	})
+}
+
+// TestHandleEmptyArgs tests behavior when no arguments are provided
+func TestHandleEmptyArgs(t *testing.T) {
+	t.Run("NoDefaultCommandShowsHelp", func(t *testing.T) {
+		app := orpheus.New("testapp")
+
+		// Test with empty args - should show help since no default command
+		err := app.Run([]string{})
+		if err != nil {
+			t.Errorf("Expected no error when showing help, got: %v", err)
+		}
+	})
+
+	t.Run("WithDefaultCommandRunsDefault", func(t *testing.T) {
+		app := orpheus.New("testapp")
+		var executedCommand string
+
+		// Add a default command
+		app.Command("greet", "Greet command", func(ctx *orpheus.Context) error {
+			executedCommand = "greet"
+			return nil
+		})
+
+		app.SetDefaultCommand("greet")
+
+		// Test with empty args - should run default command
+		err := app.Run([]string{})
+		if err != nil {
+			t.Errorf("Expected no error when running default command, got: %v", err)
+		}
+
+		if executedCommand != "greet" {
+			t.Errorf("Expected default command 'greet' to run, but got: %s", executedCommand)
+		}
+	})
+}
+
+// TestPrintVersionWithoutVersion tests version printing when no version is set
+func TestPrintVersionWithoutVersion(t *testing.T) {
+	app := orpheus.New("testapp")
+	// Don't set version to test the "no version set" path
+
+	err := app.Run([]string{"--version"})
+	if err != nil {
+		t.Errorf("Expected no error when showing version, got: %v", err)
+	}
+}

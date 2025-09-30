@@ -120,6 +120,22 @@ func TestFlagChangedDetection(t *testing.T) {
 	if portChanged {
 		t.Error("expected port flag to NOT be marked as changed")
 	}
+
+	// Test FlagChanged for non-existent flag
+	var nonExistentChanged bool
+	cmd.SetHandler(func(ctx *orpheus.Context) error {
+		nonExistentChanged = ctx.FlagChanged("nonexistent")
+		return nil
+	})
+
+	err = app.Run([]string{"server"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if nonExistentChanged {
+		t.Error("expected non-existent flag to NOT be marked as changed")
+	}
 }
 
 func TestFlagTypesIntegration(t *testing.T) {

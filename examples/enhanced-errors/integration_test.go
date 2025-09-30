@@ -13,6 +13,44 @@ import (
 	"github.com/agilira/orpheus/pkg/orpheus"
 )
 
+// createTestApp creates a test app with the same configuration as main
+func createTestApp() *orpheus.App {
+	app := orpheus.New("enhanced-errors").
+		SetDescription("Demonstrate enhanced error handling with go-errors integration").
+		SetVersion("1.0.0")
+
+	// Add validate command to show validation errors with context
+	validateCmd := orpheus.NewCommand("validate", "Validate input data").
+		AddFlag("data", "d", "", "Data to validate (required)").
+		AddFlag("format", "f", "json", "Expected format").
+		SetHandler(handleValidate)
+
+	// Add connect command to show retryable execution errors
+	connectCmd := orpheus.NewCommand("connect", "Connect to remote service").
+		AddIntFlag("timeout", "t", 30, "Connection timeout in seconds").
+		AddFlag("host", "h", "localhost", "Remote host").
+		AddIntFlag("port", "p", 8080, "Remote port").
+		SetHandler(handleConnect)
+
+	// Add process command to show not found errors
+	processCmd := orpheus.NewCommand("process", "Process a file").
+		AddFlag("file", "f", "", "File to process (required)").
+		AddBoolFlag("create", "c", false, "Create file if missing").
+		SetHandler(handleProcess)
+
+	// Add critical command to show critical internal errors
+	criticalCmd := orpheus.NewCommand("critical", "Simulate critical system error").
+		AddBoolFlag("simulate", "s", false, "Simulate the error").
+		SetHandler(handleCritical)
+
+	app.AddCommand(validateCmd)
+	app.AddCommand(connectCmd)
+	app.AddCommand(processCmd)
+	app.AddCommand(criticalCmd)
+
+	return app
+}
+
 // TestIntegrationErrorProperties tests error properties without output capture
 func TestIntegrationErrorProperties(t *testing.T) {
 	tests := createIntegrationTests()

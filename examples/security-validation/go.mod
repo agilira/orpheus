@@ -1,4 +1,4 @@
-module github.com/agilira/orpheus/examples/gitlike
+module github.com/agilira/orpheus/examples/security-validation
 
 go 1.23.11
 

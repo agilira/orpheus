@@ -326,7 +326,7 @@ func (c *Command) Parent() *Command {
 	return c.parent
 }
 
-// FullName returns the full command path (e.g., "git remote add").
+// FullName returns the full command path (e.g. "git remote add").
 func (c *Command) FullName() string {
 	if c.parent == nil {
 		return c.name

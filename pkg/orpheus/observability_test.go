@@ -142,3 +142,77 @@ func (m *mockGauge) Add(ctx context.Context, value float64, labels ...string) {}
 type mockHistogram struct{}
 
 func (m *mockHistogram) Observe(ctx context.Context, value float64, labels ...string) {}
+
+// TestFieldCreationHelpers verifies that field creation helper functions work correctly
+func TestFieldCreationHelpers(t *testing.T) {
+	tests := []struct {
+		name     string
+		testFunc func() Field
+		expected interface{}
+	}{
+		{
+			name: "StringFieldCreation",
+			testFunc: func() Field {
+				return StringField("key", "value")
+			},
+			expected: "value",
+		},
+		{
+			name: "IntFieldCreation",
+			testFunc: func() Field {
+				return IntField("key", 42)
+			},
+			expected: 42,
+		},
+		{
+			name: "Float64FieldCreation",
+			testFunc: func() Field {
+				return Float64Field("key", 3.14)
+			},
+			expected: 3.14,
+		},
+		{
+			name: "BoolFieldCreation",
+			testFunc: func() Field {
+				return BoolField("key", true)
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			field := tt.testFunc()
+			if field.Key != "key" {
+				t.Errorf("Expected field key 'key', got '%s'", field.Key)
+			}
+			if field.Value != tt.expected {
+				t.Errorf("Expected field value %v, got %v", tt.expected, field.Value)
+			}
+		})
+	}
+}
+
+// TestErrorFieldCreation verifies error field creation with proper error handling
+func TestErrorFieldCreation(t *testing.T) {
+	testError := ValidationError("test", "test error message")
+
+	field := ErrorField(testError)
+
+	if field.Key != "error" {
+		t.Errorf("Expected field key 'error', got '%s'", field.Key)
+	}
+
+	if field.Value != testError {
+		t.Errorf("Expected field value to be the error, got %v", field.Value)
+	}
+
+	// Test with nil error - ErrorField should handle this gracefully
+	nilField := ErrorField(nil)
+	if nilField.Key != "error" {
+		t.Errorf("Expected field key 'error' even with nil error, got '%s'", nilField.Key)
+	}
+	if nilField.Value != nil {
+		t.Errorf("Expected nil error field value, got %v", nilField.Value)
+	}
+}
