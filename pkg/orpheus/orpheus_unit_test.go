@@ -344,3 +344,54 @@ func TestGetGlobalFlag(t *testing.T) {
 		t.Errorf("expected debugValue = 'true', got %v", debugValue)
 	}
 }
+
+func TestHelpGenerationCommandWithoutFlags(t *testing.T) {
+	app := orpheus.New("testapp")
+
+	// Create command without flags (to exercise hasCommandFlags with nil)
+	cmd := orpheus.NewCommand("simple", "Simple command without flags")
+	cmd.SetHandler(func(ctx *orpheus.Context) error {
+		return nil
+	})
+
+	app.AddCommand(cmd)
+
+	// Trigger help generation by running help command
+	// This will internally call hasCommandFlags method
+	err := app.Run([]string{"help", "simple"})
+	if err != nil {
+		t.Errorf("help generation should not fail, got: %v", err)
+	}
+
+	// Test that app can handle command without flags properly
+	err = app.Run([]string{"simple", "-h"})
+	if err != nil {
+		t.Errorf("command help should work without flags, got: %v", err)
+	}
+}
+
+func TestRunEmptyArgsEdgeCases(t *testing.T) {
+	// Test app without default command
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		return nil
+	})
+
+	// Run with empty args should show help (not error)
+	err := app.Run([]string{})
+	if err != nil {
+		t.Errorf("empty args without default command should show help, got error: %v", err)
+	}
+
+	// Test app with default command
+	app2 := orpheus.New("testapp2")
+	app2.Command("default", "Default command", func(ctx *orpheus.Context) error {
+		return nil
+	})
+	app2.SetDefaultCommand("default")
+
+	err = app2.Run([]string{})
+	if err != nil {
+		t.Errorf("empty args with default command should work, got error: %v", err)
+	}
+}

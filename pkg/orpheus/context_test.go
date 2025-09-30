@@ -174,18 +174,54 @@ func TestContextObservabilityGetters(t *testing.T) {
 
 // TestContextFlagChangedEdgeCases tests edge cases for FlagChanged method
 func TestContextFlagChangedEdgeCases(t *testing.T) {
-	ctx := &orpheus.Context{}
-
-	// Test FlagChanged with non-existent flag
-	if ctx.FlagChanged("nonexistent") != false {
-		t.Error("expected false for non-existent flag")
+	// Test with nil flags
+	ctx := &orpheus.Context{
+		Args:  []string{"test"},
+		Flags: nil,
 	}
 
-	// Test with nil context fields
-	ctx.Flags = nil
-	ctx.GlobalFlags = nil
+	// Test FlagChanged with nil flags - should not panic and return false
+	if ctx.FlagChanged("debug") {
+		t.Error("FlagChanged should return false with nil flags")
+	}
 
-	if ctx.FlagChanged("test") != false {
-		t.Error("expected false when flags map is nil")
+	if ctx.FlagChanged("nonexistent") {
+		t.Error("FlagChanged should return false for nonexistent flag with nil flags")
+	}
+
+	// Test edge case: empty flag name
+	if ctx.FlagChanged("") {
+		t.Error("FlagChanged should return false for empty flag name")
+	}
+}
+
+func TestContextGetFlagFloat64AndStringSlice(t *testing.T) {
+	// Test with nil flags (edge case coverage)
+	ctx := &orpheus.Context{
+		Args:  []string{"test"},
+		Flags: nil,
+	}
+
+	// Test GetFlagFloat64 with nil flags
+	defaultRate := ctx.GetFlagFloat64("rate")
+	if defaultRate != 0.0 {
+		t.Errorf("Expected default rate 0.0 with nil flags, got %f", defaultRate)
+	}
+
+	// Test GetFlagStringSlice with nil flags
+	defaultTags := ctx.GetFlagStringSlice("tags")
+	if len(defaultTags) != 0 {
+		t.Errorf("Expected empty slice with nil flags, got %v", defaultTags)
+	}
+
+	// Verify the methods don't panic with nil flags
+	intVal := ctx.GetFlagInt("count")
+	if intVal != 0 {
+		t.Errorf("Expected 0 for int flag with nil flags, got %d", intVal)
+	}
+
+	flagVal := ctx.GetFlag("name")
+	if flagVal != nil {
+		t.Errorf("Expected nil for flag with nil flags, got %v", flagVal)
 	}
 }

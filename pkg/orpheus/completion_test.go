@@ -161,3 +161,20 @@ func TestCompletionCommand(t *testing.T) {
 		t.Error("completion command should be added")
 	}
 }
+
+func TestGenerateCompletionDefault(t *testing.T) {
+	app := orpheus.New("testapp")
+
+	// Test default case (should default to bash)
+	unknownShell := app.GenerateCompletion("unknown")
+	bashCompletion := app.GenerateCompletion("bash")
+
+	if unknownShell != bashCompletion {
+		t.Error("unknown shell completion should default to bash")
+	}
+
+	// Ensure it's actually bash completion
+	if !strings.Contains(unknownShell, "_completion() {") {
+		t.Error("default completion should be bash format")
+	}
+}

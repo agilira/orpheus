@@ -491,13 +491,18 @@ func TestSecurity_FilePermissionValidation(t *testing.T) {
 		ctx.ExpectSecuritySuccess(err, "analyzing executable file permissions")
 
 		if perm != nil {
-			// SECURITY VALIDATION: Verify executable detection
-			if !perm.IsExecutable {
-				t.Errorf("SECURITY ISSUE: Executable file not detected as executable: %s", execPath)
+			// SECURITY VALIDATION: Verify executable detection (Unix-like systems only)
+			if runtime.GOOS != "windows" {
+				if !perm.IsExecutable {
+					t.Errorf("SECURITY ISSUE: Executable file not detected as executable: %s", execPath)
+				}
+			} else {
+				// On Windows, executable detection is file extension based
+				t.Logf("SECURITY INFO: Windows executable detection based on file extension")
 			}
 
 			// SECURITY CRITICAL: Check for writable executable (high security risk)
-			if perm.IsWritable && perm.IsExecutable {
+			if perm.IsWritable && (perm.IsExecutable || runtime.GOOS == "windows") {
 				if perm.SecurityRisk != "high" && perm.SecurityRisk != "critical" {
 					t.Errorf("SECURITY WARNING: Writable executable should be high risk: %s (got %s)",
 						execPath, perm.SecurityRisk)
@@ -1132,8 +1137,14 @@ func TestFileAccessibilityChecks(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error checking file executability: %v", err)
 		}
-		if !executable {
-			t.Error("Expected executable file to be executable")
+		// On Windows, executable detection works differently
+		if runtime.GOOS != "windows" {
+			if !executable {
+				t.Error("Expected executable file to be executable")
+			}
+		} else {
+			// On Windows, .sh files are not executable unless associated with a program
+			t.Logf("Windows executable check result: %v for file: %s", executable, executableFile)
 		}
 	})
 

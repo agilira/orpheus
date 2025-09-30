@@ -232,3 +232,41 @@ func TestErrorJSONSerialization(t *testing.T) {
 		t.Error("JSON data should not be empty")
 	}
 }
+
+func TestErrorExitCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      *orpheus.Error
+		expected int
+	}{
+		{
+			name:     "validation error",
+			err:      orpheus.ValidationError("test", "validation failed"),
+			expected: 1,
+		},
+		{
+			name:     "execution error",
+			err:      orpheus.ExecutionError("test", "execution failed"),
+			expected: 1,
+		},
+		{
+			name:     "not found error",
+			err:      orpheus.NotFoundError("test", "not found"),
+			expected: 1,
+		},
+		{
+			name:     "internal error",
+			err:      orpheus.InternalError("internal error"),
+			expected: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exitCode := tt.err.ExitCode()
+			if exitCode != tt.expected {
+				t.Errorf("expected exit code %d, got %d", tt.expected, exitCode)
+			}
+		})
+	}
+}
