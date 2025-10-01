@@ -21,6 +21,7 @@ Orpheus is a high-performance CLI framework designed to be super simple and **7x
 - **Hot-swappable Commands**: Dynamic command registration and modification
 - **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
 - **Secure by Design**: Red-team tested security controls (142+ test cases)
+- **Security Validation**: Including input sanitization, path traversal protection, and various security controls
 
 ## Compatibility and Support
 
