@@ -1,0 +1,69 @@
+# CodeQL Configuration for Orpheus CLI Framework
+# Focuses on CLI security, command injection, and input validation vulnerabilities
+
+name: orpheus-cli-security
+
+# Enable default queries for comprehensive coverage
+disable-default-queries: false
+
+# Include additional security queries relevant to CLI frameworks
+queries:
+  - uses: security-and-quality
+  - uses: security-experimental
+  
+# Define custom paths for analysis
+paths:
+  - "**/*.go"
+
+# Ignore test files and dependencies (focus on production code)
+paths-ignore:
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "**/vendor/**"
+  - "**/examples/**"
+  - "**/benchmarks/**"
+  - "**/cmd/demo/**"
+
+# Packs for enhanced CLI security analysis
+packs:
+  - "codeql/go-queries"
+  - "codeql/go-queries:AlertSuppression.ql"
+  - "codeql/go-queries:Security"
+
+# Query filters for CLI frameworks - focus on injection and validation
+query-filters:
+  - include:
+      id: go/path-injection
+      # Critical for CLI path parameter handling
+  - include:
+      id: go/command-injection
+      # Essential for CLI command execution safety
+  - include:
+      id: go/sql-injection
+      # Important for CLI tools with database interaction
+  - include:
+      id: go/zipslip
+      # Important for archive handling in CLI tools
+  - include:
+      id: go/uncontrolled-allocation-size
+      # Prevent resource exhaustion attacks via CLI inputs
+  - include:
+      id: go/regex/polynomial-redos
+      # Prevent ReDoS attacks in input validation
+  - exclude:
+      id: go/unused-variable
+      # CLI structs may have unused fields for future flags/options
+      
+# Custom extraction configuration for Go CLI analysis
+extractor-config:
+  go:
+    # Enable deep analysis for CLI input handling functions
+    index:
+      filters:
+        - include: "**/*.go"
+        - exclude: "*_test.go"
+    build_command: "go build ./..."
+    
+# Performance tuning for CLI framework analysis
+compilation-cache: true
+

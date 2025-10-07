@@ -1,7 +1,7 @@
 # Go Makefile - AGILira Standard
 # Usage: make help
 
-.PHONY: help test race fmt vet lint security check deps clean build install tools
+.PHONY: help test race fmt vet lint security check deps clean build install tools fuzz fuzz-long fuzz-path
 .DEFAULT_GOAL := help
 
 # Variables
@@ -109,6 +109,18 @@ install: ## Install the binary to $GOPATH/bin
 bench: ## Run benchmarks
 	@echo "$(YELLOW)Running benchmarks...$(NC)"
 	go test -bench=. -benchmem ./...
+
+fuzz: ## Run fuzz tests (30 seconds)
+	@echo "$(YELLOW)Running fuzz tests...$(NC)"
+	go test ./pkg/orpheus -fuzz=. -fuzztime=30s
+
+fuzz-long: ## Run extended fuzz tests (5 minutes)
+	@echo "$(YELLOW)Running extended fuzz tests...$(NC)"
+	go test ./pkg/orpheus -fuzz=. -fuzztime=5m
+
+fuzz-path: ## Run path validation fuzz test (30 seconds)
+	@echo "$(YELLOW)Running path validation fuzz test...$(NC)"
+	go test ./pkg/orpheus -fuzz=FuzzValidateSecurePath -fuzztime=30s
 
 ci: ## Run CI checks (used in GitHub Actions)
 	@echo "$(BLUE)Running CI checks...$(NC)"

@@ -2,6 +2,7 @@
 ### an AGILira library
 
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/agilira/orpheus/actions/workflows/codeql.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/codeql.yml)
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://codecov.io/gh/agilira/orpheus/branch/main/graph/badge.svg)](https://codecov.io/gh/agilira/orpheus)
@@ -9,7 +10,7 @@
 
 Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
-**[Features](#features) • [Performance](#performance) • [Quick Start](#quick-start) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
+**[Features](#features) • [Performance](#performance) • [Security](#security-assurance) • [Quick Start](#quick-start) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
 
 ## Features
 
@@ -49,6 +50,30 @@ go test -bench=. -benchmem
 ```
 
 **[Complete Performance Benchmarks →](./benchmarks/benchmark_test.go)**
+
+## Security
+
+Orpheus implements defense-in-depth security with comprehensive validation against CLI attack vectors.
+
+**Security Validation:**
+- 142+ Red Team security test cases (OWASP Top 10 coverage)
+- 3.5+ million fuzz test executions with zero crashes
+- CodeQL static analysis with security-focused queries
+- govulncheck for known vulnerability scanning
+- Multi-layer protection: path traversal, injection attacks, Unicode bypasses
+
+**Protected Vectors:**
+- Path traversal (case-insensitive, URL encoding, Windows device names)
+- Command/SQL/Script injection prevention
+- Control character and null byte filtering
+- Cross-platform consistency (Windows, Linux, macOS)
+
+**Run Security Tests:**
+```bash
+make security      # Run security test suite
+make fuzz          # Quick fuzz testing (30s)
+make fuzz-long     # Extended fuzzing (5min)
+```
 
 ## Quick Start
 

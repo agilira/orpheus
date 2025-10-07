@@ -51,6 +51,9 @@ function Invoke-Help {
     Write-ColorOutput "  build         Build the binary" $Green
     Write-ColorOutput "  install       Install the binary to GOPATH/bin" $Green
     Write-ColorOutput "  bench         Run benchmarks" $Green
+    Write-ColorOutput "  fuzz          Run fuzz tests (30 seconds)" $Green
+    Write-ColorOutput "  fuzz-long     Run extended fuzz tests (5 minutes)" $Green
+    Write-ColorOutput "  fuzz-path     Run path validation fuzz test (30 seconds)" $Green
     Write-ColorOutput "  ci            Run CI checks" $Green
     Write-ColorOutput "  dev           Quick development check" $Green
     Write-ColorOutput "  pre-commit    Run pre-commit checks (alias for 'check')" $Green
@@ -206,6 +209,24 @@ function Invoke-Bench {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
+function Invoke-Fuzz {
+    Write-ColorOutput "Running fuzz tests..." $Yellow
+    go test "./pkg/orpheus" -fuzz=. -fuzztime=30s
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+function Invoke-FuzzLong {
+    Write-ColorOutput "Running extended fuzz tests..." $Yellow
+    go test "./pkg/orpheus" -fuzz=. -fuzztime=5m
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+function Invoke-FuzzPath {
+    Write-ColorOutput "Running path validation fuzz test..." $Yellow
+    go test "./pkg/orpheus" -fuzz=FuzzValidateSecurePath -fuzztime=30s
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
 function Invoke-CI {
     Write-ColorOutput "Running CI checks..." $Blue
     Invoke-Fmt
@@ -273,6 +294,9 @@ switch ($Command.ToLower()) {
     "build" { Invoke-Build }
     "install" { Invoke-Install }
     "bench" { Invoke-Bench }
+    "fuzz" { Invoke-Fuzz }
+    "fuzz-long" { Invoke-FuzzLong }
+    "fuzz-path" { Invoke-FuzzPath }
     "ci" { Invoke-CI }
     "dev" { Invoke-Dev }
     "pre-commit" { Invoke-Check }

@@ -276,14 +276,15 @@ func containsTraversalPattern(path string) bool {
 	lowerPath := strings.ToLower(path)
 
 	// Common traversal patterns
+	// Note: We check the path AFTER filepath.Clean() which normalizes "./" to "."
+	// so we don't need to explicitly check for "./" patterns
 	patterns := []string{
-		"..",
-		"../",
-		"..\\",
-		"/..",
-		"\\..",
-		"./",
-		"%2e%2e",     // URL-encoded ..
+		"..",         // Parent directory marker
+		"../",        // Unix/Linux traversal
+		"..\\",       // Windows traversal
+		"/..",        // Traversal with leading slash
+		"\\..",       // Windows traversal with leading backslash
+		"%2e%2e",     // URL-encoded .. (%2e = .)
 		"%252e%252e", // Double URL-encoded ..
 	}
 
