@@ -7,22 +7,37 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://codecov.io/gh/agilira/orpheus/branch/main/graph/badge.svg)](https://codecov.io/gh/agilira/orpheus)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
-[![Go Reference](https://pkg.go.dev/badge/github.com/agilira/orpheus.svg)](https://pkg.go.dev/github.com/agilira/orpheus)
 
 Orpheus is a high-performance CLI framework designed to be super simple and **7x-53x faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
+
+## Live Demo
+
+<div align="center">
+
+See Orpheus in action - building a Git-like CLI with subcommands in minutes:
+
+<picture>
+  <source media="(max-width: 768px)" srcset="https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv.svg" width="100%">
+  <source media="(max-width: 1024px)" srcset="https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv.svg" width="90%">
+  <img src="https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv.svg" alt="Orpheus CLI Demo" style="max-width: 100%; height: auto;" width="800">
+</picture>
+
+*[Click to view interactive demo](https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv)*
+
+</div>
 
 **[Features](#features) • [Performance](#performance) • [Security](#security-assurance) • [Quick Start](#quick-start) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
 
 ## Features
 
-- **Zero Dependencies**: Zero external dependencies for maximum portability
+- **Zero External Dependencies**: No third-party dependencies for maximum portability
 - **Native Subcommands**: Git-style nested commands with automatic help generation
 - **Clean API**: Fluent interface for rapid development
 - **Auto-completion**: Built-in bash/zsh/fish completion generation
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
 - **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
-- **Secure by Design**: Red-team tested security controls (142+ test cases)
+- **Secure by Design**: [Red-team tested](./pkg/orpheus/security_test.go) and [fuzz tested](./pkg/orpheus/orpheus_fuzz_test.go)
 - **Security Validation**: Including input sanitization, path traversal protection, and various security controls
 
 ## Compatibility and Support
@@ -57,8 +72,8 @@ go test -bench=. -benchmem
 Orpheus implements defense-in-depth security with comprehensive validation against CLI attack vectors.
 
 **Security Validation:**
-- 142+ Red Team security test cases (OWASP Top 10 coverage)
-- 3.5+ million fuzz test executions with zero crashes
+- [142+ Red Team security test cases](./pkg/orpheus/security_test.go) (OWASP Top 10 coverage)
+- [3.5+ million fuzz test executions](./pkg/orpheus/orpheus_fuzz_test.go) with zero crashes
 - CodeQL static analysis with security-focused queries
 - govulncheck for known vulnerability scanning
 - Multi-layer protection: path traversal, injection attacks, Unicode bypasses

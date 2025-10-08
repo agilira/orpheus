@@ -65,3 +65,8 @@ tmp/
 # Example outputs (if any)
 /examples/*/output/
 /examples/*/logs/
+
+# Demo and recording files
+*.cast
+demo-script.sh
+RECORDING.md
