@@ -1,4 +1,4 @@
-// Package orpheus provides an ultra-fast, professionalgrade CLI framework built on flash-flags
+// Package orpheus provides an ultra-fast, professional-grade CLI framework built on flash-flags
 // with comprehensive security validation and Red Team tested security controls.
 //
 // Orpheus is designed to be a lightweight, high-performance CLI framework

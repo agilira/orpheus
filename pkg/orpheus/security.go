@@ -597,8 +597,8 @@ func (fp *FilePermission) generateRecommendations() {
 // =============================================================================
 
 // addError adds an error to the path security result and marks it as invalid
-func (result *PathSecurityResult) addError(error string) {
-	result.Errors = append(result.Errors, error)
+func (result *PathSecurityResult) addError(message string) {
+	result.Errors = append(result.Errors, message)
 	result.IsValid = false
 }
 

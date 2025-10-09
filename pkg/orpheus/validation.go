@@ -482,7 +482,7 @@ func (v *InputValidator) cacheAndReturn(key string, result *ValidatedInput) *Val
 
 // copyValidatedInput creates a deep copy of ValidatedInput
 func (v *InputValidator) copyValidatedInput(original *ValidatedInput) *ValidatedInput {
-	copy := &ValidatedInput{
+	result := &ValidatedInput{
 		OriginalValue:     original.OriginalValue,
 		SanitizedValue:    original.SanitizedValue,
 		IsValid:           original.IsValid,
@@ -491,16 +491,12 @@ func (v *InputValidator) copyValidatedInput(original *ValidatedInput) *Validated
 	}
 
 	// Deep copy slices
-	copy.ValidationErrors = make([]string, len(original.ValidationErrors))
-	copy.SecurityWarnings = make([]string, len(original.SecurityWarnings))
-	for i, err := range original.ValidationErrors {
-		copy.ValidationErrors[i] = err
-	}
-	for i, warn := range original.SecurityWarnings {
-		copy.SecurityWarnings[i] = warn
-	}
+	result.ValidationErrors = make([]string, len(original.ValidationErrors))
+	result.SecurityWarnings = make([]string, len(original.SecurityWarnings))
+	copy(result.ValidationErrors, original.ValidationErrors)
+	copy(result.SecurityWarnings, original.SecurityWarnings)
 
-	return copy
+	return result
 }
 
 // ClearCache clears the validation cache

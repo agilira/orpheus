@@ -1,4 +1,19 @@
-// app_test.go: Orpheus app: basic example
+// Basic Orpheus CLI Example
+//
+// This example demonstrates the fundamental features of Orpheus:
+// - Simple command creation
+// - Global flags
+// - Argument handling
+// - Error handling
+// - Command completion
+// - Help generation
+//
+// Usage examples:
+//   basic greet
+//   basic greet Alice
+//   basic --verbose greet Bob
+//   basic echo hello world
+//   basic deploy production
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
@@ -14,10 +29,11 @@ import (
 	"github.com/agilira/orpheus/pkg/orpheus"
 )
 
-func main() {
+// createBasicApp creates and configures the basic example application
+func createBasicApp() *orpheus.App {
 	// Create a new Orpheus application
-	app := orpheus.New("demo").
-		SetDescription("Orpheus CLI Framework Demo Application").
+	app := orpheus.New("basic").
+		SetDescription("Basic Orpheus CLI Framework Example").
 		SetVersion("1.0.0")
 
 	// Add global flags
@@ -84,6 +100,12 @@ func main() {
 
 	// Set default command
 	app.SetDefaultCommand("greet")
+
+	return app
+}
+
+func main() {
+	app := createBasicApp()
 
 	// Run the application
 	if err := app.Run(os.Args[1:]); err != nil {

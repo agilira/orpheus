@@ -1,4 +1,4 @@
-// main_test.go: Comprehensive test suite for Orpheus demo app
+// main_test.go: Comprehensive test suite for Orpheus basic example
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // SPDX-License-Identifier: MPL-2.0
@@ -6,7 +6,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,82 +38,45 @@ func captureOutput(fn func()) string {
 	return string(output)
 }
 
-// createTestApp creates the demo app for testing
+// createTestApp creates the basic app for testing (uses the same function as main)
 func createTestApp() *orpheus.App {
-	// Create a new Orpheus application
-	app := orpheus.New("demo").
-		SetDescription("Orpheus CLI Framework Demo Application").
-		SetVersion("1.0.0")
-
-	// Add global flags
-	app.AddGlobalBoolFlag("verbose", "v", false, "Enable verbose output").
-		AddGlobalFlag("config", "c", "", "Configuration file path")
-
-	// Add a simple greeting command
-	app.Command("greet", "Greet someone", func(ctx *orpheus.Context) error {
-		name := "World"
-		if ctx.ArgCount() > 0 {
-			name = ctx.GetArg(0)
-		}
-
-		if ctx.GetGlobalFlagBool("verbose") {
-			fmt.Printf("Greeting %s with verbose output enabled\n", name)
-		}
-
-		fmt.Printf("Hello, %s!\n", name)
-		return nil
-	})
-
-	// Add a more complex echo command
-	echoCmd := orpheus.NewCommand("echo", "Echo back the arguments").
-		SetHandler(func(ctx *orpheus.Context) error {
-			if ctx.ArgCount() == 0 {
-				return orpheus.ValidationError("echo", "no arguments provided")
-			}
-
-			for i := 0; i < ctx.ArgCount(); i++ {
-				if i > 0 {
-					fmt.Print(" ")
-				}
-				fmt.Print(ctx.GetArg(i))
-			}
-			fmt.Println()
-			return nil
-		})
-
-	// Add a deploy command with custom completion
-	deployCmd := orpheus.NewCommand("deploy", "Deploy to environment").
-		SetHandler(func(ctx *orpheus.Context) error {
-			if ctx.ArgCount() == 0 {
-				return orpheus.ValidationError("deploy", "environment required")
-			}
-
-			env := ctx.GetArg(0)
-			fmt.Printf("Deploying to %s environment...\n", env)
-			return nil
-		}).
-		SetCompletionHandler(func(req *orpheus.CompletionRequest) *orpheus.CompletionResult {
-			if req.Type == orpheus.CompletionArgs && req.Position == 0 {
-				return &orpheus.CompletionResult{
-					Suggestions: []string{"production", "staging", "development"},
-				}
-			}
-			return &orpheus.CompletionResult{Suggestions: []string{}}
-		})
-
-	app.AddCommand(echoCmd).
-		AddCommand(deployCmd)
-
-	// Add completion command
-	app.AddCompletionCommand()
-
-	// Set default command
-	app.SetDefaultCommand("greet")
-
-	return app
+	return createBasicApp()
 }
 
-// TestAppCreation tests that the demo app is created correctly
+// TestCreateBasicApp tests the createBasicApp function directly
+func TestCreateBasicApp(t *testing.T) {
+	app := createBasicApp()
+
+	if app == nil {
+		t.Fatal("createBasicApp() should not return nil")
+	}
+
+	// Test that the app can generate help (verifies it's properly configured)
+	output := captureOutput(func() {
+		if err := app.Run([]string{"--help"}); err != nil {
+			// Help command may or may not error depending on implementation
+		}
+	})
+
+	// Verify key components are present
+	if !strings.Contains(output, "Basic Orpheus CLI Framework Example") {
+		t.Errorf("Basic app description not found in help output")
+	}
+
+	if !strings.Contains(output, "greet") {
+		t.Errorf("greet command not found in help output")
+	}
+
+	if !strings.Contains(output, "echo") {
+		t.Errorf("echo command not found in help output")
+	}
+
+	if !strings.Contains(output, "deploy") {
+		t.Errorf("deploy command not found in help output")
+	}
+}
+
+// TestAppCreation tests that the basic app is created correctly
 func TestAppCreation(t *testing.T) {
 	app := createTestApp()
 
@@ -131,11 +93,11 @@ func TestAppCreation(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "Orpheus CLI Framework Demo Application") {
+	if !strings.Contains(output, "Basic Orpheus CLI Framework Example") {
 		t.Errorf("App description not found in help output")
 	}
 
-	if !strings.Contains(output, "demo") {
+	if !strings.Contains(output, "basic") {
 		t.Errorf("App name not found in help output")
 	}
 }
@@ -410,7 +372,7 @@ func TestHelpGeneration(t *testing.T) {
 		{
 			name:     "main help",
 			args:     []string{"--help"},
-			contains: []string{"Orpheus CLI Framework Demo Application", "Available Commands:", "greet", "echo", "deploy", "completion"},
+			contains: []string{"Basic Orpheus CLI Framework Example", "Available Commands:", "greet", "echo", "deploy", "completion"},
 		},
 		{
 			name:     "greet help",
@@ -475,17 +437,17 @@ func TestCompletionCommand(t *testing.T) {
 		{
 			name:     "bash completion",
 			args:     []string{"completion", "bash"},
-			contains: []string{"# Bash completion for demo", "_demo_completion"},
+			contains: []string{"# Bash completion for basic", "_basic_completion"},
 		},
 		{
 			name:     "zsh completion",
 			args:     []string{"completion", "zsh"},
-			contains: []string{"#compdef demo", "_demo"},
+			contains: []string{"#compdef basic", "_basic"},
 		},
 		{
 			name:     "fish completion",
 			args:     []string{"completion", "fish"},
-			contains: []string{"# Fish completion for demo", "complete -c demo"},
+			contains: []string{"# Fish completion for basic", "complete -c basic"},
 		},
 	}
 

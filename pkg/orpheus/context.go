@@ -10,6 +10,7 @@ import (
 	flashflags "github.com/agilira/flash-flags"
 )
 
+// Context represents the execution context for a command during execution.
 // It provides access to parsed arguments, flags, and application state.
 type Context struct {
 	// App is the application instance

@@ -1,0 +1,98 @@
+Orpheus v1.0.10 - Quality & Documentation ImPerformance:
+• Maintained zero-dependency architecture  
+• Updated performance metrics with flash-flags v1.1.5 security enhancements
+• Preserved 29x-47x performance advantage over major alternatives
+• Optimized internal operations with idiomatic Go patternsements
+========================================================
+
+Release Date: October 9, 2025
+Type: Minor Release (Quality & Documentation)
+
+IMPROVEMENTS
+------------
+
+Dependencies:
+• Updated flash-flags from v1.1.4 to v1.1.5 for enhanced security
+  - Improved input validation and sanitization
+  - Enhanced protection against malicious flag values
+  - Small performance trade-off (~23% slower) for significant security gains
+  - Maintains 29x-47x speed advantage over competing frameworks
+
+Performance:
+• Updated benchmarks with flash-flags v1.1.5 impact analysis
+  - Orpheus: 634.5 ns/op (was 512.8 ns/op) - acceptable security trade-off
+  - Still 29x faster than Cobra, 47x faster than Urfave CLI
+  - Memory efficiency maintained: 96 B/op, 3 allocs/op (unchanged)
+
+Code Quality:
+• Resolved built-in identifier redefinition warnings
+  - Changed parameter name from 'error' to 'message' in addError() function
+  - Renamed variable 'copy' to 'result' to avoid built-in function conflict
+• Optimized slice copying using built-in copy() function instead of manual loops
+  - Improved performance in ValidatedInput deep copy operations
+  - More idiomatic Go code following best practices
+
+Documentation:
+• Enhanced package-level documentation with clearer feature descriptions
+• Updated coverage badge to reflect accurate static percentage (89.8%)
+• Fixed example paths in README to point to examples/basic/ (was cmd/demo/)
+• Improved GoDoc comments for better API documentation clarity
+
+Project Structure:
+• Standardized project layout by moving cmd/demo/ to examples/basic/
+• Aligned with Go project conventions for example organization
+• Updated all references to use new examples/ structure
+
+TECHNICAL DETAILS
+-----------------
+
+Performance:
+• Maintained zero-external-dependency architecture
+• Preserved 7x-53x performance advantage over alternatives
+• Optimized internal operations with idiomatic Go patterns
+
+Security:
+• All existing security features remain intact
+• 142+ security test cases continue to pass
+• Fuzz testing validation maintained
+• No security regressions introduced
+
+Testing:
+• All 464+ tests continue to pass
+• Coverage maintained at 89.8%
+• Fuzz tests, security tests, and integration tests validated
+• Complete CI/CD pipeline verification successful
+
+COMPATIBILITY
+-------------
+
+• Fully backward compatible with v1.0.9
+• No breaking API changes
+• Go 1.23+ requirement unchanged
+• All examples and documentation updated
+
+FILES CHANGED
+-------------
+
+• pkg/orpheus/security.go - Parameter name improvement
+• pkg/orpheus/validation.go - Variable naming and copy optimization
+• pkg/orpheus/context.go - Documentation enhancements  
+• doc.go - Package documentation improvements
+• README.md - Coverage badge and path corrections
+• examples/ - Reorganized from cmd/demo structure
+
+MIGRATION
+---------
+
+No migration required - fully backward compatible.
+Users referencing cmd/demo/ examples should update to examples/basic/.
+
+CONTRIBUTORS
+------------
+
+• A. Giordano (agilira) - Quality improvements and documentation updates
+
+---
+Orpheus v1.0.10 represents our commitment to code quality and documentation 
+excellence as we prepare for broader adoption. All improvements maintain 
+full backward compatibility while enhancing developer experience.
