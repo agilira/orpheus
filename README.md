@@ -1,4 +1,4 @@
-# Orpheus: High-Performance zero external dependencies CLI framework for Go
+# Orpheus: High-performance, zero-external-dependency CLI framework for Go
 ### an AGILira library
 
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
@@ -8,7 +8,7 @@
 [![Coverage](https://img.shields.io/badge/coverage-89.8%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 
-Orpheus is a high-performance CLI framework designed to be super simple and **7x-47x faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
+Orpheus is a high-performance CLI framework designed to be super simple and **~30× faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
 ## Live Demo
 
@@ -54,7 +54,7 @@ BenchmarkOrpheus-8       1908495           634.5 ns/op          96 B/op       3 
 BenchmarkCobra-8              66        18439562 ns/op        3145 B/op      33 allocs/op
 BenchmarkUrfaveCli-8       40767           30097 ns/op        8549 B/op     318 allocs/op
 BenchmarkKingpin-8        293697           4294 ns/op         1988 B/op      40 allocs/op
-BenchmarkStdFlag-8       1027216           1039 ns/op           945 B/op     13 allocs/op
+BenchmarkStdFlag-8       1027216           1039 ns/op          945 B/op      13 allocs/op
 ```
 
 **Scenario**: Command parsing with 3 flags (string, bool, string) and handler execution.
@@ -70,13 +70,6 @@ go test -bench=. -benchmem
 ## Security
 
 Orpheus implements defense-in-depth security with comprehensive validation against CLI attack vectors.
-
-**Security Validation:**
-- [142+ Red Team security test cases](./pkg/orpheus/security_test.go) (OWASP Top 10 coverage)
-- [3.5+ million fuzz test executions](./pkg/orpheus/orpheus_fuzz_test.go) with zero crashes
-- CodeQL static analysis with security-focused queries
-- govulncheck for known vulnerability scanning
-- Multi-layer protection: path traversal, injection attacks, Unicode bypasses
 
 **Protected Vectors:**
 - Path traversal (case-insensitive, URL encoding, Windows device names)
@@ -96,7 +89,9 @@ make fuzz-long     # Extended fuzzing (5min)
 ### Installation
 
 ```bash
-go get github.com/agilira/orpheus
+go get github.com/agilira/orpheus@v1.0.10  # Latest stable release
+# or simply
+go get github.com/agilira/orpheus          # Always latest
 ```
 
 ### Basic Usage
@@ -109,7 +104,7 @@ import (
     "log"
     "os"
     
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
 )
 
 func main() {
@@ -133,6 +128,21 @@ func main() {
         log.Fatal(err)
     }
 }
+```
+
+### Auto-completion
+
+Generate shell completion scripts for your CLI:
+
+```bash
+# Bash completion (add to ~/.bashrc)
+./myapp completion bash > /etc/bash_completion.d/myapp
+
+# Zsh completion (add to ~/.zshrc)
+./myapp completion zsh > /usr/local/share/zsh/site-functions/_myapp
+
+# Fish completion
+./myapp completion fish > ~/.config/fish/completions/myapp.fish
 ```
 
 ### Subcommands
