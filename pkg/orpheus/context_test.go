@@ -7,6 +7,8 @@
 package orpheus_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/agilira/orpheus/pkg/orpheus"
@@ -224,4 +226,172 @@ func TestContextGetFlagFloat64AndStringSlice(t *testing.T) {
 	if flagVal != nil {
 		t.Errorf("Expected nil for flag with nil flags, got %v", flagVal)
 	}
+}
+
+// TestContextStorageOperations tests storage-related context methods for security and safety
+func TestContextStorageOperations(t *testing.T) {
+	t.Run("SetStorage_WithValidStorage", func(t *testing.T) {
+		// Test setting a valid storage implementation
+		ctx := &orpheus.Context{}
+		mockStorage := &mockStorage{data: make(map[string][]byte)}
+
+		// This should not panic and should properly store the reference
+		ctx.SetStorage(mockStorage)
+
+		// Verify the storage was set (check via interface equality)
+		if ctx.Storage() == nil {
+			t.Error("Expected storage to be set correctly")
+		}
+	})
+
+	t.Run("SetStorage_WithNilStorage", func(t *testing.T) {
+		// Test setting nil storage (should be allowed for cleanup)
+		ctx := &orpheus.Context{}
+
+		// Set a storage first
+		mockStorage := &mockStorage{data: make(map[string][]byte)}
+		ctx.SetStorage(mockStorage)
+
+		// Now set to nil (cleanup scenario)
+		ctx.SetStorage(nil)
+
+		// Verify the storage was cleared
+		if ctx.Storage() != nil {
+			t.Error("Expected storage to be nil after setting to nil")
+		}
+	})
+
+	t.Run("SetStorage_OverwriteExisting", func(t *testing.T) {
+		// Test overwriting existing storage (security concern)
+		ctx := &orpheus.Context{}
+
+		// Set initial storage
+		storage1 := &mockStorage{data: make(map[string][]byte)}
+		storage1.data["key1"] = []byte("value1")
+		ctx.SetStorage(storage1)
+
+		// Overwrite with new storage
+		storage2 := &mockStorage{data: make(map[string][]byte)}
+		storage2.data["key2"] = []byte("value2")
+		ctx.SetStorage(storage2)
+
+		// Verify new storage replaced old one
+		if ctx.Storage() == nil {
+			t.Error("Expected storage to be set after replacement")
+		}
+
+		// Verify old storage data is no longer accessible
+		result, err := ctx.Storage().Get(context.Background(), "key1")
+		if err == nil || len(result) > 0 {
+			t.Error("Expected old storage data to be inaccessible after replacement")
+		}
+	})
+
+	t.Run("RequireStorage_WithStoragePresent", func(t *testing.T) {
+		// Test RequireStorage when storage is available
+		ctx := &orpheus.Context{}
+		mockStorage := &mockStorage{data: make(map[string][]byte)}
+		ctx.SetStorage(mockStorage)
+
+		// This should return the storage without error
+		storage, err := ctx.RequireStorage()
+		if err != nil {
+			t.Errorf("Expected no error when storage is present, got: %v", err)
+		}
+
+		if storage == nil {
+			t.Error("Expected RequireStorage to return the storage instance")
+		}
+	})
+
+	t.Run("RequireStorage_WithoutStorage", func(t *testing.T) {
+		// Test RequireStorage when no storage is configured (security check)
+		ctx := &orpheus.Context{}
+
+		// This should return an error
+		storage, err := ctx.RequireStorage()
+		if err == nil {
+			t.Error("Expected error when no storage is configured")
+		}
+
+		if storage != nil {
+			t.Error("Expected nil storage when error is returned")
+		}
+
+		// Verify error contains expected message (storage unavailable scenario)
+		if err.Error() == "" {
+			t.Error("Expected non-empty error message when storage is not configured")
+		}
+	})
+}
+
+// mockStorage implements orpheus.Storage interface for testing
+type mockStorage struct {
+	data   map[string][]byte
+	closed bool
+}
+
+func (m *mockStorage) Get(ctx context.Context, key string) ([]byte, error) {
+	if m.closed {
+		return nil, fmt.Errorf("storage is closed")
+	}
+	if value, exists := m.data[key]; exists {
+		return value, nil
+	}
+	return nil, fmt.Errorf("key not found")
+}
+
+func (m *mockStorage) Set(ctx context.Context, key string, value []byte) error {
+	if m.closed {
+		return fmt.Errorf("storage is closed")
+	}
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+	m.data[key] = value
+	return nil
+}
+
+func (m *mockStorage) Delete(ctx context.Context, key string) error {
+	if m.closed {
+		return fmt.Errorf("storage is closed")
+	}
+	if _, exists := m.data[key]; !exists {
+		return fmt.Errorf("key not found")
+	}
+	delete(m.data, key)
+	return nil
+}
+
+func (m *mockStorage) List(ctx context.Context, prefix string) ([]string, error) {
+	if m.closed {
+		return nil, fmt.Errorf("storage is closed")
+	}
+	keys := make([]string, 0, len(m.data))
+	for k := range m.data {
+		keys = append(keys, k)
+	}
+	return keys, nil
+}
+
+func (m *mockStorage) Health(ctx context.Context) error {
+	if m.closed {
+		return fmt.Errorf("storage is closed")
+	}
+	return nil
+}
+
+func (m *mockStorage) Stats(ctx context.Context) (*orpheus.StorageStats, error) {
+	if m.closed {
+		return nil, fmt.Errorf("storage is closed")
+	}
+	return &orpheus.StorageStats{
+		TotalKeys: int64(len(m.data)),
+		Provider:  "mock",
+	}, nil
+}
+
+func (m *mockStorage) Close() error {
+	m.closed = true
+	return nil
 }

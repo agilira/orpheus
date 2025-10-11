@@ -5,7 +5,7 @@
 [![CodeQL](https://github.com/agilira/orpheus/actions/workflows/codeql.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/codeql.yml)
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
-[![Coverage](https://img.shields.io/badge/coverage-89.8%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-87.2%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 
 Orpheus is a high-performance CLI framework designed to be super simple and **~30× faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
@@ -26,12 +26,13 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 
 </div>
 
-**[Features](#features) • [Performance](#performance) • [Security](#security-assurance) • [Quick Start](#quick-start) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
+**[Features](#features) • [Performance](#performance) • [Security](#security-assurance) • [Quick Start](#quick-start) • [Storage System](#storage-system) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
 
 ## Features
 
 - **Zero External Dependencies**: No third-party dependencies for maximum portability
 - **Native Subcommands**: Git-style nested commands with automatic help generation
+- **Pluggable Storage System**: Dynamic .so plugin loading for persistent storage (SQLite, Redis, File, custom providers)
 - **Clean API**: Fluent interface for rapid development
 - **Auto-completion**: Built-in bash/zsh/fish completion generation
 - **Type-safe Errors**: Structured error handling with exit codes
@@ -169,6 +170,73 @@ app.AddCommand(remoteCmd)
 //        ./myapp remote list --verbose
 ```
 
+## Storage System
+
+Orpheus provides a pluggable storage system that allows CLI applications to persist state using various backends through a unified interface:
+
+```go
+import "github.com/agilira/orpheus/pkg/orpheus"
+
+func main() {
+    app := orpheus.New("myapp").
+        SetDescription("CLI app with persistent storage").
+        SetVersion("1.0.0")
+    
+    // Configure storage (supports SQLite, Redis, File, and custom providers)
+    config := &orpheus.StorageConfig{
+        Provider: "sqlite",
+        Config: map[string]interface{}{
+            "path": "./myapp.db",
+        },
+        EnableMetrics: true,
+    }
+    app.ConfigureStorage(config)
+    
+    // Commands can now use persistent storage
+    app.Command("set", "Store a key-value pair", setCommand)
+    app.Command("get", "Retrieve a value", getCommand)
+    
+    app.Run()
+}
+
+func setCommand(ctx *orpheus.Context) error {
+    storage := ctx.Storage()
+    if storage == nil {
+        return orpheus.ErrStorageNotConfigured
+    }
+    
+    key := ctx.GetArg(0)
+    value := ctx.GetArg(1)
+    
+    return storage.Set(ctx, key, []byte(value))
+}
+
+func getCommand(ctx *orpheus.Context) error {
+    storage, err := ctx.RequireStorage()
+    if err != nil {
+        return err
+    }
+    
+    key := ctx.GetArg(0)
+    value, err := storage.Get(ctx, key)
+    if err != nil {
+        return err
+    }
+    
+    fmt.Printf("Value: %s\n", string(value))
+    return nil
+}
+```
+
+**Key Features:**
+- **Plugin Architecture**: Dynamic .so loading for storage providers
+- **Zero Dependencies**: No external storage libraries required  
+- **Security Hardened**: Input validation and plugin security checks
+- **Production Ready**: Metrics, tracing, and audit logging integration
+- **Provider Agnostic**: Unified interface for SQLite, Redis, File, and custom backends
+
+**[Complete Storage Documentation →](./docs/STORAGE.md)**
+
 ### Observability
 
 Zero-overhead observability interfaces for production CLI applications:
@@ -258,6 +326,7 @@ go test ./pkg/orpheus -v -cover
 - **[File Manager](./examples/filemanager/)** - Advanced file operations with completion
 - **[Enhanced Errors](./examples/enhanced-errors/)** - Advanced errors handling
 - **[Observability](./examples/observability/)** - Production-ready logging, audit trails, and metrics
+- **[Storage System](./examples/storage/)** - Persistent storage
 - **[Basic Example](./examples/basic/)** - Simple usage patterns and command structures
 
 ## API Reference

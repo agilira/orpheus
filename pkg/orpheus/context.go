@@ -27,6 +27,10 @@ type Context struct {
 
 	// GlobalFlags is the parsed global flag set
 	GlobalFlags *flashflags.FlagSet
+
+	// Storage provides access to the configured storage backend (optional)
+	// Will be nil if storage is not configured for this application
+	storage Storage
 }
 
 // GetArg returns the argument at the specified index.
@@ -173,4 +177,25 @@ func (ctx *Context) MetricsCollector() MetricsCollector {
 		return ctx.App.metricsCollector
 	}
 	return nil
+}
+
+// Storage returns the configured storage backend, or nil if not configured.
+// This provides zero-overhead access - if storage is not used, there's no performance impact.
+func (ctx *Context) Storage() Storage {
+	return ctx.storage
+}
+
+// RequireStorage returns the storage backend or an error if not configured.
+// Use this when storage is required for the operation to proceed.
+func (ctx *Context) RequireStorage() (Storage, error) {
+	if ctx.storage == nil {
+		return nil, StorageValidationError("require", "storage not configured")
+	}
+	return ctx.storage, nil
+}
+
+// SetStorage configures the storage backend for this context.
+// This is typically called during application initialization.
+func (ctx *Context) SetStorage(storage Storage) {
+	ctx.storage = storage
 }

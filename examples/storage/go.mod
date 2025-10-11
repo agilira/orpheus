@@ -1,8 +1,8 @@
-module github.com/agilira/orpheus/examples/gitlike
+module storage-demo
 
-go 1.23.11
+go 1.25.1
 
-replace github.com/agilira/orpheus => ../..
+replace github.com/agilira/orpheus => /home/antonio-giordano/Desktop/GitHub/orpheus
 
 require github.com/agilira/orpheus v0.0.0-00010101000000-000000000000
 

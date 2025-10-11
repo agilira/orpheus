@@ -30,6 +30,7 @@
 package orpheus
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -49,6 +50,9 @@ type App struct {
 	auditLogger      AuditLogger
 	tracer           Tracer
 	metricsCollector MetricsCollector
+	storage          Storage
+	storageConfig    *StorageConfig
+	pluginManager    *PluginManager
 }
 
 // New creates a new Orpheus application.
@@ -102,6 +106,89 @@ func (app *App) SetMetricsCollector(collector MetricsCollector) *App {
 	return app
 }
 
+// SetStorage sets the storage backend for the application.
+// This provides persistent key-value storage for CLI applications.
+func (app *App) SetStorage(storage Storage) *App {
+	app.storage = storage
+	return app
+}
+
+// ConfigureStorage configures storage from a StorageConfig and initializes the backend.
+// This method handles plugin loading, validation, and initialization automatically.
+func (app *App) ConfigureStorage(config *StorageConfig) *App {
+	app.storageConfig = config
+
+	// Validate configuration input
+	if config == nil {
+		if app.logger != nil {
+			ctx := context.Background()
+			app.logger.Warn(ctx, "Storage configuration is nil - skipping storage setup")
+		}
+		return app
+	}
+
+	// Initialize plugin manager if not already created
+	if app.pluginManager == nil {
+		app.pluginManager = NewPluginManager(app.logger, DefaultPluginSecurityConfig())
+	}
+
+	// Load the storage plugin
+	ctx := context.Background()
+	loadedPlugin, err := app.pluginManager.LoadPluginsFromConfig(ctx, config)
+	if err != nil {
+		// Log the error but don't fail - storage is optional
+		if app.logger != nil {
+			app.logger.Error(ctx, "Failed to load storage plugin",
+				Field{Key: "provider", Value: config.Provider},
+				Field{Key: "error", Value: err.Error()})
+		}
+		return app
+	}
+
+	// Validate the plugin configuration
+	if err := loadedPlugin.Plugin.Validate(config.Config); err != nil {
+		if app.logger != nil {
+			app.logger.Error(ctx, "Storage configuration validation failed",
+				Field{Key: "provider", Value: config.Provider},
+				Field{Key: "error", Value: err.Error()})
+		}
+		return app
+	}
+
+	// Create the storage instance
+	storage, err := loadedPlugin.Plugin.New(config.Config)
+	if err != nil {
+		if app.logger != nil {
+			app.logger.Error(ctx, "Failed to create storage instance",
+				Field{Key: "provider", Value: config.Provider},
+				Field{Key: "error", Value: err.Error()})
+		}
+		return app
+	}
+
+	// Test the storage connection
+	if err := storage.Health(ctx); err != nil {
+		if app.logger != nil {
+			app.logger.Warn(ctx, "Storage health check failed",
+				Field{Key: "provider", Value: config.Provider},
+				Field{Key: "error", Value: err.Error()})
+		}
+		// Continue anyway - storage might be temporarily unavailable
+	}
+
+	// Set the storage instance
+	app.storage = storage
+
+	if app.logger != nil {
+		app.logger.Info(ctx, "Storage configured successfully",
+			Field{Key: "provider", Value: config.Provider},
+			Field{Key: "plugin", Value: loadedPlugin.Plugin.Name()},
+			Field{Key: "version", Value: loadedPlugin.Plugin.Version()})
+	}
+
+	return app
+}
+
 // Logger returns the configured logger.
 func (app *App) Logger() Logger {
 	return app.logger
@@ -120,6 +207,21 @@ func (app *App) Tracer() Tracer {
 // MetricsCollector returns the configured metrics collector.
 func (app *App) MetricsCollector() MetricsCollector {
 	return app.metricsCollector
+}
+
+// Storage returns the configured storage backend.
+func (app *App) Storage() Storage {
+	return app.storage
+}
+
+// StorageConfig returns the current storage configuration.
+func (app *App) StorageConfig() *StorageConfig {
+	return app.storageConfig
+}
+
+// PluginManager returns the plugin manager for advanced storage plugin operations.
+func (app *App) PluginManager() *PluginManager {
+	return app.pluginManager
 }
 
 // AddGlobalFlag adds a global string flag.
@@ -198,7 +300,7 @@ func (app *App) handleEmptyArgs() error {
 	if app.defaultCmd != "" {
 		return app.runCommand(app.defaultCmd, []string{})
 	}
-	return app.helpHandler(&Context{App: app})
+	return app.helpHandler(&Context{App: app, storage: app.storage})
 }
 
 // handleBuiltinFlags handles built-in flags like --help and --version.
@@ -207,7 +309,7 @@ func (app *App) handleBuiltinFlags(args []string) (handled bool, err error) {
 
 	// Check for global help flag
 	if firstArg == "--help" || firstArg == "-h" {
-		return true, app.helpHandler(&Context{App: app})
+		return true, app.helpHandler(&Context{App: app, storage: app.storage})
 	}
 
 	// Check for version flag
@@ -251,7 +353,7 @@ func (app *App) handleHelpCommand(cmdArgs []string) error {
 	if len(cmdArgs) > 0 {
 		return app.showCommandHelp(cmdArgs[0])
 	}
-	return app.helpHandler(&Context{App: app})
+	return app.helpHandler(&Context{App: app, storage: app.storage})
 }
 
 // runCommand executes a specific command.
@@ -266,6 +368,7 @@ func (app *App) runCommand(cmdName string, args []string) error {
 		App:         app,
 		Args:        args,
 		GlobalFlags: app.globalFlags,
+		storage:     app.storage,
 	}
 
 	// Execute the command

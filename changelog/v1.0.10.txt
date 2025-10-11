@@ -48,7 +48,7 @@ TECHNICAL DETAILS
 
 Performance:
 • Maintained zero-external-dependency architecture
-• Preserved 7x-53x performance advantage over alternatives
+• Preserved ~30x performance advantage over alternatives
 • Optimized internal operations with idiomatic Go patterns
 
 Security:
