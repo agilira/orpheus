@@ -512,20 +512,15 @@ func TestPluginPathValidation(t *testing.T) {
 			errorMsg:    "plugin path must be absolute",
 		},
 		{
-			name:        "Path outside allowed paths",
-			pluginPath:  func() string {
+			name: "Path outside allowed paths",
+			pluginPath: func() string {
 				if runtime.GOOS == "windows" {
-					return "C:\\temp\\outside.so"
+					return "D:\\outside\\plugin.so" // Different drive to ensure outside allowed paths
 				}
 				return "/tmp/outside.so"
 			}(),
 			expectError: true,
-			errorMsg:    func() string {
-				if runtime.GOOS == "windows" {
-					return "plugin path must be absolute" // Windows path handling differs
-				}
-				return "plugin path not in allowed paths"
-			}(),
+			errorMsg:    "plugin path not in allowed paths", // Should be consistent now
 		},
 	}
 
