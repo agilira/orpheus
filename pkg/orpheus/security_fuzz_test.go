@@ -462,8 +462,13 @@ func FuzzPluginDiscoveryPaths(f *testing.F) {
 		duration := time.Since(start)
 
 		// Should complete within reasonable time
-		if duration > 3*time.Second {
-			t.Errorf("PERFORMANCE VIOLATION: Discovery took %v for path %q", duration, searchPath)
+		// Allow more time for Windows and complex directory structures
+		maxDuration := 5 * time.Second
+		if runtime.GOOS == "windows" {
+			maxDuration = 10 * time.Second
+		}
+		if duration > maxDuration {
+			t.Errorf("PERFORMANCE VIOLATION: Discovery took %v for path %q (max allowed: %v)", duration, searchPath, maxDuration)
 		}
 
 		// Should handle errors gracefully

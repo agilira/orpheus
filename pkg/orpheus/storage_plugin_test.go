@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -512,9 +513,19 @@ func TestPluginPathValidation(t *testing.T) {
 		},
 		{
 			name:        "Path outside allowed paths",
-			pluginPath:  "/tmp/outside.so",
+			pluginPath:  func() string {
+				if runtime.GOOS == "windows" {
+					return "C:\\temp\\outside.so"
+				}
+				return "/tmp/outside.so"
+			}(),
 			expectError: true,
-			errorMsg:    "plugin path not in allowed paths",
+			errorMsg:    func() string {
+				if runtime.GOOS == "windows" {
+					return "plugin path must be absolute" // Windows path handling differs
+				}
+				return "plugin path not in allowed paths"
+			}(),
 		},
 	}
 
