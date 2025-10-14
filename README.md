@@ -1,5 +1,6 @@
-# Orpheus: High-performance, zero-external-dependency CLI framework for Go
-### an AGILira library
+# Orpheus: High-Performance CLI framework for Go
+
+![Orpheus Banner](assets/banner.png)
 
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/agilira/orpheus/actions/workflows/codeql.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/codeql.yml)
