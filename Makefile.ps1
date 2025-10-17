@@ -41,6 +41,7 @@ function Invoke-Help {
     Write-ColorOutput "  staticcheck   Run staticcheck" $Green
     Write-ColorOutput "  errcheck      Run errcheck" $Green
     Write-ColorOutput "  gosec         Run gosec security scanner" $Green
+    Write-ColorOutput "  vulncheck     Run vulnerability check" $Green
     Write-ColorOutput "  lint          Run all linters" $Green
     Write-ColorOutput "  security      Run security checks" $Green
     Write-ColorOutput "  check         Run all checks (format, vet, lint, security, test)" $Green
@@ -127,6 +128,16 @@ function Invoke-GoSec {
     }
 }
 
+function Invoke-VulnCheck {
+    Write-ColorOutput "Running vulnerability check..." $Yellow
+    if (-not (Test-ToolExists "govulncheck")) {
+        Write-ColorOutput "govulncheck not found. Run '.\Makefile.ps1 tools' to install." $Red
+        exit 1
+    }
+    & "$ToolsDir\govulncheck.exe" "./..."
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
 function Invoke-Lint {
     Invoke-StaticCheck
     Invoke-ErrCheck
@@ -135,6 +146,7 @@ function Invoke-Lint {
 
 function Invoke-Security {
     Invoke-GoSec
+    Invoke-VulnCheck
     Write-ColorOutput "Security checks completed." $Green
 }
 
@@ -165,6 +177,9 @@ function Invoke-Tools {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     
     go install github.com/securego/gosec/v2/cmd/gosec@latest
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    
+    go install golang.org/x/vuln/cmd/govulncheck@latest
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     
     Write-ColorOutput "Tools installed successfully!" $Green
@@ -259,18 +274,23 @@ function Invoke-Status {
     
     $staticcheckStatus = if (Test-ToolExists "staticcheck") { "✓ installed" } else { "✗ missing" }
     $staticcheckColor = if (Test-ToolExists "staticcheck") { $Green } else { $Red }
-    Write-Host "staticcheck: " -NoNewline
+    Write-Host "staticcheck:  " -NoNewline
     Write-ColorOutput $staticcheckStatus $staticcheckColor
     
     $errcheckStatus = if (Test-ToolExists "errcheck") { "✓ installed" } else { "✗ missing" }
     $errcheckColor = if (Test-ToolExists "errcheck") { $Green } else { $Red }
-    Write-Host "errcheck:    " -NoNewline
+    Write-Host "errcheck:     " -NoNewline
     Write-ColorOutput $errcheckStatus $errcheckColor
     
     $gosecStatus = if (Test-ToolExists "gosec") { "✓ installed" } else { "✗ missing" }
     $gosecColor = if (Test-ToolExists "gosec") { $Green } else { $Red }
-    Write-Host "gosec:       " -NoNewline
+    Write-Host "gosec:        " -NoNewline
     Write-ColorOutput $gosecStatus $gosecColor
+    
+    $govulncheckStatus = if (Test-ToolExists "govulncheck") { "✓ installed" } else { "✗ missing" }
+    $govulncheckColor = if (Test-ToolExists "govulncheck") { $Green } else { $Red }
+    Write-Host "govulncheck:  " -NoNewline
+    Write-ColorOutput $govulncheckStatus $govulncheckColor
 }
 
 # Main execution
@@ -284,6 +304,7 @@ switch ($Command.ToLower()) {
     "staticcheck" { Invoke-StaticCheck }
     "errcheck" { Invoke-ErrCheck }
     "gosec" { Invoke-GoSec }
+    "vulncheck" { Invoke-VulnCheck }
     "lint" { Invoke-Lint }
     "security" { Invoke-Security }
     "check" { Invoke-Check }

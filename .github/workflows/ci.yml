@@ -27,6 +27,13 @@ jobs:
       run: |
         go install honnef.co/go/tools/cmd/staticcheck@latest
         go install github.com/securego/gosec/v2/cmd/gosec@latest
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+
+    - name: Verify Dependencies
+      run: go mod verify
+
+    - name: Vulnerability Check
+      run: govulncheck ./...
 
     - name: Go Format Check
       run: |
