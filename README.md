@@ -8,6 +8,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://img.shields.io/badge/coverage-87.2%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 Orpheus is a high-performance CLI framework designed to be super simple and **~30× faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, fast CLI apps similar to git.
 
