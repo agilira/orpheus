@@ -1,4 +1,4 @@
-module storage-demo
+module storage-simple-demo
 
 go 1.25.1
 
