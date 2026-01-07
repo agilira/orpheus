@@ -19,12 +19,12 @@ Orpheus is a high-performance CLI framework designed to be super simple and **~3
 See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 
 <picture>
-  <source media="(max-width: 768px)" srcset="https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv.svg" width="100%">
-  <source media="(max-width: 1024px)" srcset="https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv.svg" width="90%">
-  <img src="https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv.svg" alt="Orpheus CLI Demo" style="max-width: 100%; height: auto;" width="800">
+  <source media="(max-width: 768px)" srcset="https://asciinema.org/a/4M0WNfuF1jHol3036A3ZAHI4c.svg" width="100%">
+  <source media="(max-width: 1024px)" srcset="https://asciinema.org/a/4M0WNfuF1jHol3036A3ZAHI4c.svg" width="90%">
+  <img src="https://asciinema.org/a/4M0WNfuF1jHol3036A3ZAHI4c.svg" alt="Orpheus CLI Demo" style="max-width: 100%; height: auto;" width="800">
 </picture>
 
-*[Click to view interactive demo](https://asciinema.org/a/JiLb3gf6KzYU3VldOYjD4q1Zv)*
+*[Click to view interactive demo](https://asciinema.org/a/4M0WNfuF1jHol3036A3ZAHI4c)*
 
 </div>
 

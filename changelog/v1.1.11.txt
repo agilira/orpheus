@@ -1,0 +1,36 @@
+Orpheus v1.1.11 - Maintenance Release
+=======================================
+
+Release Date: January 7, 2025
+Type: Maintenance Release
+
+CHANGES
+-------
+
+Demo Recording:
+• Updated asciinema demo recording (previous had expired)
+  - New ID: 4M0WNfuF1jHol3036A3ZAHI4c
+  - Demonstrates gitlike CLI example with subcommands
+  - Shows AGILira repository management workflow
+
+Build System:
+• Fixed storage example plugin build script
+  - Added GOWORK=off to plugin compilation command
+  - Resolves plugin version mismatch issues in multi-module environments
+  - Ensures consistent dependency resolution across modules
+
+Dependencies:
+• Updated go-errors to v1.1.1 in storage example
+• Added go-timecache v1.0.2 to storage example dependencies
+• Synchronized dependency versions across storage providers module
+
+Quality Assurance:
+• All 7 examples verified: build, test pass
+  - basic, enhanced-errors, filemanager, gitlike
+  - observability, security-validation, storage
+• Core package tests: 100% pass (1.181s)
+• No TODO/FIXME issues in production code
+
+---
+
+Orpheus • an AGILira library

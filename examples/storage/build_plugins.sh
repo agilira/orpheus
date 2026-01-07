@@ -15,7 +15,7 @@ mkdir -p plugins
 
 echo " Building memory storage plugin..."
 cd providers
-go build -buildmode=plugin -o ../plugins/memory.so memory.go
+GOWORK=off go build -buildmode=plugin -o ../plugins/memory.so memory.go
 echo " memory.so built successfully"
 
 echo ""
