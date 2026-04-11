@@ -1,0 +1,72 @@
+Orpheus v1.2.0 - Feature Release
+==================================
+
+Release Date: April 11, 2026
+Type: Feature Release
+
+NEW FEATURES
+-------------
+
+Interactive Prompts (Prompter Interface):
+  New Prompter subsystem for interactive CLI wizards and user input.
+  Designed with the same interface-first doctrine as the rest of Orpheus.
+
+  - Ask(prompt, defaultVal) -- free-text input
+  - AskSecret(prompt) -- masked password/token input (via x/term)
+  - Choose(prompt, options) -- single-select menu
+  - Confirm(prompt, defaultVal) -- yes/no confirmation
+
+  Fully testable: inject a mock Prompter via App.SetPrompter() for
+  deterministic test execution without terminal interaction.
+
+BUG FIXES
+----------
+
+splitGlobalArgs Edge Cases:
+  Fixed parsing of negative numbers and dash-prefixed values passed to
+  global flags.  --offset -5 and --pattern --something now work correctly.
+
+  - New isValueGlobalFlag() helper identifies non-boolean global flags
+  - For long flags, merges --flag -value into --flag=-value form as
+    defense-in-depth (flash-flags v1.1.7 also fixes this at the parser level)
+  - Added POSIX -- (double-dash) end-of-flags sentinel support
+  - 27 new tests in splitargs_test.go covering negative numbers,
+    dash values, embedded equals, double-dash sentinel, bool flag
+    interaction, mixed flags, and edge cases
+
+DOCUMENTATION
+--------------
+
+README Improvements:
+  - "Zero External Dependencies" clarified to "Zero Third-Party Dependencies"
+    with explanation of AGILira + golang.org/x usage
+  - Added "Interactive Prompts" section with code example, method table,
+    and testability note
+  - Added "Prompter" to Core Components list
+  - Added note on subcommand vs positional args ambiguity
+  - WHY comment added to handleSubcommands()
+
+DEPENDENCIES
+-------------
+
+  - flash-flags v1.1.6 -> v1.1.7 (cross-platform path validation fix,
+    long flag dash-value parsing fix, thread-safety docs)
+  - golang.org/x/term v0.42.0 (new, for AskSecret masked input)
+  - golang.org/x/sys v0.43.0 (new, indirect via x/term)
+  - All 9 examples go.mod updated
+
+QUALITY ASSURANCE
+------------------
+
+  - go fmt, go vet: clean
+  - staticcheck: clean
+  - errcheck: clean
+  - gosec: 0 issues (24 files, 7644 lines)
+  - govulncheck: 0 vulnerabilities
+  - go test -race: PASS
+  - Security tests: PASS (prompt_security_test.go)
+  - Fuzz tests: PASS (prompt_fuzz_test.go)
+
+---
+
+Orpheus - an AGILira library

@@ -229,7 +229,12 @@ func (c *Command) hasHelpFlag(args []string) bool {
 	return false
 }
 
-// handleSubcommands processes subcommand execution
+// handleSubcommands processes subcommand execution.
+// WHY: the first non-flag argument is always matched as a subcommand name.
+// If no subcommand matches, it is treated as an error -- not as a positional
+// argument. Commands that need both subcommands and free positional args
+// should use explicit subcommands for all variants (e.g., "stash save",
+// "stash pop") to avoid ambiguity.
 func (c *Command) handleSubcommands(ctx *Context, args []string) (bool, error) {
 	if !c.HasSubcommands() || len(args) == 0 {
 		return false, nil

@@ -10,7 +10,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Orpheus is a high-performance CLI framework designed to be super simple and **~30× faster** than popular alternatives with zero external dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, secure, fast CLI apps similar to git.
+Orpheus is a high-performance CLI framework designed to be super simple and **~30x faster** than popular alternatives with zero third-party dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, secure, fast CLI apps similar to git.
 
 ## Live Demo
 
@@ -32,7 +32,7 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 
 ## Features
 
-- **Zero External Dependencies**: No third-party dependencies for maximum portability
+- **Zero Third-Party Dependencies**: Built exclusively on AGILira libraries and Go extended standard library (`golang.org/x`)
 - **Native Subcommands**: Git-style nested commands with automatic help generation
 - **Pluggable Storage System**: Dynamic .so plugin loading for persistent storage (SQLite, Redis, File, custom providers)
 - **Clean API**: Fluent interface for rapid development
@@ -40,6 +40,7 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
 - **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
+- **Interactive Prompts**: Built-in `Prompter` interface for user input (text, secrets, menus, confirmations) with terminal-safe masking
 - **Secure by Design**: [Red-team tested](./pkg/orpheus/security_test.go) and [fuzz tested](./pkg/orpheus/orpheus_fuzz_test.go)
 - **Security Validation**: Including input sanitization, path traversal protection, and various security controls
 
@@ -172,6 +173,13 @@ app.AddCommand(remoteCmd)
 //        ./myapp remote list --verbose
 ```
 
+> **Note on subcommands vs positional arguments:** if a parent command accepts
+> both subcommands and free positional arguments (like `git stash [save]` vs
+> `git stash pop`), the first non-flag argument is always matched as a
+> subcommand. Design commands so that subcommand names do not collide with
+> expected positional values. If a command needs both, use explicit subcommands
+> for all variants (e.g., `stash save`, `stash pop`, `stash show`).
+
 ## Storage System
 
 Orpheus provides a pluggable storage system that allows CLI applications to persist state using various backends through a unified interface:
@@ -239,6 +247,59 @@ func getCommand(ctx *orpheus.Context) error {
 
 **[Complete Storage Documentation →](./docs/STORAGE.md)**
 
+### Interactive Prompts
+
+Orpheus includes a built-in `Prompter` interface for interactive CLI workflows -- setup wizards, first-run configuration, guided input. Secrets are masked at the terminal level via `golang.org/x/term`.
+
+```go
+app := orpheus.New("myapp").
+    SetDescription("Interactive CLI").
+    SetVersion("1.0.0").
+    SetPrompter(orpheus.NewTerminalPrompter())
+
+app.Command("setup", "Run first-time setup", func(ctx *orpheus.Context) error {
+    p, err := ctx.RequirePrompter()
+    if err != nil {
+        return err
+    }
+
+    name, err := p.Ask("Your name:", "")
+    if err != nil {
+        return err
+    }
+
+    apiKey, err := p.AskSecret("API key:")
+    if err != nil {
+        return err
+    }
+
+    provider, err := p.Choose("LLM provider:", []string{"OpenAI", "Anthropic", "Ollama"})
+    if err != nil {
+        return err
+    }
+
+    confirm, err := p.Confirm("Save configuration?", true)
+    if err != nil {
+        return err
+    }
+
+    fmt.Printf("Name: %s, Provider: %d, Confirmed: %v\n", name, provider, confirm)
+    _ = apiKey // use securely
+    return nil
+})
+```
+
+**Prompter methods:**
+
+| Method | Purpose | Return |
+|--------|---------|--------|
+| `Ask(prompt, default)` | Free-text input with optional default | `(string, error)` |
+| `AskSecret(prompt)` | Masked password/key entry | `(string, error)` |
+| `Choose(prompt, options)` | Numbered menu selection | `(int, error)` (0-based) |
+| `Confirm(prompt, defaultYes)` | Yes/no question | `(bool, error)` |
+
+The `Prompter` interface is testable by design: inject a custom implementation for unit tests without touching a real terminal.
+
 ### Observability
 
 Zero-overhead observability interfaces for production CLI applications:
@@ -305,6 +366,7 @@ Like the mythological master whose music could open the gates of Hades itself, O
 - **App**: Main application container with command routing
 - **Command**: Individual command with handler and flags
 - **Context**: Execution context with arguments and flags
+- **Prompter**: Interactive input interface (text, secrets, menus, confirmations)
 - **Errors**: Type-safe error system with exit codes
 - **Completion**: Auto-completion system for multiple shells
 - **Observability**: Optional interfaces for logging, audit trails, tracing, and metrics

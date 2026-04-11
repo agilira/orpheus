@@ -361,7 +361,7 @@ func (pm *PluginManager) calculateFileHash(pluginPath string) (string, error) {
 		return "", nil
 	}
 
-	data, err := os.ReadFile(pluginPath)
+	data, err := os.ReadFile(pluginPath) // #nosec G304 -- pluginPath is validated by validatePluginPath() and validatePluginFile() before reaching this point
 	if err != nil {
 		return "", err
 	}

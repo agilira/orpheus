@@ -53,6 +53,7 @@ type App struct {
 	storage          Storage
 	storageConfig    *StorageConfig
 	pluginManager    *PluginManager
+	prompter         Prompter
 }
 
 // New creates a new Orpheus application.
@@ -110,6 +111,15 @@ func (app *App) SetMetricsCollector(collector MetricsCollector) *App {
 // This provides persistent key-value storage for CLI applications.
 func (app *App) SetStorage(storage Storage) *App {
 	app.storage = storage
+	return app
+}
+
+// SetPrompter sets the interactive prompter for the application.
+// When set, command handlers can use ctx.Prompter() to ask the user
+// questions, read secrets, display menus, and request confirmation.
+// Pass nil to disable interactive prompts (non-interactive mode).
+func (app *App) SetPrompter(prompter Prompter) *App {
+	app.prompter = prompter
 	return app
 }
 
@@ -300,7 +310,7 @@ func (app *App) handleEmptyArgs() error {
 	if app.defaultCmd != "" {
 		return app.runCommand(app.defaultCmd, []string{})
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage})
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter})
 }
 
 // handleBuiltinFlags handles built-in flags like --help and --version.
@@ -309,7 +319,7 @@ func (app *App) handleBuiltinFlags(args []string) (handled bool, err error) {
 
 	// Check for global help flag
 	if firstArg == "--help" || firstArg == "-h" {
-		return true, app.helpHandler(&Context{App: app, storage: app.storage})
+		return true, app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter})
 	}
 
 	// Check for version flag
@@ -353,7 +363,7 @@ func (app *App) handleHelpCommand(cmdArgs []string) error {
 	if len(cmdArgs) > 0 {
 		return app.showCommandHelp(cmdArgs[0])
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage})
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter})
 }
 
 // runCommand executes a specific command.
@@ -369,6 +379,7 @@ func (app *App) runCommand(cmdName string, args []string) error {
 		Args:        args,
 		GlobalFlags: app.globalFlags,
 		storage:     app.storage,
+		prompter:    app.prompter,
 	}
 
 	// Execute the command
@@ -380,6 +391,13 @@ func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string) {
 	var i int
 	for i = 0; i < len(args); i++ {
 		arg := args[i]
+
+		// WHY: "--" is the POSIX end-of-flags sentinel.
+		// Everything after it is a positional argument (the command).
+		if arg == "--" {
+			i++ // skip the sentinel itself
+			break
+		}
 
 		// Stop at first non-flag argument (the command)
 		if !strings.HasPrefix(arg, "-") {
@@ -411,12 +429,60 @@ func (app *App) processSingleFlag(args []string, i int) (processed []string, ski
 		return []string{arg}, false
 	}
 
-	// Flag that might need a value
-	if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-		return []string{arg, args[i+1]}, true
+	// WHY: for known value-accepting flags, always consume the next argument
+	// regardless of whether it starts with '-'. Legitimate values like "-5"
+	// (negative numbers) or "-pattern" must not be mistaken for flags.
+	// For unknown flags, fall back to the prefix heuristic.
+	if i+1 < len(args) {
+		nextArg := args[i+1]
+		isKnownValue := app.isValueGlobalFlag(arg)
+
+		if isKnownValue || !strings.HasPrefix(nextArg, "-") {
+			// WHY: flash-flags treats long-flag arguments starting with '-'
+			// as separate flags (e.g., --offset -5 fails). Short flags (-o -5)
+			// are handled correctly by flash-flags. To work around the long-flag
+			// limitation, merge into --flag=value form for the parser.
+			if isKnownValue && strings.HasPrefix(nextArg, "-") && strings.HasPrefix(arg, "--") {
+				merged := arg + "=" + nextArg
+				return []string{merged}, true
+			}
+			return []string{arg, nextArg}, true
+		}
 	}
 
 	return []string{arg}, false
+}
+
+// isValueGlobalFlag checks if the given argument is a registered non-boolean
+// global flag (i.e., a flag that expects a value argument).
+// WHY: needed to correctly handle values starting with '-' like --offset -5.
+func (app *App) isValueGlobalFlag(arg string) bool {
+	if strings.HasPrefix(arg, "--") {
+		flagName := arg[2:]
+		// Flags with embedded value (--flag=val) already handled by caller
+		if strings.ContainsRune(flagName, '=') {
+			return false
+		}
+		if f := app.globalFlags.Lookup(flagName); f != nil && f.Type() != "bool" {
+			return true
+		}
+		return false
+	}
+
+	if len(arg) == 2 && arg[0] == '-' {
+		shortKey := string(arg[1])
+		if app.globalFlags != nil {
+			var isValue bool
+			app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
+				if flag.ShortKey() == shortKey && flag.Type() != "bool" {
+					isValue = true
+				}
+			})
+			return isValue
+		}
+	}
+
+	return false
 }
 
 // isBooleanGlobalFlag checks if the given argument is a boolean global flag.

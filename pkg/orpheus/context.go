@@ -31,6 +31,10 @@ type Context struct {
 	// Storage provides access to the configured storage backend (optional)
 	// Will be nil if storage is not configured for this application
 	storage Storage
+
+	// prompter provides interactive terminal prompts (optional).
+	// Will be nil if no prompter is configured (non-interactive mode).
+	prompter Prompter
 }
 
 // GetArg returns the argument at the specified index.
@@ -198,4 +202,25 @@ func (ctx *Context) RequireStorage() (Storage, error) {
 // This is typically called during application initialization.
 func (ctx *Context) SetStorage(storage Storage) {
 	ctx.storage = storage
+}
+
+// Prompter returns the configured prompter, or nil if not configured.
+// Handlers should check for nil before using:
+//
+//	p := ctx.Prompter()
+//	if p == nil {
+//	    return fmt.Errorf("interactive mode required")
+//	}
+func (ctx *Context) Prompter() Prompter {
+	return ctx.prompter
+}
+
+// RequirePrompter returns the prompter or an error if not configured.
+// WHY: commands that need user input should fail clearly when running
+// in non-interactive mode (e.g., cron, CI, piped input without prompter).
+func (ctx *Context) RequirePrompter() (Prompter, error) {
+	if ctx.prompter == nil {
+		return nil, ValidationError("", "interactive prompts not available: no prompter configured")
+	}
+	return ctx.prompter, nil
 }

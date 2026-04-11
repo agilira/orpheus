@@ -66,7 +66,10 @@ func main() {
 	app.Command("security-test", "Run security tests", securityTestCmd)
 
 	app.SetDefaultCommand("help")
-	app.Run(os.Args[1:])
+	if err := app.Run(os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func testCmd(ctx *orpheus.Context) error {
