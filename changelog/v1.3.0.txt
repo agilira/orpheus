@@ -1,0 +1,111 @@
+Orpheus v1.3.0 - Feature + Bug Fix Release
+============================================
+
+Release Date: May 3, 2026
+Type: Minor Release (new API + bug fix)
+
+NEW FEATURES
+-------------
+
+Positional Argument API:
+  Three new accessors on Context for retrieving the parser's
+  POST-PARSE positional arguments — flag tokens (--name) and their
+  values are excluded by construction:
+
+  - ctx.Positional() []string         -- the full positional slice
+  - ctx.PositionalCount() int         -- length of that slice
+  - ctx.GetPositional(index int) str  -- safe single-index accessor
+
+  WHY add this alongside the existing Args / GetArg / ArgCount
+  surface: ctx.Args is documented to carry the RAW arguments passed
+  to the command (after the command name) and consumers may rely on
+  that semantics. Handlers that needed the post-parse positional
+  view were forced to filter ctx.Args against ctx.Flags by hand —
+  error-prone enough that command bodies of the shape
+
+      app cmd --flag value
+
+  silently treated "--flag" as ctx.GetArg(0) and a positional-required
+  check ("if ArgCount() < 1 { return error }") quietly accepted the
+  call, executing the handler with a flag token in place of the
+  expected positional.
+
+  Positional() exposes the value flashflags already computes during
+  Parse, fixing the failure mode without changing the documented
+  Args semantics. Both APIs coexist; choose by intent.
+
+  Nil-safety: all three methods return safe zero values when
+  ctx.Flags is nil (e.g. tests building a Context outside the
+  dispatch chain). No panics.
+
+  Test coverage in subcommands_test.go:
+    - TestSubcommand_PositionalAPIExcludesFlagTokens
+    - TestContext_PositionalAPI_ZeroValueSafety
+
+BUG FIXES
+----------
+
+Subcommand Context Propagation:
+  Fixed a regression in handleSubcommands() where the Prompter and
+  Storage configured on the App via SetPrompter() / SetStorage()
+  were silently dropped when execution reached a subcommand handler.
+
+  Before this fix, every interactive flow that lived under a
+  subcommand path failed at runtime with "no prompter configured":
+
+      app secret set --principal X reference     # AskSecret crashed
+      app remote add --name origin URL           # any subcommand-tree
+                                                 # Ask/AskSecret/Choose call
+
+  Storage-aware subcommand handlers had the same blind-spot:
+  ctx.Storage() returned nil even though the parent App was
+  correctly wired with SetStorage().
+
+  Root cause: handleSubcommands() built a fresh Context for the
+  subcommand and forgot to copy the prompter and storage fields
+  from the parent context. The fix is two field assignments plus a
+  pair of regression tests:
+
+      newCtx := &Context{
+          App:         ctx.App,
+          Args:        args[1:],
+          GlobalFlags: ctx.GlobalFlags,
+          Command:     subcmd,
+          storage:     ctx.storage,    // NEW
+          prompter:    ctx.prompter,   // NEW
+      }
+
+  Two regression tests added to subcommands_test.go:
+
+  - TestSubcommand_PrompterPropagatesToHandler
+  - TestSubcommand_StoragePropagatesToHandler
+
+  Both fail loudly if a future refactor of handleSubcommands drops
+  the propagation again.
+
+QUALITY ASSURANCE
+------------------
+
+  - go fmt, go vet: clean
+  - go test -race: PASS (full suite, including the four new
+    regression / coverage tests)
+
+UPGRADE NOTES
+--------------
+
+  Strictly backward-compatible. No existing API removed or changed.
+  The new Positional* methods are additive; ctx.Args / GetArg /
+  ArgCount keep their documented raw-input semantics for callers
+  that depend on them.
+
+  Applications hit by the subcommand-prompter regression start
+  working without code changes after upgrading the dependency.
+
+  Applications that want the post-parse positional view should
+  migrate ctx.GetArg / ctx.ArgCount to ctx.GetPositional /
+  ctx.PositionalCount at their leisure — the old methods continue
+  to work as before.
+
+---
+
+Orpheus - an AGILira library

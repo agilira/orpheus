@@ -51,6 +51,53 @@ func (ctx *Context) ArgCount() int {
 	return len(ctx.Args)
 }
 
+// Positional returns the slice of POSITIONAL arguments after flag
+// parsing — flag tokens (--name) and their values are excluded. The
+// returned slice is the parser's view; callers iterate without
+// risking flag tokens being mistaken for positionals.
+//
+// WHY a dedicated method: ctx.Args is documented to carry the RAW
+// args passed to the command (after the command name) and consumers
+// may rely on that semantics. Handlers that need post-parse
+// positionals were stuck reconstructing them by filtering ctx.Args
+// against ctx.Flags — error-prone. Positional() exposes the value
+// flashflags already computed.
+//
+// Returns nil when no flags have been parsed yet (e.g. the command
+// has no handler attached or ctx is built outside the dispatch
+// path); callers MUST nil-check before indexing.
+func (ctx *Context) Positional() []string {
+	if ctx.Flags == nil {
+		return nil
+	}
+	return ctx.Flags.Args()
+}
+
+// PositionalCount returns the number of positional arguments after
+// flag parsing. Companion to Positional(); see its docstring for
+// the WHY-vs-ArgCount contrast.
+func (ctx *Context) PositionalCount() int {
+	if ctx.Flags == nil {
+		return 0
+	}
+	return len(ctx.Flags.Args())
+}
+
+// GetPositional returns the positional argument at the given index,
+// or empty string if the index is out of range. Companion to
+// PositionalCount(); see Positional() for the semantic contrast
+// against GetArg.
+func (ctx *Context) GetPositional(index int) string {
+	if ctx.Flags == nil {
+		return ""
+	}
+	args := ctx.Flags.Args()
+	if index < 0 || index >= len(args) {
+		return ""
+	}
+	return args[index]
+}
+
 // GetFlag returns the value of a flag as interface{}.
 func (ctx *Context) GetFlag(name string) interface{} {
 	if ctx.Flags != nil {

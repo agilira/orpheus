@@ -248,12 +248,23 @@ func (c *Command) handleSubcommands(ctx *Context, args []string) (bool, error) {
 	}
 
 	if subcmd := c.GetSubcommand(potentialSubcmd); subcmd != nil {
-		// Execute subcommand with remaining args
+		// Execute subcommand with remaining args.
+		//
+		// WHY propagate prompter and storage: handlers reached
+		// through a subcommand path (e.g. `app cmd subcmd`) MUST
+		// see the same Prompter and Storage the App configured at
+		// SetPrompter / SetStorage time. Before this propagation
+		// the fields silently became nil for every nested handler,
+		// breaking interactive flows where the operator expects an
+		// Ask/AskSecret prompt at the leaf and storage-aware
+		// handlers that only run inside subcommand trees.
 		newCtx := &Context{
 			App:         ctx.App,
 			Args:        args[1:], // Remove subcommand name
 			GlobalFlags: ctx.GlobalFlags,
 			Command:     subcmd,
+			storage:     ctx.storage,
+			prompter:    ctx.prompter,
 		}
 		err := subcmd.Execute(newCtx)
 		return true, err // Subcommand was executed

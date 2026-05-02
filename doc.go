@@ -20,6 +20,8 @@
 //   - Plugin-based extensible architecture with storage interface
 //   - Dynamic plugin loading with comprehensive security validation
 //   - Thread-safe storage operations with statistical tracking
+//   - Interactive Prompts: Prompter interface for text, secrets, menus, confirmations
+//   - Positional argument API: post-parse positionals separated from flag tokens
 //
 // Storage Interface:
 //   - Key-value storage abstraction with pluggable backends
@@ -103,6 +105,6 @@
 //   - examples/storage directory - Storage plugin system with memory provider
 //   - examples/filemanager directory - Advanced file operations with security
 //   - docs/SECURITY.md for comprehensive security documentation
-//   - docs/API.md for complete API reference
+//   - docs/API.md for complete API reference (Positional, Prompter, Storage, Errors)
 //   - docs/STORAGE.md for storage interface documentation
 package orpheus

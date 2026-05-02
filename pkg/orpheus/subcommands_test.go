@@ -315,3 +315,139 @@ func TestSubcommandReturnsCreatedSubcommand(t *testing.T) {
 		t.Errorf("Expected flag value 'value', got '%s'", flagValue)
 	}
 }
+
+// TestSubcommand_PrompterPropagatesToHandler is a regression guard
+// for the bug where Context.Prompter() returned nil inside a
+// subcommand handler even though the parent App had SetPrompter(). The
+// fix was to copy ctx.prompter into the newCtx built inside
+// handleSubcommands; without it, every interactive subcommand flow
+// (e.g. `app cmd subcmd` calling AskSecret at the leaf) crashed
+// with "no prompter configured" at runtime.
+func TestSubcommand_PrompterPropagatesToHandler(t *testing.T) {
+	app := New("propagation")
+	// Custom prompter the test can recognise via type assertion.
+	prompter := NewPrompterFrom(strings.NewReader("ignored\n"), &testWriter{}, -1)
+	app.SetPrompter(prompter)
+
+	parent := NewCommand("parent", "Parent command")
+	var leafSawPrompter bool
+	parent.AddSubcommand(
+		NewCommand("child", "Leaf").SetHandler(func(ctx *Context) error {
+			leafSawPrompter = ctx.Prompter() != nil
+			return nil
+		}),
+	)
+	app.AddCommand(parent)
+
+	if err := app.Run([]string{"parent", "child"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !leafSawPrompter {
+		t.Fatal("subcommand leaf observed nil prompter — App.SetPrompter must propagate through subcommand chain")
+	}
+}
+
+// TestSubcommand_StoragePropagatesToHandler is the storage twin of
+// the prompter regression test above. Same root cause, same fix.
+func TestSubcommand_StoragePropagatesToHandler(t *testing.T) {
+	app := New("propagation")
+	app.SetStorage(NewMockStorage())
+
+	parent := NewCommand("parent", "Parent command")
+	var leafSawStorage bool
+	parent.AddSubcommand(
+		NewCommand("child", "Leaf").SetHandler(func(ctx *Context) error {
+			leafSawStorage = ctx.Storage() != nil
+			return nil
+		}),
+	)
+	app.AddCommand(parent)
+
+	if err := app.Run([]string{"parent", "child"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !leafSawStorage {
+		t.Fatal("subcommand leaf observed nil storage — App.SetStorage must propagate through subcommand chain")
+	}
+}
+
+// testWriter discards everything written to it. Local helper so the
+// regression tests stay self-contained — no extra imports needed.
+type testWriter struct{}
+
+func (*testWriter) Write(p []byte) (int, error) { return len(p), nil }
+
+// TestSubcommand_PositionalAPIExcludesFlagTokens pins the new
+// ctx.Positional / PositionalCount / GetPositional API: post-parse
+// positional args MUST exclude flag tokens and their values. Before
+// the API existed, handlers reaching for "the positional after my
+// flag" had to filter ctx.Args (raw input) by hand against
+// ctx.Flags — error-prone enough to silently swallow flag tokens as
+// positionals (e.g. `app cmd --flag value` made ctx.GetArg(0)
+// return "--flag"). ctx.ArgCount / GetArg keep their documented
+// raw-input semantics; this test pins the new POSITIONAL contract
+// alongside.
+func TestSubcommand_PositionalAPIExcludesFlagTokens(t *testing.T) {
+	app := New("argscope")
+	parent := NewCommand("parent", "Parent")
+	var leafPosCount int
+	var leafFirstPos string
+	var leafFlagValue string
+	parent.AddSubcommand(
+		NewCommand("child", "Leaf").
+			AddFlag("token", "t", "", "auth token").
+			SetHandler(func(ctx *Context) error {
+				leafPosCount = ctx.PositionalCount()
+				leafFirstPos = ctx.GetPositional(0)
+				leafFlagValue = ctx.GetFlagString("token")
+				return nil
+			}),
+	)
+	app.AddCommand(parent)
+
+	if err := app.Run([]string{"parent", "child", "--token", "secret-value"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if leafFlagValue != "secret-value" {
+		t.Errorf("flag --token: got %q, want secret-value", leafFlagValue)
+	}
+	if leafPosCount != 0 {
+		t.Errorf("PositionalCount after flag-only invocation: got %d, want 0", leafPosCount)
+	}
+	if leafFirstPos != "" {
+		t.Errorf("GetPositional(0) MUST be empty when no positional supplied; got %q", leafFirstPos)
+	}
+
+	// Positional alongside a flag: PositionalCount returns exactly
+	// the non-flag tokens, in order.
+	leafPosCount = 0
+	leafFirstPos = ""
+	leafFlagValue = ""
+	if err := app.Run([]string{"parent", "child", "--token", "v", "real-positional"}); err != nil {
+		t.Fatalf("Run with positional: %v", err)
+	}
+	if leafPosCount != 1 || leafFirstPos != "real-positional" {
+		t.Errorf("positional after flag: got count=%d first=%q, want count=1 first=real-positional",
+			leafPosCount, leafFirstPos)
+	}
+	if leafFlagValue != "v" {
+		t.Errorf("flag value lost when positional follows: got %q, want v", leafFlagValue)
+	}
+}
+
+// TestContext_PositionalAPI_ZeroValueSafety pins the nil-Flags
+// contract documented on the Positional* methods — handlers that
+// hold a Context built outside the dispatch chain (tests, fakes)
+// must not panic when calling the new accessors.
+func TestContext_PositionalAPI_ZeroValueSafety(t *testing.T) {
+	ctx := &Context{} // no Flags wired
+	if got := ctx.Positional(); got != nil {
+		t.Errorf("Positional() with nil Flags: got %v, want nil", got)
+	}
+	if got := ctx.PositionalCount(); got != 0 {
+		t.Errorf("PositionalCount() with nil Flags: got %d, want 0", got)
+	}
+	if got := ctx.GetPositional(0); got != "" {
+		t.Errorf("GetPositional(0) with nil Flags: got %q, want empty", got)
+	}
+}

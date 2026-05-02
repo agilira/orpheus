@@ -1,5 +1,30 @@
 # Orpheus Examples
 
+## Positional Arguments (v1.3.0)
+
+Use `ctx.Positional()` / `ctx.PositionalCount()` / `ctx.GetPositional(index)`
+when you need the post-parse positional values without flag tokens.
+
+```go
+// Before v1.3.0 — ctx.GetArg(0) returns "--output" when the user
+// types: app convert --output report.pdf input.txt
+// A check like "if ctx.ArgCount() < 1" silently accepts the call.
+
+// v1.3.0 — use Positional* to express the intent correctly.
+convertCmd := orpheus.NewCommand("convert", "Convert a file").
+    AddFlag("output", "o", "", "Output file path").
+    SetHandler(func(ctx *orpheus.Context) error {
+        if ctx.PositionalCount() < 1 {
+            return orpheus.ValidationError("convert", "input file required").
+                WithUserMessage("Please provide the input file path")
+        }
+        input := ctx.GetPositional(0)  // "input.txt" — flag tokens excluded
+        output := ctx.GetFlagString("output")
+        fmt.Printf("Converting %s → %s\n", input, output)
+        return nil
+    })
+```
+
 ## Advanced Features
 
 ### Custom Completion

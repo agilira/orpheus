@@ -98,13 +98,44 @@ cmd.AddStringSliceFlag("tags", "t", []string{}, "Tags")
 
 ### Arguments
 
+The `Args` surface returns the **raw arguments** passed to the command after the
+command name. Flag tokens (`--name`) and their values are included in this slice.
+Use this API when you rely on the documented raw-input semantics.
+
 ```go
-// Get argument count
+// Get raw argument count (includes flag tokens)
 count := ctx.ArgCount()
 
-// Get argument by index
+// Get raw argument by index
 arg := ctx.GetArg(index)
 ```
+
+### Positional Arguments
+
+Added in v1.3.0. These accessors return the **post-parse positional arguments**:
+flag tokens and their values are excluded by construction. Use this API when you
+need to validate that the user supplied positional values independently of any
+flags that may also be present.
+
+```go
+// Full positional slice (flag tokens excluded)
+positionals := ctx.Positional()
+
+// Number of positional arguments
+count := ctx.PositionalCount()
+
+// Safe single-index accessor — returns "" when index is out of range
+value := ctx.GetPositional(index)
+```
+
+All three methods return safe zero values when `ctx.Flags` is nil (e.g. tests
+building a `Context` outside the dispatch chain).
+
+**Choosing between `Args` and `Positional`:** if your handler receives
+`app cmd --flag value positional`, `ctx.GetArg(0)` returns `"--flag"` while
+`ctx.GetPositional(0)` returns `"positional"`. A required-positional check
+using `ArgCount() < 1` silently accepts the call in the former case; use
+`PositionalCount() < 1` to express the intent correctly.
 
 ### Command Flags
 
@@ -129,6 +160,62 @@ namespace := ctx.GetGlobalFlagString("namespace")
 
 // Check if global flag was set
 changed := ctx.GlobalFlagChanged("verbose")
+```
+
+### Interactive Prompts (v1.2.0)
+
+Configure a `Prompter` on the `App` and retrieve it in any handler.
+Use `NewTerminalPrompter()` for real terminal interaction; inject a mock
+implementation in tests for deterministic execution.
+
+```go
+// Wire a terminal prompter at application startup
+app.SetPrompter(orpheus.NewTerminalPrompter())
+
+// In a handler — get the prompter (returns error if not configured)
+p, err := ctx.RequirePrompter()
+if err != nil {
+    return err
+}
+
+name, err := p.Ask("Your name", "anonymous")   // free-text input
+pass, err := p.AskSecret("Password")            // masked terminal input
+idx,  err := p.Choose("Environment", []string{"dev", "staging", "prod"}) // 0-based
+ok,   err := p.Confirm("Deploy now?", false)    // yes/no
+```
+
+| Method | Purpose | Return |
+|---|---|---|
+| `Ask(prompt, default)` | Free-text input with optional default | `(string, error)` |
+| `AskSecret(prompt)` | Masked password/key entry via `golang.org/x/term` | `(string, error)` |
+| `Choose(prompt, options)` | Numbered menu selection | `(int, error)` (0-based) |
+| `Confirm(prompt, defaultYes)` | Yes/no question | `(bool, error)` |
+
+Subcommand context propagation: `Prompter` and `Storage` are automatically
+propagated to subcommand handlers — no manual threading required (fixed v1.3.0).
+
+### Storage
+
+Configure a storage backend on the `App` and access it in any handler.
+
+```go
+// Wire a storage backend at application startup
+app.SetStorage(myStorageBackend)
+
+// In a handler
+storage, err := ctx.RequireStorage()
+if err != nil {
+    return err
+}
+
+if err := storage.Set(ctx, "key", []byte("value")); err != nil {
+    return err
+}
+data, err := storage.Get(ctx, "key")
+keys, err := storage.List(ctx, "prefix:")
+if err := storage.Delete(ctx, "key"); err != nil {
+    return err
+}
 ```
 
 ## Error Handling
