@@ -1,6 +1,6 @@
 module github.com/agilira/orpheus
 
-go 1.25.0
+go 1.25.9
 
 require github.com/agilira/flash-flags v1.1.7
 
