@@ -7,6 +7,7 @@
 package orpheus_test
 
 import (
+	"context"
 	"io"
 	"os"
 	"strings"
@@ -110,6 +111,97 @@ func TestCommandWithArgs(t *testing.T) {
 		if receivedArgs[i] != expected {
 			t.Errorf("expected arg[%d] = '%s', got '%s'", i, expected, receivedArgs[i])
 		}
+	}
+}
+
+type appContextKey string
+
+func TestRunUsesBackgroundContext(t *testing.T) {
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+
+	if err := app.Run([]string{"test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received == nil {
+		t.Fatal("expected command context")
+	}
+	if err := received.Err(); err != nil {
+		t.Errorf("expected background context without error, got %v", err)
+	}
+}
+
+func TestRunContextNilUsesBackgroundContext(t *testing.T) {
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+
+	if err := app.RunContext(context.TODO(), []string{"test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received == nil {
+		t.Fatal("expected command context")
+	}
+	if err := received.Err(); err != nil {
+		t.Errorf("expected background context without error, got %v", err)
+	}
+}
+
+func TestRunContextPropagatesContextToCommand(t *testing.T) {
+	const key appContextKey = "request-id"
+	parent := context.WithValue(context.Background(), key, "abc-123")
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+
+	if err := app.RunContext(parent, []string{"test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received != parent {
+		t.Fatal("expected RunContext parent to be passed to command")
+	}
+	if got := received.Value(key); got != "abc-123" {
+		t.Errorf("expected propagated value abc-123, got %v", got)
+	}
+}
+
+func TestRunContextPropagatesContextToDefaultCommand(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	cancel()
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("default", "Default command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+	app.SetDefaultCommand("default")
+
+	if err := app.RunContext(parent, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received != parent {
+		t.Fatal("expected RunContext parent to be passed to default command")
+	}
+	if err := received.Err(); err != context.Canceled {
+		t.Errorf("expected canceled context, got %v", err)
 	}
 }
 

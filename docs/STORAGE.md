@@ -18,6 +18,9 @@ The storage system is built on three core principles:
 package main
 
 import (
+    "log"
+    "os"
+
     "github.com/agilira/orpheus/pkg/orpheus"
 )
 
@@ -39,7 +42,9 @@ func main() {
     app.Command("set", "Set a key-value pair", setCommand).
     app.Command("get", "Get a value by key", getCommand)
     
-    app.Run()
+    if err := app.Run(os.Args[1:]); err != nil {
+        log.Fatal(err)
+    }
 }
 
 func setCommand(ctx *orpheus.Context) error {
@@ -635,7 +640,7 @@ func main() {
         }
     }()
     
-    app.Run()
+    app.Run(os.Args[1:])
 }
 ```
 

@@ -169,7 +169,9 @@ package main
 
 import (
     "context"
+    "os"
     "time"
+
     "github.com/agilira/orpheus/pkg/orpheus"
 )
 
@@ -183,32 +185,33 @@ func main() {
 
     app.Command("process", "Process data with full observability", func(ctx *orpheus.Context) error {
         start := time.Now()
+        runCtx := ctx.Context()
         
         // Distributed tracing
         var span orpheus.Span
         if tracer := ctx.Tracer(); tracer != nil {
-            spanCtx, s := tracer.StartSpan(context.Background(), "process_data")
+            var s orpheus.Span
+            runCtx, s = tracer.StartSpan(runCtx, "process_data")
             span = s
             defer span.End()
-            ctx = context.WithValue(ctx, "span_context", spanCtx)
         }
         
         // Structured logging
         if logger := ctx.Logger(); logger != nil {
-            logger.Info(context.Background(), "Processing started",
+            logger.Info(runCtx, "Processing started",
                 StringField("operation", "process"),
             )
         }
         
         // Audit logging
         if audit := ctx.AuditLogger(); audit != nil {
-            audit.LogCommand(context.Background(), "process", ctx.Args(), "demo-user")
+            audit.LogCommand(runCtx, "process", ctx.Args, "demo-user")
         }
         
         // Metrics
         if metrics := ctx.MetricsCollector(); metrics != nil {
             counter := metrics.Counter("commands_total", "Total commands", "command")
-            counter.Inc(context.Background(), "process")
+            counter.Inc(runCtx, "process")
         }
         
         // Your business logic here
@@ -229,24 +232,30 @@ func main() {
         
         if logger := ctx.Logger(); logger != nil {
             if err != nil {
-                logger.Error(context.Background(), "Processing failed", ErrorField(err))
+                logger.Error(runCtx, "Processing failed", ErrorField(err))
             } else {
-                logger.Info(context.Background(), "Processing completed successfully",
+                logger.Info(runCtx, "Processing completed successfully",
                     IntField("duration_ms", int(duration)),
                 )
             }
         }
         
         if audit := ctx.AuditLogger(); audit != nil {
-            audit.LogPerformance(context.Background(), "process", duration)
+            audit.LogPerformance(runCtx, "process", duration)
         }
         
         return err
     })
     
-    app.Run(os.Args[1:])
+    if err := app.Run(os.Args[1:]); err != nil {
+        panic(err)
+    }
 }
 ```
+
+When a CLI receives a parent context with `app.RunContext(ctx, args)`, handlers
+can pass `ctx.Context()` to loggers, tracers, metrics, storage, HTTP clients, and
+other context-aware dependencies for cancellation and correlation.
 
 ## OpenTelemetry Integration
 

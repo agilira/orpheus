@@ -42,9 +42,16 @@ app.AddGlobalIntFlag("count", "c", 10, "Count value")
 ### Execution
 
 ```go
-// Run the application
+// Run the application with a background context
 err := app.Run(args)
+
+// Run with caller-owned cancellation, deadlines, values, or tracing context
+err := app.RunContext(ctx, args)
 ```
+
+`Run` preserves the simple path and uses `context.Background()` internally.
+Use `RunContext` when your CLI should react to cancellation from signals,
+timeouts, parent processes, or request-scoped observability.
 
 ## Command Methods
 
@@ -95,6 +102,17 @@ cmd.AddStringSliceFlag("tags", "t", []string{}, "Tags")
 ```
 
 ## Context Methods
+
+### Execution Context
+
+```go
+// Access the parent context passed through App.RunContext.
+// For manually constructed Context values, this falls back to context.Background().
+ctx.Context()
+```
+
+Command handlers can use `ctx.Context()` when calling context-aware APIs such as
+storage providers, tracers, loggers, HTTP clients, or long-running operations.
 
 ### Arguments
 

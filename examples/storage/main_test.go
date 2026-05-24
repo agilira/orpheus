@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -46,26 +47,68 @@ func (l *TestLogger) GetLogs() []string { return l.logs }
 
 func (l *TestLogger) Clear() { l.logs = []string{} }
 
-func setupTestApp(t *testing.T) (*orpheus.App, *TestLogger) {
-	logger := &TestLogger{}
+func ensureMemoryPlugin(t *testing.T) string {
+	t.Helper()
+
+	pluginPath, err := filepath.Abs("./plugins/memory.so")
+	if err != nil {
+		t.Fatalf("failed to resolve plugin path: %v", err)
+	}
+	if _, err := os.Stat(pluginPath); err == nil {
+		return pluginPath
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("failed to stat plugin %s: %v", pluginPath, err)
+	}
+
+	buildMemoryPlugin(t)
+	return pluginPath
+}
+
+func buildMemoryPlugin(t *testing.T) {
+	t.Helper()
+
+	if err := os.MkdirAll("plugins", 0o755); err != nil {
+		t.Fatalf("failed to create plugins directory: %v", err)
+	}
+
+	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", "../plugins/memory.so", "memory.go")
+	cmd.Dir = "providers"
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Skipf("failed to build memory storage plugin: %v\n%s", err, string(output))
+	}
+}
+
+func newStorageTestApp(logger *TestLogger, pluginPath string) *orpheus.App {
 	app := orpheus.New("storage-demo-test").
 		SetDescription("Orpheus Storage Plugin Demo Test").
 		SetVersion("1.0.0").
 		SetLogger(logger)
-
-	// Check if plugin exists
-	pluginPath, _ := filepath.Abs("./plugins/memory.so")
-	if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
-		t.Skipf("Plugin not found at %s. Run build_plugins.sh first.", pluginPath)
-	}
 
 	config := &orpheus.StorageConfig{
 		Provider:   "memory",
 		PluginPath: pluginPath,
 		Config:     map[string]interface{}{},
 	}
-
 	app.ConfigureStorage(config)
+
+	return app
+}
+
+func setupTestApp(t *testing.T) (*orpheus.App, *TestLogger) {
+	logger := &TestLogger{}
+	pluginPath := ensureMemoryPlugin(t)
+	app := newStorageTestApp(logger, pluginPath)
+
+	if app.Storage() == nil {
+		t.Log("storage plugin did not load; rebuilding memory.so for the active Go toolchain")
+		buildMemoryPlugin(t)
+		app = newStorageTestApp(logger, pluginPath)
+	}
+	if app.Storage() == nil {
+		t.Fatalf("storage plugin did not load from %s after rebuild", pluginPath)
+	}
 
 	// Add all commands
 	app.Command("test", "Test plugin system", testCmd)

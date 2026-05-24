@@ -36,6 +36,7 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 - **Native Subcommands**: Git-style nested commands with automatic help generation
 - **Pluggable Storage System**: Dynamic .so plugin loading for persistent storage (SQLite, Redis, File, custom providers)
 - **Clean API**: Fluent interface for rapid development
+- **Context Propagation**: `RunContext` and `ctx.Context()` for cancellation, deadlines, and tracing
 - **Auto-completion**: Built-in bash/zsh/fish completion generation
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
@@ -46,7 +47,7 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 
 ## Compatibility and Support
 
-Orpheus is designed for Go 1.23+ environments and follows Long-Term Support guidelines to ensure consistent performance across production deployments.
+Orpheus is designed for Go 1.25.9+ environments and follows Long-Term Support guidelines to ensure consistent performance across production deployments.
 
 ## Performance
 
@@ -93,7 +94,7 @@ make fuzz-long     # Extended fuzzing (5min)
 ### Installation
 
 ```bash
-go get github.com/agilira/orpheus@v1.0.10  # Latest stable release
+go get github.com/agilira/orpheus@v1.4.0   # Latest stable release
 # or simply
 go get github.com/agilira/orpheus          # Always latest
 ```
@@ -131,6 +132,25 @@ func main() {
     if err := app.Run(os.Args[1:]); err != nil {
         log.Fatal(err)
     }
+}
+```
+
+### Context-aware Execution
+
+For production CLIs that need cancellation, deadlines, signal handling, or trace
+correlation, pass your own context with `RunContext` and read it inside handlers
+with `ctx.Context()`:
+
+```go
+runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer stop()
+
+app.Command("sync", "Synchronize data", func(ctx *orpheus.Context) error {
+    return syncData(ctx.Context())
+})
+
+if err := app.RunContext(runCtx, os.Args[1:]); err != nil {
+    log.Fatal(err)
 }
 ```
 
@@ -185,7 +205,12 @@ app.AddCommand(remoteCmd)
 Orpheus provides a pluggable storage system that allows CLI applications to persist state using various backends through a unified interface:
 
 ```go
-import "github.com/agilira/orpheus/pkg/orpheus"
+import (
+    "log"
+    "os"
+
+    "github.com/agilira/orpheus/pkg/orpheus"
+)
 
 func main() {
     app := orpheus.New("myapp").
@@ -206,7 +231,9 @@ func main() {
     app.Command("set", "Store a key-value pair", setCommand)
     app.Command("get", "Retrieve a value", getCommand)
     
-    app.Run()
+    if err := app.Run(os.Args[1:]); err != nil {
+        log.Fatal(err)
+    }
 }
 
 func setCommand(ctx *orpheus.Context) error {

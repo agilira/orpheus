@@ -22,6 +22,7 @@
 //   - Thread-safe storage operations with statistical tracking
 //   - Interactive Prompts: Prompter interface for text, secrets, menus, confirmations
 //   - Positional argument API: post-parse positionals separated from flag tokens
+//   - Context propagation through App.RunContext and Context.Context
 //
 // Storage Interface:
 //   - Key-value storage abstraction with pluggable backends
@@ -58,6 +59,15 @@
 //		return nil
 //	})
 //	app.Run(os.Args[1:])
+//
+// Context Propagation:
+//
+//	runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+//	defer stop()
+//	app.Command("run", "Run work", func(ctx *orpheus.Context) error {
+//		return doWork(ctx.Context())
+//	})
+//	app.RunContext(runCtx, os.Args[1:])
 //
 // Storage Usage:
 //
@@ -105,6 +115,6 @@
 //   - examples/storage directory - Storage plugin system with memory provider
 //   - examples/filemanager directory - Advanced file operations with security
 //   - docs/SECURITY.md for comprehensive security documentation
-//   - docs/API.md for complete API reference (Positional, Prompter, Storage, Errors)
+//   - docs/API.md for complete API reference (RunContext, Positional, Prompter, Storage, Errors)
 //   - docs/STORAGE.md for storage interface documentation
 package orpheus

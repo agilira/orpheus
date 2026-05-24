@@ -85,6 +85,18 @@ func TestContextNilArgs(t *testing.T) {
 	}
 }
 
+func TestContextContextDefaultsToBackground(t *testing.T) {
+	ctx := &orpheus.Context{}
+
+	if ctx.Context() == nil {
+		t.Fatal("expected non-nil context")
+	}
+
+	if err := ctx.Context().Err(); err != nil {
+		t.Errorf("expected default context without error, got %v", err)
+	}
+}
+
 func TestContextFlags(t *testing.T) {
 	ctx := &orpheus.Context{}
 

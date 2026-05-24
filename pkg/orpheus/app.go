@@ -285,13 +285,22 @@ func (app *App) SetDefaultCommand(cmdName string) *App {
 
 // Run executes the application with the given arguments.
 func (app *App) Run(args []string) error {
+	return app.RunContext(context.Background(), args)
+}
+
+// RunContext executes the application with the given arguments and parent context.
+func (app *App) RunContext(ctx context.Context, args []string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Handle empty args
 	if len(args) == 0 {
-		return app.handleEmptyArgs()
+		return app.handleEmptyArgs(ctx)
 	}
 
 	// Handle built-in flags
-	if handled, err := app.handleBuiltinFlags(args); handled {
+	if handled, err := app.handleBuiltinFlags(ctx, args); handled {
 		return err
 	}
 
@@ -302,24 +311,24 @@ func (app *App) Run(args []string) error {
 	}
 
 	// Handle command execution
-	return app.handleCommandExecution(cmdArgs)
+	return app.handleCommandExecution(ctx, cmdArgs)
 }
 
 // handleEmptyArgs handles the case when no arguments are provided.
-func (app *App) handleEmptyArgs() error {
+func (app *App) handleEmptyArgs(ctx context.Context) error {
 	if app.defaultCmd != "" {
-		return app.runCommand(app.defaultCmd, []string{})
+		return app.runCommand(ctx, app.defaultCmd, []string{})
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter})
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 }
 
 // handleBuiltinFlags handles built-in flags like --help and --version.
-func (app *App) handleBuiltinFlags(args []string) (handled bool, err error) {
+func (app *App) handleBuiltinFlags(ctx context.Context, args []string) (handled bool, err error) {
 	firstArg := args[0]
 
 	// Check for global help flag
 	if firstArg == "--help" || firstArg == "-h" {
-		return true, app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter})
+		return true, app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 	}
 
 	// Check for version flag
@@ -341,10 +350,10 @@ func (app *App) printVersion() {
 }
 
 // handleCommandExecution handles the execution of commands.
-func (app *App) handleCommandExecution(cmdArgs []string) error {
+func (app *App) handleCommandExecution(ctx context.Context, cmdArgs []string) error {
 	// Get command name
 	if len(cmdArgs) == 0 {
-		return app.handleEmptyArgs()
+		return app.handleEmptyArgs(ctx)
 	}
 
 	cmdName := cmdArgs[0]
@@ -352,38 +361,39 @@ func (app *App) handleCommandExecution(cmdArgs []string) error {
 
 	// Handle built-in help command
 	if cmdName == "help" {
-		return app.handleHelpCommand(cmdArgs)
+		return app.handleHelpCommand(ctx, cmdArgs)
 	}
 
-	return app.runCommand(cmdName, cmdArgs)
+	return app.runCommand(ctx, cmdName, cmdArgs)
 }
 
 // handleHelpCommand handles the built-in help command.
-func (app *App) handleHelpCommand(cmdArgs []string) error {
+func (app *App) handleHelpCommand(ctx context.Context, cmdArgs []string) error {
 	if len(cmdArgs) > 0 {
 		return app.showCommandHelp(cmdArgs[0])
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter})
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 }
 
 // runCommand executes a specific command.
-func (app *App) runCommand(cmdName string, args []string) error {
+func (app *App) runCommand(parentCtx context.Context, cmdName string, args []string) error {
 	cmd, exists := app.commands[cmdName]
 	if !exists {
 		return NotFoundError(cmdName, fmt.Sprintf("command '%s' not found", cmdName))
 	}
 
 	// Create execution context
-	ctx := &Context{
+	cmdCtx := &Context{
 		App:         app,
 		Args:        args,
 		GlobalFlags: app.globalFlags,
 		storage:     app.storage,
 		prompter:    app.prompter,
+		ctx:         parentCtx,
 	}
 
 	// Execute the command
-	return cmd.Execute(ctx)
+	return cmd.Execute(cmdCtx)
 }
 
 // splitGlobalArgs separates global flags from command and command args.

@@ -25,6 +25,44 @@ convertCmd := orpheus.NewCommand("convert", "Convert a file").
     })
 ```
 
+## Context Cancellation (v1.4.0)
+
+Use `RunContext` when the application owns cancellation, deadlines, or signal
+handling. Command handlers can read the same context through `ctx.Context()`.
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "os"
+    "os/signal"
+    "syscall"
+
+    "github.com/agilira/orpheus/pkg/orpheus"
+)
+
+func main() {
+    runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
+    app := orpheus.New("worker")
+    app.Command("run", "Run the worker", func(ctx *orpheus.Context) error {
+        select {
+        case <-ctx.Context().Done():
+            return ctx.Context().Err()
+        default:
+            return doWork(ctx.Context())
+        }
+    })
+
+    if err := app.RunContext(runCtx, os.Args[1:]); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
 ## Advanced Features
 
 ### Custom Completion

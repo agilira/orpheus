@@ -1,0 +1,26 @@
+Orpheus v1.4.0 - Context Propagation
+=====================================
+
+Release Date: 2026-05-24
+Type: Minor
+
+ADDED
+-----
+- Added App.RunContext(ctx, args) to execute CLI commands with a caller-provided
+  context.Context.
+- Added Context.Context() so command handlers can access cancellation, deadlines,
+  values, and tracing context from the execution path.
+
+CHANGED
+-------
+- App.Run(args) now delegates to RunContext(context.Background(), args), preserving
+  existing behavior while sharing one execution path.
+- Internal command dispatch now carries the execution context through default
+  commands, help handling, and normal command execution.
+
+NOTES
+-----
+- Signal handling remains application-owned. Production CLIs can use
+  signal.NotifyContext in main and pass the resulting context to RunContext.
+- This is a backwards-compatible public API addition, so the release is a semver
+  minor bump.

@@ -7,6 +7,8 @@
 package orpheus
 
 import (
+	"context"
+
 	flashflags "github.com/agilira/flash-flags"
 )
 
@@ -28,6 +30,9 @@ type Context struct {
 	// GlobalFlags is the parsed global flag set
 	GlobalFlags *flashflags.FlagSet
 
+	// ctx is the parent context for command execution.
+	ctx context.Context
+
 	// Storage provides access to the configured storage backend (optional)
 	// Will be nil if storage is not configured for this application
 	storage Storage
@@ -35,6 +40,15 @@ type Context struct {
 	// prompter provides interactive terminal prompts (optional).
 	// Will be nil if no prompter is configured (non-interactive mode).
 	prompter Prompter
+}
+
+// Context returns the parent context for command execution.
+// It falls back to context.Background when the context was built manually.
+func (ctx *Context) Context() context.Context {
+	if ctx.ctx != nil {
+		return ctx.ctx
+	}
+	return context.Background()
 }
 
 // GetArg returns the argument at the specified index.

@@ -111,7 +111,7 @@ config := &orpheus.PluginSecurityConfig{
 
 - `main.go` - Main application with CLI interface
 - `providers/` - Example storage provider implementations
-- `plugins/` - Pre-built plugin binaries for testing
+- `plugins/` - Local build output for plugin binaries (`*.so` files are ignored by git)
 - `security_test.go` - Comprehensive security validation
 - `benchmark_test.go` - Performance validation tests
 
