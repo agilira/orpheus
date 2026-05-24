@@ -116,12 +116,16 @@ func TestCommandWithArgs(t *testing.T) {
 
 type appContextKey string
 
-func TestRunUsesBackgroundContext(t *testing.T) {
+func TestRunUsesSignalAwareContext(t *testing.T) {
 	var received context.Context
+	var done <-chan struct{}
+	var runErr error
 
 	app := orpheus.New("testapp")
 	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
 		received = ctx.Context()
+		done = received.Done()
+		runErr = received.Err()
 		return nil
 	})
 
@@ -132,8 +136,11 @@ func TestRunUsesBackgroundContext(t *testing.T) {
 	if received == nil {
 		t.Fatal("expected command context")
 	}
-	if err := received.Err(); err != nil {
-		t.Errorf("expected background context without error, got %v", err)
+	if done == nil {
+		t.Fatal("expected Run to provide a signal-aware cancellable context")
+	}
+	if runErr != nil {
+		t.Errorf("expected signal-aware context without error during command execution, got %v", runErr)
 	}
 }
 

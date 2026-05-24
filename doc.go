@@ -22,7 +22,7 @@
 //   - Thread-safe storage operations with statistical tracking
 //   - Interactive Prompts: Prompter interface for text, secrets, menus, confirmations
 //   - Positional argument API: post-parse positionals separated from flag tokens
-//   - Context propagation through App.RunContext and Context.Context
+//   - Signal-aware Run and explicit context propagation through App.RunContext
 //
 // Storage Interface:
 //   - Key-value storage abstraction with pluggable backends
@@ -62,11 +62,14 @@
 //
 // Context Propagation:
 //
-//	runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-//	defer stop()
 //	app.Command("run", "Run work", func(ctx *orpheus.Context) error {
 //		return doWork(ctx.Context())
 //	})
+//	app.Run(os.Args[1:]) // signal-aware by default
+//
+//	// Use RunContext when the caller owns cancellation or deadlines.
+//	runCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+//	defer cancel()
 //	app.RunContext(runCtx, os.Args[1:])
 //
 // Storage Usage:

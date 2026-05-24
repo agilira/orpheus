@@ -42,16 +42,17 @@ app.AddGlobalIntFlag("count", "c", 10, "Count value")
 ### Execution
 
 ```go
-// Run the application with a background context
+// Run the application with Orpheus' default signal-aware context
 err := app.Run(args)
 
 // Run with caller-owned cancellation, deadlines, values, or tracing context
 err := app.RunContext(ctx, args)
 ```
 
-`Run` preserves the simple path and uses `context.Background()` internally.
-Use `RunContext` when your CLI should react to cancellation from signals,
-timeouts, parent processes, or request-scoped observability.
+`Run` handles the common CLI lifecycle: command handlers can observe Ctrl-C and,
+on POSIX platforms, SIGTERM cancellation through `ctx.Context()`. Use
+`RunContext` when a caller already owns the lifecycle, such as tests, embedded
+CLIs, parent processes, timeouts, or request-scoped observability.
 
 ## Command Methods
 
@@ -106,13 +107,14 @@ cmd.AddStringSliceFlag("tags", "t", []string{}, "Tags")
 ### Execution Context
 
 ```go
-// Access the parent context passed through App.RunContext.
+// Access the execution context from App.Run or App.RunContext.
 // For manually constructed Context values, this falls back to context.Background().
 ctx.Context()
 ```
 
 Command handlers can use `ctx.Context()` when calling context-aware APIs such as
 storage providers, tracers, loggers, HTTP clients, or long-running operations.
+With `Run`, this context is canceled by Orpheus' default signal handling.
 
 ### Arguments
 

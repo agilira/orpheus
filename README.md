@@ -36,7 +36,7 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 - **Native Subcommands**: Git-style nested commands with automatic help generation
 - **Pluggable Storage System**: Dynamic .so plugin loading for persistent storage (SQLite, Redis, File, custom providers)
 - **Clean API**: Fluent interface for rapid development
-- **Context Propagation**: `RunContext` and `ctx.Context()` for cancellation, deadlines, and tracing
+- **Context Propagation**: `Run` is signal-aware by default; `RunContext` supports custom cancellation, deadlines, and tracing
 - **Auto-completion**: Built-in bash/zsh/fish completion generation
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
@@ -137,9 +137,21 @@ func main() {
 
 ### Context-aware Execution
 
-For production CLIs that need cancellation, deadlines, signal handling, or trace
-correlation, pass your own context with `RunContext` and read it inside handlers
-with `ctx.Context()`:
+`Run` installs Orpheus' default signal-aware context, so command handlers can
+observe Ctrl-C/SIGTERM cancellation through `ctx.Context()` without extra setup:
+
+```go
+app.Command("sync", "Synchronize data", func(ctx *orpheus.Context) error {
+    return syncData(ctx.Context())
+})
+
+if err := app.Run(os.Args[1:]); err != nil {
+    log.Fatal(err)
+}
+```
+
+Use `RunContext` when your application owns the lifecycle, needs a deadline, or
+wants to provide a parent tracing context:
 
 ```go
 runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

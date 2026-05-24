@@ -284,8 +284,12 @@ func (app *App) SetDefaultCommand(cmdName string) *App {
 }
 
 // Run executes the application with the given arguments.
+// It installs Orpheus' default signal-aware context so command handlers can
+// observe Ctrl-C cancellation, plus SIGTERM on POSIX platforms, through ctx.Context().
 func (app *App) Run(args []string) error {
-	return app.RunContext(context.Background(), args)
+	ctx, stop := defaultRunContext()
+	defer stop()
+	return app.RunContext(ctx, args)
 }
 
 // RunContext executes the application with the given arguments and parent context.

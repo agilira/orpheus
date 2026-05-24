@@ -27,8 +27,9 @@ convertCmd := orpheus.NewCommand("convert", "Convert a file").
 
 ## Context Cancellation (v1.4.0)
 
-Use `RunContext` when the application owns cancellation, deadlines, or signal
-handling. Command handlers can read the same context through `ctx.Context()`.
+`Run` already provides Orpheus' default signal-aware context. Use `RunContext`
+when the application owns cancellation, deadlines, or a parent tracing context.
+Command handlers can read the active execution context through `ctx.Context()`.
 
 ```go
 package main

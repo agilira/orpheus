@@ -107,7 +107,7 @@ func setupTestApp(t *testing.T) (*orpheus.App, *TestLogger) {
 		app = newStorageTestApp(logger, pluginPath)
 	}
 	if app.Storage() == nil {
-		t.Fatalf("storage plugin did not load from %s after rebuild", pluginPath)
+		t.Fatalf("storage plugin did not load from %s after rebuild; logs: %s", pluginPath, strings.Join(logger.GetLogs(), "; "))
 	}
 
 	// Add all commands

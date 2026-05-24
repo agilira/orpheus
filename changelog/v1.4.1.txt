@@ -1,0 +1,27 @@
+Orpheus v1.4.1 - Signal-Aware Run
+==================================
+
+Release Date: 2026-05-24
+Type: Patch
+
+FIXED
+-----
+- App.Run(args) now installs Orpheus' default signal-aware context so command
+  handlers can observe Ctrl-C cancellation (and SIGTERM on POSIX platforms)
+  through ctx.Context() without any extra setup. This completes the intended
+  v1.4.0 behavior that was accidentally omitted from that release.
+- Fixed nil Context passed to App.RunContext in test suite (SA1012).
+- Improved storage example test error message to include plugin log output on
+  failure.
+
+CHANGED
+-------
+- Documentation updated across README, doc.go, docs/API.md, docs/EXAMPLES.md,
+  and docs/OBSERVABILITY.md to accurately describe Run as signal-aware by default
+  and RunContext as the escape hatch for caller-owned lifecycle management.
+
+NOTES
+-----
+- No public API changes beyond what was documented in v1.4.0.
+- RunContext remains the recommended entry point for tests, embedded CLIs,
+  parent process coordination, deadlines, or custom signal policy.

@@ -10,17 +10,19 @@ ADDED
   context.Context.
 - Added Context.Context() so command handlers can access cancellation, deadlines,
   values, and tracing context from the execution path.
+- Added default signal-aware cancellation to App.Run(args): Ctrl-C cancels the
+  command context on all platforms, and SIGTERM is also handled on POSIX systems.
 
 CHANGED
 -------
-- App.Run(args) now delegates to RunContext(context.Background(), args), preserving
-  existing behavior while sharing one execution path.
+- App.Run(args) now creates Orpheus' default signal-aware context and delegates
+  through RunContext, preserving one execution path.
 - Internal command dispatch now carries the execution context through default
   commands, help handling, and normal command execution.
 
 NOTES
 -----
-- Signal handling remains application-owned. Production CLIs can use
-  signal.NotifyContext in main and pass the resulting context to RunContext.
-- This is a backwards-compatible public API addition, so the release is a semver
-  minor bump.
+- RunContext remains the escape hatch for applications that own lifecycle,
+  deadlines, tests, parent cancellation, or custom signal policy.
+- This is a backwards-compatible public API addition and default lifecycle
+  improvement, so the release is a semver minor bump.

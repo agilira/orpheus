@@ -253,9 +253,10 @@ func main() {
 }
 ```
 
-When a CLI receives a parent context with `app.RunContext(ctx, args)`, handlers
-can pass `ctx.Context()` to loggers, tracers, metrics, storage, HTTP clients, and
-other context-aware dependencies for cancellation and correlation.
+Handlers can pass `ctx.Context()` to loggers, tracers, metrics, storage, HTTP
+clients, and other context-aware dependencies for cancellation and correlation.
+With `app.Run(args)`, Orpheus provides a default signal-aware context; with
+`app.RunContext(ctx, args)`, the caller-provided context is propagated instead.
 
 ## OpenTelemetry Integration
 
