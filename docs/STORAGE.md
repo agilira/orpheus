@@ -305,6 +305,30 @@ Plugins are discovered in these locations (in order):
 
 ## Error Handling
 
+### Configuration Failures
+
+`ConfigureStorage` returns the `App` so it can be chained, and storage is
+optional, so it never aborts startup. When setup fails it leaves `Storage()`
+nil and records why:
+
+```go
+app := orpheus.New("myapp").ConfigureStorage(config)
+
+if err := app.StorageError(); err != nil {
+    // The provider could not be loaded, validated, or instantiated.
+    log.Fatalf("storage unavailable: %v", err)
+}
+```
+
+Check it whenever the application requires storage. Without it, a failed
+provider is indistinguishable from one that was never configured — a handler
+calling `ctx.Storage()` simply receives nil. Inside a handler,
+`ctx.RequireStorage()` raises the same condition as an error.
+
+A failed health check is deliberately *not* reported through `StorageError`:
+the backend exists and may just be unreachable for the moment, so `Storage()`
+is set and the check is logged.
+
 ### Structured Error System
 
 The storage system uses AGILira's structured error handling:

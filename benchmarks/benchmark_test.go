@@ -7,6 +7,7 @@
 package benchmarks
 
 import (
+	"context"
 	"flag"
 	"os"
 	"testing"
@@ -20,8 +21,9 @@ import (
 // Benchmark scenario: Parse command with 3 flags and execute
 // This simulates a typical CLI operation
 
-// Orpheus implementation
-func BenchmarkOrpheus(b *testing.B) {
+// orpheusApp builds the application under benchmark, shared by the Orpheus
+// benchmarks below.
+func orpheusApp() (*orpheus.App, []string) {
 	app := orpheus.New("benchmark")
 	cmd := orpheus.NewCommand("deploy", "Deploy application")
 	cmd.AddFlag("env", "e", "prod", "Environment")
@@ -36,7 +38,37 @@ func BenchmarkOrpheus(b *testing.B) {
 	})
 	app.AddCommand(cmd)
 
-	args := []string{"deploy", "--env", "staging", "--verbose", "--timeout", "60"}
+	return app, []string{"deploy", "--env", "staging", "--verbose", "--timeout", "60"}
+}
+
+// Orpheus implementation.
+//
+// WHY RunContext and not Run: Run installs a signal-aware context, which
+// registers and tears down OS signal handlers on every call. That costs about
+// 40us and dominated this loop -- it reported Orpheus at ~41us/op against
+// cobra's ~4us, and what it was really measuring was signal handler churn that
+// none of the other frameworks perform. A CLI calls Run once per process, so
+// repeating that setup B.N times compares nothing anyone runs. RunContext does
+// the same parse and dispatch without it, which is the like-for-like
+// comparison; BenchmarkOrpheusSignalSetup below prices the setup separately.
+func BenchmarkOrpheus(b *testing.B) {
+	app, args := orpheusApp()
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := app.RunContext(ctx, args)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkOrpheusSignalSetup measures Run, signal registration included. This
+// is the once-per-process cost of Orpheus' signal-aware default, reported on
+// its own so it is neither hidden nor charged to the parsing comparison.
+func BenchmarkOrpheusSignalSetup(b *testing.B) {
+	app, args := orpheusApp()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

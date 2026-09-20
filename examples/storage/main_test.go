@@ -47,6 +47,15 @@ func (l *TestLogger) GetLogs() []string { return l.logs }
 
 func (l *TestLogger) Clear() { l.logs = []string{} }
 
+// ensureMemoryPlugin returns the path to memory.so, building it first.
+//
+// WHY it always rebuilds rather than reusing whatever is on disk: a plugin is
+// only loadable by a host built the same way, and a leftover memory.so from
+// another Go toolchain, module graph or -race setting fails to open. That
+// failure cannot be recovered from within the process, because plugin.Open
+// memoises its result per path -- the retry that used to follow a failed load
+// could never succeed, and reported the stale artifact as a toolchain problem.
+// Building up front costs a second and removes the whole class of failure.
 func ensureMemoryPlugin(t *testing.T) string {
 	t.Helper()
 
@@ -54,14 +63,22 @@ func ensureMemoryPlugin(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to resolve plugin path: %v", err)
 	}
-	if _, err := os.Stat(pluginPath); err == nil {
-		return pluginPath
-	} else if !os.IsNotExist(err) {
-		t.Fatalf("failed to stat plugin %s: %v", pluginPath, err)
-	}
 
-	buildMemoryPlugin(t)
+	buildMemoryPluginOnce(t)
 	return pluginPath
+}
+
+var memoryPluginBuilt bool
+
+// buildMemoryPluginOnce builds the plugin the first time it is asked, so a
+// package-wide test run pays for one build rather than one per test.
+func buildMemoryPluginOnce(t *testing.T) {
+	t.Helper()
+	if memoryPluginBuilt {
+		return
+	}
+	buildMemoryPlugin(t)
+	memoryPluginBuilt = true
 }
 
 func buildMemoryPlugin(t *testing.T) {
@@ -71,7 +88,17 @@ func buildMemoryPlugin(t *testing.T) {
 		t.Fatalf("failed to create plugins directory: %v", err)
 	}
 
-	cmd := exec.Command("go", "build", "-buildmode=plugin", "-o", "../plugins/memory.so", "memory.go")
+	// WHY the race flag is mirrored: the race detector changes the runtime the
+	// plugin links against, so a plugin built without it cannot be opened by a
+	// `go test -race` binary. Without this, the storage example's tests failed
+	// under -race no matter how many times they rebuilt.
+	args := []string{"build", "-buildmode=plugin"}
+	if raceEnabled {
+		args = append(args, "-race")
+	}
+	args = append(args, "-o", "../plugins/memory.so", "memory.go")
+
+	cmd := exec.Command("go", args...)
 	cmd.Dir = "providers"
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	output, err := cmd.CombinedOutput()
@@ -102,12 +129,8 @@ func setupTestApp(t *testing.T) (*orpheus.App, *TestLogger) {
 	app := newStorageTestApp(logger, pluginPath)
 
 	if app.Storage() == nil {
-		t.Log("storage plugin did not load; rebuilding memory.so for the active Go toolchain")
-		buildMemoryPlugin(t)
-		app = newStorageTestApp(logger, pluginPath)
-	}
-	if app.Storage() == nil {
-		t.Fatalf("storage plugin did not load from %s after rebuild; logs: %s", pluginPath, strings.Join(logger.GetLogs(), "; "))
+		t.Fatalf("storage plugin did not load from %s (built for this binary by ensureMemoryPlugin); %v; logs: %s",
+			pluginPath, app.StorageError(), strings.Join(logger.GetLogs(), "; "))
 	}
 
 	// Add all commands

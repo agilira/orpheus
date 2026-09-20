@@ -201,7 +201,7 @@ func TestCommandWithDuplicateName(t *testing.T) {
 	app := orpheus.New("testapp")
 	app.AddCommand(cmd)
 
-	// Test with command name in args - should be stripped by prepareArgs
+	// A positional that spells the command name is an ordinary argument
 	err := app.Run([]string{"test", "test", "arg1", "arg2"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

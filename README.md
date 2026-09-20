@@ -10,7 +10,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Orpheus is a high-performance CLI framework designed to be super simple and **~30x faster** than popular alternatives with zero third-party dependencies. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, secure, fast CLI apps similar to git.
+Orpheus is a high-performance CLI framework designed to be super simple and **~5x faster** than Cobra and Kingpin (**37x** than urfave/cli), with `golang.org/x/term` as its only dependency outside the AGILira stack. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, secure, fast CLI apps similar to git.
 
 ## Live Demo
 
@@ -55,19 +55,23 @@ Benchmark results comparing CLI framework performance:
 
 ```
 AMD Ryzen 5 7520U with Radeon Graphics
-BenchmarkOrpheus-8       1908495           634.5 ns/op          96 B/op       3 allocs/op
-BenchmarkCobra-8              66        18439562 ns/op        3145 B/op      33 allocs/op
-BenchmarkUrfaveCli-8       40767           30097 ns/op        8549 B/op     318 allocs/op
-BenchmarkKingpin-8        293697           4294 ns/op         1988 B/op      40 allocs/op
-BenchmarkStdFlag-8       1027216           1039 ns/op          945 B/op      13 allocs/op
+BenchmarkOrpheus-8              5095986    701.8 ns/op      144 B/op     3 allocs/op
+BenchmarkStdFlag-8              4412460    811.7 ns/op      945 B/op    13 allocs/op
+BenchmarkKingpin-8              1000000   3417   ns/op     1988 B/op    40 allocs/op
+BenchmarkCobra-8                 879213   3808   ns/op     1752 B/op    29 allocs/op
+BenchmarkUrfaveCli-8             135944  26145   ns/op     8538 B/op   318 allocs/op
+
+BenchmarkOrpheusSignalSetup-8     58814  41082   ns/op      512 B/op    12 allocs/op
 ```
 
-**Scenario**: Command parsing with 3 flags (string, bool, string) and handler execution.
+**Scenario**: command parsing with 3 flags (string, bool, string) and handler execution — about 5x faster than Kingpin and Cobra, 37x faster than urfave/cli, at 3 allocations per dispatch.
+
+`BenchmarkOrpheusSignalSetup` is measured separately and is not part of that comparison: it calls `Run`, which installs a signal-aware context, and registering OS signal handlers costs roughly 40µs. A CLI pays that once per process, and none of the other frameworks do it at all, so the comparison above uses `RunContext` — the same parse and dispatch without the setup.
 
 **Reproduce benchmarks**:
 ```bash
 cd benchmarks/
-go test -bench=. -benchmem
+go test -bench=. -benchmem -benchtime=3s -count=3
 ```
 
 **[Complete Performance Benchmarks →](./benchmarks/benchmark_test.go)**
@@ -356,7 +360,7 @@ app := orpheus.New("myapp").
 app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
     // Structured logging
     if logger := ctx.Logger(); logger != nil {
-        logger.Info(context.Background(), "Deployment started",
+        logger.Info(ctx.Context(), "Deployment started",
             orpheus.StringField("environment", "production"),
             orpheus.StringField("version", "v1.2.3"),
         )
@@ -364,13 +368,13 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
 
     // Audit trail
     if audit := ctx.AuditLogger(); audit != nil {
-        audit.LogCommand(context.Background(), "deploy", ctx.Args(), "demo-user")
-        audit.LogAccess(context.Background(), "production", "deploy", true)
+        audit.LogCommand(ctx.Context(), "deploy", ctx.Args, "demo-user")
+        audit.LogAccess(ctx.Context(), "production", "deploy", true)
     }
 
     // Distributed tracing
     if tracer := ctx.Tracer(); tracer != nil {
-        spanCtx, span := tracer.StartSpan(context.Background(), "deploy_operation")
+        spanCtx, span := tracer.StartSpan(ctx.Context(), "deploy_operation")
         defer span.End()
         // ... use spanCtx for downstream operations
     }
@@ -378,7 +382,7 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
     // Performance metrics
     if metrics := ctx.MetricsCollector(); metrics != nil {
         counter := metrics.Counter("deployments_total", "Total deployments", "env")
-        counter.Inc(context.Background(), "production")
+        counter.Inc(ctx.Context(), "production")
     }
 
     fmt.Println("Deployment completed")
@@ -386,7 +390,7 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
 })
 ```
 
-**Performance**: Zero overhead when not configured (0.24 ns/op), minimal overhead when enabled (~24 ns/op)
+**Performance**: 0.24 ns/op and no allocation when not configured; when configured, no measurable difference per dispatch — the cost is whatever your own logger, tracer or collector does
 
 **[Complete Observability Guide →](./docs/OBSERVABILITY.md)**
 

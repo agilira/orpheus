@@ -250,7 +250,18 @@ func TestObservabilityIntegration(t *testing.T) {
 }
 
 // BenchmarkObservabilityOverhead benchmarks the performance overhead of observability
+// BenchmarkObservabilityOverhead prices configuring a logger and an audit
+// logger against leaving them nil.
+//
+// WHY RunContext and not Run: Run installs a signal-aware context, and
+// registering OS signal handlers costs roughly 40us per call -- some sixty
+// times the dispatch itself. Running it in the loop buried the difference this
+// benchmark exists to measure: both arms reported ~40us and the gap between
+// them fell inside run-to-run noise. A CLI pays that setup once per process,
+// not once per command.
 func BenchmarkObservabilityOverhead(b *testing.B) {
+	ctx := context.Background()
+
 	b.Run("WithObservability", func(b *testing.B) {
 		logger := NewSimpleLogger("BENCH")
 		auditLogger := NewSimpleAuditLogger()
@@ -270,7 +281,7 @@ func BenchmarkObservabilityOverhead(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = app.Run([]string{"test"})
+			_ = app.RunContext(ctx, []string{"test"})
 		}
 	})
 
@@ -288,7 +299,7 @@ func BenchmarkObservabilityOverhead(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = app.Run([]string{"test"})
+			_ = app.RunContext(ctx, []string{"test"})
 		}
 	})
 }

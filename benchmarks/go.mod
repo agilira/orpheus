@@ -1,6 +1,6 @@
 module github.com/agilira/orpheus/benchmarks
 
-go 1.23.11
+go 1.25.9
 
 require (
 	github.com/agilira/orpheus v0.0.0
@@ -10,8 +10,8 @@ require (
 )
 
 require (
-	github.com/agilira/flash-flags v1.1.5 // indirect
-	github.com/agilira/go-errors v1.1.1 // indirect
+	github.com/agilira/flash-flags v1.3.0 // indirect
+	github.com/agilira/go-errors v1.1.2 // indirect
 	github.com/agilira/go-timecache v1.0.2 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
@@ -20,6 +20,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
 )
 
 replace github.com/agilira/orpheus => ../

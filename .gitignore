@@ -16,6 +16,7 @@
 
 # Go workspace file
 go.work
+go.work.sum
 
 # IDE files
 .vscode/
@@ -65,6 +66,19 @@ tmp/
 # Example outputs (if any)
 /examples/*/output/
 /examples/*/logs/
+
+# Example binaries. `go build` in an example directory emits a binary named
+# after that directory, so they are listed explicitly rather than by a pattern
+# that would also swallow the source directories themselves.
+/examples/basic/basic
+/examples/enhanced-errors/enhanced-errors
+/examples/filemanager/filemanager
+/examples/gitlike/gitlike
+/examples/observability/observability
+/examples/security-validation/security-validation
+/examples/storage/storage
+/examples/storage-simple/storage-simple
+/examples/storage/plugins/*.so
 
 # Demo and recording files
 *.cast

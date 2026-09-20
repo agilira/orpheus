@@ -50,11 +50,12 @@ jobs:
       run: staticcheck ./...
 
     - name: Security Scan (gosec)
+      # Informational here; pr.yml gates on the same config. continue-on-error
+      # already keeps a finding from failing the job, so the step reports its
+      # real exit status instead of swallowing it with "|| true" -- which, with
+      # .gosec.json missing, made this step succeed without ever scanning.
       continue-on-error: true
-      run: |
-        echo "Running security scan..."
-        gosec -conf .gosec.json ./... || true
-        echo "Security scan completed"
+      run: gosec -conf .gosec.json ./...
 
     - name: Test with Race Detection
       run: go test -race -timeout 5m -v ./...

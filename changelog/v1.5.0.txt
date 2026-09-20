@@ -1,0 +1,207 @@
+Orpheus v1.5.0 - What the Interface Says Is What It Does
+=========================================================
+
+Release Date: 2026-09-20
+Type: Fix + Feature
+
+FIXED
+-----
+- The execution context no longer stops at the first subcommand.
+
+  handleSubcommands built the child Context field by field and did not copy
+  the parent context.Context, so every handler reached through a subcommand
+  path -- `app cmd subcmd` -- saw context.Background(). The signal-aware
+  context v1.4.1 installs in Run was therefore invisible to exactly the
+  handlers most likely to be long-running: Ctrl-C and SIGTERM cancelled
+  nothing, and no error said so.
+
+  The child is now derived with Context.forSubcommand, which copies the
+  parent and overrides only the two things the descent changes -- the command
+  and its remaining arguments. Inheritance is the default, so a field added
+  to Context later cannot be silently dropped at this boundary, which is how
+  the original omission happened. Flags is cleared deliberately: it holds the
+  parent command's parsed set until the subcommand parses its own.
+
+- A shorthand passed to AddFloat64Flag or AddStringSliceFlag now works.
+
+  Both branches of their `if shorthand != ""` check called the same
+  long-form constructor, because flash-flags had no Var form for these types.
+  The shorthand was accepted by the signature, documented in docs/API.md, and
+  discarded. They now use flash-flags Float64Var and StringSliceVar.
+
+- --help/-h and --version/-v no longer shadow flags the application
+  registers.
+
+  An application declaring --verbose/-v got the version banner from
+  `myapp -v build`, and the command never ran; one declaring -h for a host
+  name could not pass a value at all. Both are conveniences Orpheus offers,
+  not names it owns, so each yields as soon as the application claims that
+  long name or short key. The two spellings are judged independently. This
+  needed the matching fix in flash-flags v1.3.0, which intercepted -h one
+  layer further down.
+
+- A positional argument that spells the command's own name is no longer
+  eaten.
+
+  Command.Execute stripped a leading token equal to the command name, but the
+  dispatcher had already removed that name, so the token it removed was
+  whatever the user typed next. `myapp copy copy dest` lost an argument, and
+  lost it only from ctx.Positional(), which then disagreed with ctx.Args
+  about what had been passed. Execute now parses ctx.Args as given.
+
+- Help output describes the interface the program actually has.
+
+  The built-in --help and --version lines were printed unconditionally, so an
+  application claiming -v saw it listed twice with two different meanings. A
+  built-in is now listed only in the spellings that still reach it, and not
+  at all when every spelling is claimed.
+
+- Flag shorthands appear in help. formatFlagHelp omitted them on the belief
+  that flash-flags did not expose the short key; Flag.ShortKey() reports it.
+  A flag declared with a shorthand worked on the command line and was never
+  mentioned in the one place a user looks to discover it. Shell completion
+  suggests them too, and likewise stops offering a built-in spelling the
+  application has taken over.
+
+- Generated completion scripts are reproducible.
+
+  The bash, zsh and fish generators ranged over the command map directly, and
+  Go randomises map iteration, so every invocation emitted the per-command
+  blocks in a different order. A completion script is written to a file --
+  `myapp completion bash > /etc/bash_completion.d/myapp` -- where changing
+  output is a spurious diff on every rebuild and defeats any checksum over it.
+
+- Command descriptions are quoted for the shell that will read them. An
+  apostrophe closed the single-quoted string early in the zsh and fish
+  generators, so "Show user's config" produced a syntactically broken script
+  whose error the shell reports far from its cause.
+
+- The prompter's input line limit applies to stdin.
+
+  The Buffer call enforcing maxInputLine lived in NewPrompterFrom alone, so
+  the CWE-400 defence held for injected readers -- that is, in tests -- and
+  not for os.Stdin, the only reader that ever carries untrusted input.
+  Production fell back to bufio.Scanner's 64 KiB default. Both constructors
+  now share one construction path. The maxLine field, which every constructor
+  set and nothing read, is gone.
+
+ADDED
+-----
+- App.StorageError() reports why the last ConfigureStorage call left the
+  application without a backend, or nil.
+
+  Every failure path in ConfigureStorage reported through app.logger alone,
+  so an application that had not called SetLogger -- the default -- was left
+  with a nil Storage and no way to learn why. The method does not change the
+  chaining signature or make storage mandatory; it makes the failure
+  reachable. A failed health check is not reported through it: the backend
+  exists and may simply be unreachable, so Storage is set and the check is
+  logged as before.
+
+CORRECTED
+---------
+- The published benchmark table could not be reproduced by the repository's
+  own benchmark: it reported Cobra at 18,439,562 ns/op over 66 iterations,
+  where the same file measures ~3,800 ns/op on the same CPU, and its Orpheus
+  figure predated v1.4.1 making Run signal-aware.
+
+  The comparison benchmark also called Run in its loop, so it re-registered
+  OS signal handlers on every iteration -- roughly 40us of work no other
+  framework performs -- and reported Orpheus at ~41us/op against Cobra's
+  ~4us. It now calls RunContext, which is the like-for-like parse and
+  dispatch, and BenchmarkOrpheusSignalSetup prices the signal setup on its
+  own. Measured: Orpheus 702 ns/op and 3 allocs, against Kingpin 3417,
+  Cobra 3808, urfave/cli 26145, stdlib flag 812.
+
+- The headline claims now match those numbers: about 5x faster than Cobra and
+  Kingpin and 37x faster than urfave/cli, replacing "~30x faster" in the
+  README and "7x-53x faster" in doc.go. The README also claimed zero
+  third-party dependencies, which stopped being true when the interactive
+  prompter brought in golang.org/x/term.
+
+- Every quoted per-call cost in the security and validation code was wrong,
+  most by three to eight times, and none was produced by a benchmark.
+  security.go documented ValidateSecurePath at "~200ns per call, zero
+  allocations for valid paths" while docs/SECURITY.md documented the same
+  function at ~3.7us -- an eighteenfold disagreement neither side could
+  settle, because nothing measured it.
+
+  pkg/orpheus/security_bench_test.go now does. Measured on an AMD Ryzen 5
+  7520U: ValidateSecurePath 1.4us/8 allocs when the path passes and 160ns/2
+  when it is rejected; ValidatePathFlag 140ns cached and 8.3us uncached;
+  ValidateStringFlag 1.8us; ValidateEnvironmentValue 610ns;
+  ValidateFileOperation 8.6us; AnalyzeFilePermissions 3.7us. The doc comments
+  now name the benchmark that produces each figure.
+
+  Two of those numbers correct a belief and not just a digit. "Zero
+  allocations for valid paths" was false -- a valid path costs eight, more
+  than a rejected one, because a violation returns at the layer that finds it
+  while a valid path is carried through every remaining check. And the ~3.7us
+  in docs/SECURITY.md was the security-validation example's cached-loop
+  average from an old run, which had drifted to 0.17us; it had been copied
+  into the security documentation as the cost of path validation.
+
+- Observability overhead was reported from a benchmark that could not see it.
+  BenchmarkObservabilityOverhead called Run in its loop, so both arms were
+  dominated by signal-handler registration and the 24.3 ns difference between
+  them ("~13% overhead") was run-to-run noise. Measured through RunContext,
+  configuring a logger and an audit logger costs the same per dispatch as
+  leaving them nil -- 279 ns/op either way, same allocations. The cost of
+  observability is what the caller's implementation does, and the docs now
+  say that instead of quoting a number for it.
+
+- docs/SECURITY.md claimed "142+ security test cases". The real figure is
+  465, so the claim was conservative rather than wrong, but it was equally
+  unchecked; it now carries the command that counts them.
+
+- CI ran no security scan. ci.yml invoked `gosec -conf .gosec.json ./... ||
+  true` against a file that does not exist, so the step passed without
+  scanning, while pr.yml carried its own `--exclude=G104,G306,G301` list that
+  matched nothing -- those rules only fire in test helpers, which gosec is
+  not asked to scan. Both workflows now share .gosec.json, nothing is
+  excluded, and ci.yml reports its real exit status under continue-on-error.
+
+- A fuzz invariant reported a violation that could not happen. INVARIANT 3 of
+  FuzzValidateSecurePath rewrote every backslash to a slash before checking
+  for system directories, which is Windows path semantics applied on every
+  platform: on Linux it turned the relative path `\ETC/0`, a directory
+  literally named `\ETC`, into `/etc/0`. It now uses filepath.ToSlash, which
+  is what isSystemPath itself uses. The input is kept as a corpus seed.
+
+- The storage example's tests could never run under -race. A Go plugin is
+  loadable only by a host built the same way, and the race detector changes
+  that, so the memory.so the test builds without -race could not be opened by
+  a `go test -race` binary. The retry that followed could not help either:
+  plugin.Open memoises its result per path, so once a load fails in a process
+  it fails for good, and the test reported a stale artifact as a toolchain
+  mismatch. The helper now mirrors the race setting, builds the plugin up
+  front instead of reacting to a failure, and build_plugins.sh takes RACE=1.
+
+- Observability examples in README.md and docs/OBSERVABILITY.md passed
+  context.Background() to logger, audit, tracer and metrics calls from inside
+  a handler, teaching the reader to discard the very context those records
+  correlate on. They now use ctx.Context(). The audit example also called
+  ctx.Args(), which does not compile -- Args is a field.
+
+REMOVED
+-------
+- App.helpCommand, an unexported field constructed by New and never read.
+  The built-in help command is intercepted by name in handleCommandExecution
+  and listed from a literal by the help generator.
+
+COMPATIBILITY
+-------------
+Requires flash-flags v1.3.0.
+
+Four behaviour changes, each affecting only cases that were broken:
+
+  - Subcommand handlers now observe cancellation. A handler that ignored
+    ctx.Context() is unaffected; one that honours it starts working.
+  - A shorthand on a float64 or string-slice flag starts working. It was
+    accepted and discarded before, so nothing could depend on it.
+  - -h, -v, --help and --version reach an application flag registered under
+    that spelling. Such a flag was previously unreachable.
+  - A leading positional equal to the command name is kept. A command that
+    relied on receiving it stripped would have had to be invoked as
+    `myapp copy copy`; ctx.Args already kept it, so only ctx.Positional()
+    and flag parsing change.

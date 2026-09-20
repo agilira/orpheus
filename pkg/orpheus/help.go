@@ -177,10 +177,10 @@ func (h *HelpGenerator) GenerateAppHelp() string {
 func (h *HelpGenerator) generateGlobalFlagHelp() string {
 	var sb strings.Builder
 
-	// Built-in flags
-	sb.WriteString("  -h, --help      Show help\n")
+	// Built-in flags, in whichever spellings the application has left free
+	sb.WriteString(builtinFlagHelp(h.app.globalFlags, "help", "h", "Show help"))
 	if h.app.version != "" {
-		sb.WriteString("  -v, --version   Show version\n")
+		sb.WriteString(builtinFlagHelp(h.app.globalFlags, "version", "v", "Show version"))
 	}
 
 	// Custom global flags from flash-flags
@@ -193,6 +193,48 @@ func (h *HelpGenerator) generateGlobalFlagHelp() string {
 	return sb.String()
 }
 
+// builtinFlagHelp renders the help line for a built-in flag, showing only the
+// spellings that still reach it.
+//
+// WHY it asks: an application may register its own --version or -h, and the
+// parser then yields those spellings to it. Listing them here anyway would
+// describe an interface the program does not have -- and, where the short key
+// is claimed, print it twice with two different meanings. A built-in whose
+// every spelling is claimed is not listed at all.
+func builtinFlagHelp(fs *flashflags.FlagSet, longName, shortKey, description string) string {
+	longFree := !flagNameTaken(fs, longName)
+	shortFree := !shortKeyTaken(fs, shortKey)
+
+	var spelling string
+	switch {
+	case longFree && shortFree:
+		spelling = fmt.Sprintf("-%s, --%s", shortKey, longName)
+	case longFree:
+		spelling = "--" + longName
+	case shortFree:
+		spelling = "-" + shortKey
+	default:
+		return ""
+	}
+
+	return padFlagHelp(spelling) + description + "\n"
+}
+
+// padFlagHelp indents a flag spelling and pads it to the description column
+// shared by every help line.
+func padFlagHelp(spelling string) string {
+	var line strings.Builder
+	line.WriteString("  ")
+	line.WriteString(spelling)
+	for line.Len() < flagHelpDescriptionColumn {
+		line.WriteString(" ")
+	}
+	return line.String()
+}
+
+// flagHelpDescriptionColumn is the column where every flag description starts.
+const flagHelpDescriptionColumn = 30
+
 // generateFlagHelp generates help text for command-specific flags.
 func (h *HelpGenerator) generateFlagHelp(cmd *Command) string {
 	var sb strings.Builder
@@ -204,8 +246,8 @@ func (h *HelpGenerator) generateFlagHelp(cmd *Command) string {
 		})
 	}
 
-	// Always show help flag for commands
-	sb.WriteString("  -h, --help      Show help for this command\n")
+	// The built-in help flag, in whichever spellings the command has left free
+	sb.WriteString(builtinFlagHelp(cmd.Flags(), "help", "h", "Show help for this command"))
 
 	return sb.String()
 }
@@ -227,9 +269,18 @@ func (h *HelpGenerator) hasCommandFlags(cmd *Command) bool {
 func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag) string {
 	var line strings.Builder
 
-	// Build flag name with short key
+	// Build flag name with short key.
+	//
+	// WHY the short key is shown: it was omitted here on the belief that
+	// flash-flags did not expose it, so a flag declared with a shorthand
+	// worked on the command line and was never mentioned in help -- the one
+	// place a user looks to discover it. Flag.ShortKey() reports it.
 	line.WriteString("  ")
-	// Note: flash-flags doesn't expose shortKey directly, so we'll show long form
+	if short := flag.ShortKey(); short != "" {
+		line.WriteString("-")
+		line.WriteString(short)
+		line.WriteString(", ")
+	}
 	line.WriteString("--")
 	line.WriteString(flag.Name())
 
@@ -240,7 +291,7 @@ func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag) string {
 	}
 
 	// Pad to align descriptions
-	for line.Len() < 30 {
+	for line.Len() < flagHelpDescriptionColumn {
 		line.WriteString(" ")
 	}
 

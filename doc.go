@@ -5,15 +5,18 @@
 // with zero external dependencies, professional-grade security, and a focus on simplicity.
 //
 // Key Features:
-//   - 7x-53x faster than alternatives thanks to flash-flags integration
+//   - Fast parsing and dispatch thanks to flash-flags: about 5x faster than
+//     cobra and kingpin, 37x faster than urfave/cli, at 3 allocations per
+//     dispatch (see ./benchmarks)
 //   - Zero external dependencies
 //   - Enterprise-grade security with comprehensive input validation
-//   - Red Team tested security controls (142+ test cases)
+//   - Red Team tested security controls (465 test cases)
 //   - Built-in protection against path traversal, injection attacks, and malicious input
 //   - Comprehensive file permission analysis and system security
 //   - Thread-safe concurrent operations with race condition protection
 //   - Memory leak prevention and cache management
-//   - Performance-optimized security validation (~3.7μs path validation)
+//   - Security validation measured rather than estimated: see the Benchmark
+//     functions in pkg/orpheus/security_bench_test.go
 //   - Simple, intuitive API for rapid development
 //   - Built-in auto-completion support
 //   - Memory-efficient command dispatch

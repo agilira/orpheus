@@ -113,11 +113,13 @@ go test -run TestObservabilityExample .
 ### Performance Results
 
 ```
-BenchmarkObservabilityOverhead/WithObservability-8      4998955    207.7 ns/op
-BenchmarkObservabilityOverhead/WithoutObservability-8   6355461    183.4 ns/op
+BenchmarkObservabilityOverhead/WithObservability-8      12912998    279.0 ns/op   128 B/op   2 allocs/op
+BenchmarkObservabilityOverhead/WithoutObservability-8   12965854    278.9 ns/op   128 B/op   2 allocs/op
 ```
 
-**Overhead**: Only 24.3 ns/op difference (~13% overhead for full observability)
+**Overhead**: none that can be measured. Configuring a logger and an audit logger costs the same per dispatch as leaving them nil, down to the allocation. What you pay for observability is whatever your own implementation does when you call it — this benchmark's handler reads `ctx.Logger()` and `ctx.AuditLogger()` without emitting a record, which is what isolates the framework's share of the cost.
+
+The previously published figures (207.7 and 183.4 ns/op, "~13% overhead") measured neither: the benchmark called `Run` in its loop, so both arms were dominated by the roughly 40µs of OS signal-handler registration that `Run` performs, and the gap between them was run-to-run noise. It now calls `RunContext`.
 
 ## Key Features Demonstrated
 

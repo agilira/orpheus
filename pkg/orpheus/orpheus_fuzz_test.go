@@ -72,6 +72,7 @@
 package orpheus
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode"
@@ -535,7 +536,15 @@ func FuzzValidateSecurePath(f *testing.F) {
 		// INVARIANT 3: If path is valid, it must not access system directories
 		// This prevents reading sensitive files like /etc/passwd, C:\Windows\System32\config\SAM
 		if result.IsValid {
-			lowerPath := strings.ToLower(strings.ReplaceAll(result.NormalizedPath, "\\", "/"))
+			// WHY filepath.ToSlash and not ReplaceAll("\\", "/"): a backslash is
+			// a separator on Windows and an ordinary filename character
+			// everywhere else. Rewriting it unconditionally asks a question the
+			// implementation never asks -- on Linux it turned the relative path
+			// `\ETC/0`, a directory literally named `\ETC`, into `/etc/0` and
+			// reported a system-directory access that cannot happen. ToSlash is
+			// what isSystemPath itself uses, so the invariant is checked against
+			// the same path the check saw. The corpus keeps that input as a seed.
+			lowerPath := strings.ToLower(filepath.ToSlash(result.NormalizedPath))
 
 			// Unix/Linux system paths that should NEVER be accessible
 			systemPaths := []string{
@@ -599,8 +608,9 @@ func FuzzValidateSecurePath(f *testing.F) {
 		// INVARIANT 5: If path is valid, it must not contain Alternate Data Streams
 		// ADS can hide malicious content on Windows filesystems
 		if result.IsValid {
-			// Use the same logic as containsAlternateDataStream for consistency
-			normalized := strings.ReplaceAll(result.NormalizedPath, "\\", "/")
+			// Use the same logic as containsAlternateDataStream for consistency,
+			// which means its separator handling too -- see INVARIANT 3.
+			normalized := filepath.ToSlash(result.NormalizedPath)
 			parts := strings.Split(normalized, "/")
 
 			for i, part := range parts {
