@@ -156,30 +156,32 @@ func (c *Command) AddIntFlag(name, shorthand string, defaultValue int, descripti
 }
 
 // AddFloat64Flag adds a float64 flag to the command.
+// An empty shorthand registers the long form only.
 func (c *Command) AddFloat64Flag(name, shorthand string, defaultValue float64, description string) *Command {
-	if shorthand != "" {
-		// flash-flags doesn't have Float64Var with shorthand, use basic method
-		c.flags.Float64(name, defaultValue, description)
-	} else {
-		c.flags.Float64(name, defaultValue, description)
-	}
+	c.flags.Float64Var(name, shorthand, defaultValue, description)
 	return c
 }
 
 // AddStringSliceFlag adds a string slice flag to the command.
+// An empty shorthand registers the long form only.
 func (c *Command) AddStringSliceFlag(name, shorthand string, defaultValue []string, description string) *Command {
-	if shorthand != "" {
-		// flash-flags doesn't have StringSliceVar with shorthand, use basic method
-		c.flags.StringSlice(name, defaultValue, description)
-	} else {
-		c.flags.StringSlice(name, defaultValue, description)
-	}
+	c.flags.StringSliceVar(name, shorthand, defaultValue, description)
 	return c
 }
 
 // Execute runs the command with the given context.
+//
+// ctx.Args carries the arguments that follow the command's own name: the
+// dispatcher removes it before calling, and so does the descent into a
+// subcommand. Execute therefore parses ctx.Args as given.
+//
+// WHY it no longer strips a leading token matching the command name: by the
+// time Execute runs, that name is already gone, so a leading "copy" under the
+// command "copy" is a positional argument the user typed. Removing it made
+// `myapp copy copy dest` lose an argument -- silently, and only in
+// ctx.Positional(), which disagreed with ctx.Args about what had been passed.
 func (c *Command) Execute(ctx *Context) error {
-	argsToparse := c.prepareArgs(ctx.Args)
+	argsToparse := ctx.Args
 
 	// Check for help flags before parsing
 	if c.hasHelpFlag(argsToparse) {
@@ -211,14 +213,6 @@ func (c *Command) Execute(ctx *Context) error {
 	return c.parseAndExecute(ctx, argsToparse)
 }
 
-// prepareArgs removes the command name from args if present
-func (c *Command) prepareArgs(args []string) []string {
-	if len(args) > 0 && args[0] == c.name {
-		return args[1:]
-	}
-	return args
-}
-
 // hasHelpFlag checks if help flag is present in args
 func (c *Command) hasHelpFlag(args []string) bool {
 	for _, arg := range args {
@@ -248,25 +242,7 @@ func (c *Command) handleSubcommands(ctx *Context, args []string) (bool, error) {
 	}
 
 	if subcmd := c.GetSubcommand(potentialSubcmd); subcmd != nil {
-		// Execute subcommand with remaining args.
-		//
-		// WHY propagate prompter and storage: handlers reached
-		// through a subcommand path (e.g. `app cmd subcmd`) MUST
-		// see the same Prompter and Storage the App configured at
-		// SetPrompter / SetStorage time. Before this propagation
-		// the fields silently became nil for every nested handler,
-		// breaking interactive flows where the operator expects an
-		// Ask/AskSecret prompt at the leaf and storage-aware
-		// handlers that only run inside subcommand trees.
-		newCtx := &Context{
-			App:         ctx.App,
-			Args:        args[1:], // Remove subcommand name
-			GlobalFlags: ctx.GlobalFlags,
-			Command:     subcmd,
-			storage:     ctx.storage,
-			prompter:    ctx.prompter,
-		}
-		err := subcmd.Execute(newCtx)
+		err := subcmd.Execute(ctx.forSubcommand(subcmd, args[1:]))
 		return true, err // Subcommand was executed
 	}
 

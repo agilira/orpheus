@@ -285,3 +285,28 @@ func (ctx *Context) RequirePrompter() (Prompter, error) {
 	}
 	return ctx.prompter, nil
 }
+
+// forSubcommand derives the execution context for a subcommand, keeping
+// everything the parent context carries and overriding only what the descent
+// changes: the command being executed and the arguments left for it.
+//
+// WHY a copy of the whole struct rather than a fresh literal: the previous
+// code listed each field it wanted to keep, so every field added to Context
+// afterwards was silently dropped at the first subcommand boundary. That is
+// how the parent context.Context stopped reaching nested handlers -- signal
+// cancellation installed by Run was invisible to every `app cmd subcmd`
+// handler, with nothing to indicate it. Copying and then overriding makes
+// inheritance the default, so a new field is carried without anyone
+// remembering to add it here.
+//
+// Flags is deliberately cleared: it holds the PARENT command's parsed flag
+// set, and parseAndExecute assigns the subcommand's own set once it parses.
+// Leaving the parent's would let a handler read a flag that was never parsed
+// for the command it belongs to.
+func (ctx *Context) forSubcommand(subcmd *Command, args []string) *Context {
+	child := *ctx
+	child.Command = subcmd
+	child.Args = args
+	child.Flags = nil
+	return &child
+}
