@@ -15,7 +15,7 @@ All interfaces are optional and context-aware, using Go's `context.Context` for 
 
 ## Key Features
 
-- **Zero Overhead**: Interfaces have no performance impact when not configured (0.31 ns/op)
+- **Zero Overhead**: reading the interfaces when none is configured costs 0.24 ns/op and no allocation (`BenchmarkContextWithoutObservability`)
 - **Context-Based**: Full integration with Go's context package and OpenTelemetry
 - **Optional by Design**: Applications work perfectly without any observability configuration
 - **Flexible Implementation**: Choose your own logging, tracing, and metrics libraries
@@ -43,7 +43,7 @@ app := orpheus.New("myapp").SetLogger(myLogger)
 
 app.Command("process", "Process data", func(ctx *orpheus.Context) error {
     if logger := ctx.Logger(); logger != nil {
-        logger.Info(context.Background(), "Processing started",
+        logger.Info(ctx.Context(), "Processing started",
             StringField("operation", "process"),
             IntField("records", 100),
         )
@@ -84,8 +84,8 @@ app := orpheus.New("myapp").SetAuditLogger(myAuditLogger)
 
 app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
     if audit := ctx.AuditLogger(); audit != nil {
-        audit.LogCommand(context.Background(), "deploy", ctx.Args(), "demo-user")
-        audit.LogAccess(context.Background(), "production", "deploy", true)
+        audit.LogCommand(ctx.Context(), "deploy", ctx.Args, "demo-user")
+        audit.LogAccess(ctx.Context(), "production", "deploy", true)
     }
     return nil
 })
@@ -116,7 +116,7 @@ app := orpheus.New("myapp").SetTracer(myTracer)
 
 app.Command("backup", "Backup data", func(ctx *orpheus.Context) error {
     if tracer := ctx.Tracer(); tracer != nil {
-        spanCtx, span := tracer.StartSpan(context.Background(), "backup_operation")
+        spanCtx, span := tracer.StartSpan(ctx.Context(), "backup_operation")
         defer span.End()
         
         span.SetAttribute("backup_type", "full")
@@ -153,8 +153,8 @@ app.Command("serve", "Start server", func(ctx *orpheus.Context) error {
             []float64{0.1, 0.5, 1.0, 2.0, 5.0})
         
         // In request handler
-        requestCounter.Inc(context.Background(), "GET", "200")
-        requestDuration.Observe(context.Background(), 0.25, "GET")
+        requestCounter.Inc(ctx.Context(), "GET", "200")
+        requestDuration.Observe(ctx.Context(), 0.25, "GET")
     }
     return nil
 })
@@ -276,12 +276,14 @@ func (t *MyTracer) StartSpan(ctx context.Context, name string, opts ...SpanOptio
 
 When using OpenTelemetry-compatible implementations, logs, metrics, and traces are automatically correlated through the context, providing complete observability across your CLI application.
 
+Correlation depends on passing the *handler's* context, so always use `ctx.Context()` rather than `context.Background()`. `Background` starts a fresh, empty context: it carries no span, so the record it produces is orphaned, and it is never cancelled, so work started from it keeps running after Ctrl-C. `ctx.Context()` returns the context `Run` installed — signal-aware by default — and is inherited by subcommand handlers.
+
 ## Performance
 
 The observability framework is designed for zero overhead:
 
-- **No Configuration**: 0.24 ns/op overhead (essentially zero)
-- **With Configuration**: ~24 ns/op overhead for full observability
+- **No Configuration**: 0.24 ns/op, zero allocations (`BenchmarkContextWithoutObservability`)
+- **With Configuration**: no measurable difference per dispatch — 279 ns/op either way in `BenchmarkObservabilityOverhead`, same allocations. The cost of observability is what your logger, tracer or collector does when you call it, not what Orpheus does to carry them.
 - **Context Passing**: Native Go context performance
 - **Interface Calls**: Optimized for high-frequency operations
 

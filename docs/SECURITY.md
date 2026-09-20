@@ -6,8 +6,8 @@ Orpheus has undergone comprehensive security testing and implements professional
 
 ## Security Posture Summary
 
-**142+ Security Test Cases** - All passing
-**Performance Optimized** - ~3.7μs path validation, ~310ns input validation
+**465 Security Test Cases** - All passing
+**Costs measured, not estimated** - see [Performance Impact](#performance-impact)
 
 ## Security Controls Implemented
 
@@ -186,18 +186,39 @@ Orpheus has undergone comprehensive security testing and implements professional
 
 ## Performance Impact
 
-Security controls are designed to have minimal performance impact:
+Measured on an AMD Ryzen 5 7520U. Reproduce with:
 
-- **Path Validation**: ~3.7μs per operation
-- **Input Validation**: ~310ns per operation
-- **Memory Overhead**: < 1MB for validation cache
-- **CPU Impact**: < 1% additional overhead
+```bash
+go test -run=XXX -bench='Validate|Analyze' -benchtime=2s -count=3 ./pkg/orpheus/
+```
+
+| Operation | Time | Allocations |
+|---|---|---|
+| `ValidateSecurePath`, path accepted | ~1.4 µs | 8 |
+| `ValidateSecurePath`, path rejected | ~160 ns | 2 |
+| `ValidatePathFlag`, cached | ~140 ns | 2 |
+| `ValidatePathFlag`, uncached | ~8.3 µs | 33 |
+| `ValidateStringFlag` | ~1.8 µs | 7 |
+| `ValidateEnvironmentValue` | ~610 ns | 5 |
+| `ValidateFileOperation`, uncached | ~8.6 µs | 33 |
+| `AnalyzeFilePermissions` | ~3.7 µs | 14 |
+
+Two things worth reading off that table. Rejecting a path is roughly nine times
+cheaper than accepting one, because a violation returns at the layer that found
+it while a valid path is carried through every remaining check — an attack costs
+less to refuse than ordinary input costs to admit. And the path validators are
+dominated by file system access, so the result cache is what makes them cheap:
+it is enabled by default, and disabling it costs about sixty times the per-call
+time.
+
+The cache holds `CacheSize` entries, 1000 by default, each a `ValidatedInput`
+holding the original and sanitized strings.
 
 ## Security Testing
 
 ### Red Team Testing Results
 
-**Test Coverage**: 142+ security test cases
+**Test Coverage**: 465 security test cases (`go test -v -run 'Security|Valid|Path|Sanitiz|Injection|Traversal|Prompt' ./pkg/orpheus/ | grep -c -- '--- PASS'`)
 - Path traversal attacks: 8 test scenarios
 - File permission validation: 4 test scenarios  
 - Malicious input handling: 11 attack vectors

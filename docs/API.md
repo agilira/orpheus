@@ -211,8 +211,11 @@ ok,   err := p.Confirm("Deploy now?", false)    // yes/no
 | `Choose(prompt, options)` | Numbered menu selection | `(int, error)` (0-based) |
 | `Confirm(prompt, defaultYes)` | Yes/no question | `(bool, error)` |
 
-Subcommand context propagation: `Prompter` and `Storage` are automatically
-propagated to subcommand handlers — no manual threading required (fixed v1.3.0).
+Subcommand context propagation: a subcommand handler inherits the whole
+execution context — `Prompter`, `Storage`, global flags and the
+`context.Context` installed by `Run`/`RunContext`. Nothing needs manual
+threading (`Prompter` and `Storage` fixed in v1.3.0, `context.Context` in
+v1.5.0).
 
 ### Storage
 
@@ -221,6 +224,13 @@ Configure a storage backend on the `App` and access it in any handler.
 ```go
 // Wire a storage backend at application startup
 app.SetStorage(myStorageBackend)
+
+// Or configure one from a StorageConfig. This never aborts startup, so check
+// why it failed when the application requires storage:
+app.ConfigureStorage(config)
+if err := app.StorageError(); err != nil {
+    return err
+}
 
 // In a handler
 storage, err := ctx.RequireStorage()

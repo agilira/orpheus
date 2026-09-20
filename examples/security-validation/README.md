@@ -205,20 +205,25 @@ Iterations: 1000
 Test Type: all
 
 Path Validation Benchmark:
-  - Total duration: 3.697172ms
-  - Average per operation: 3.70 μs
-  - Operations per second: 270562
+  - Total duration: 172.782µs
+  - Average per operation: 0.17 μs
+  - Operations per second: 5787640
 
-Input Validation Benchmark:  
-  - Total duration: 155.42µs
-  - Average per operation: 155 ns
-  - Operations per second: 6437247
+Input Validation Benchmark:
+  - Total duration: 166.17µs
+  - Average per operation: 166 ns
+  - Operations per second: 6017933
 
 Performance Summary:
   - All security validations completed successfully
-  - Performance impact: < 1% application overhead
-  - Security controls: Enterprise-grade with minimal latency
+  - Figures above are this machine's, for these inputs; run
+    `go test -bench=Validate ./pkg/orpheus/` for the full set
 ```
+
+The loop validates the same path every iteration, so all but the first call
+are served from the validation cache. That is what 0.17 µs measures. A path
+seen for the first time costs about 8 µs, because it reaches the file system;
+`BenchmarkValidatePathFlag` in `pkg/orpheus` reports both.
 
 ## Testing
 
