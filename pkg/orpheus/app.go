@@ -45,30 +45,26 @@ type App struct {
 	commands         map[string]*Command
 	globalFlags      *flashflags.FlagSet
 	defaultCmd       string
-	helpCommand      *Command
 	logger           Logger
 	auditLogger      AuditLogger
 	tracer           Tracer
 	metricsCollector MetricsCollector
 	storage          Storage
 	storageConfig    *StorageConfig
+	storageErr       error
 	pluginManager    *PluginManager
 	prompter         Prompter
 }
 
 // New creates a new Orpheus application.
+// The built-in "help" command is not registered here: handleCommandExecution
+// intercepts the name directly, and the help generator lists it from a literal.
 func New(name string) *App {
-	app := &App{
+	return &App{
 		name:        name,
 		commands:    make(map[string]*Command),
 		globalFlags: flashflags.New(name),
 	}
-
-	// Add built-in help command
-	app.helpCommand = NewCommand("help", "Show help for commands").
-		SetHandler(app.helpHandler)
-
-	return app
 }
 
 // SetDescription sets the application description.
@@ -123,10 +119,21 @@ func (app *App) SetPrompter(prompter Prompter) *App {
 	return app
 }
 
-// ConfigureStorage configures storage from a StorageConfig and initializes the backend.
-// This method handles plugin loading, validation, and initialization automatically.
+// ConfigureStorage configures storage from a StorageConfig and initializes the
+// backend, handling plugin loading, validation and initialization.
+//
+// Storage is optional, so a failure here does not stop the application and does
+// not break the chain: the method returns the App either way. The reason is
+// recorded and readable through StorageError, and Storage stays nil.
+//
+// WHY the reason is recorded rather than only logged: every failure path here
+// used to be reported through app.logger alone, so an application that had not
+// called SetLogger -- the default -- lost the reason entirely and was left with
+// a nil Storage and nothing to say why. A caller that requires storage should
+// check StorageError, or use ctx.RequireStorage inside a handler.
 func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	app.storageConfig = config
+	app.storageErr = nil
 
 	// Validate configuration input
 	if config == nil {
@@ -134,6 +141,7 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 			ctx := context.Background()
 			app.logger.Warn(ctx, "Storage configuration is nil - skipping storage setup")
 		}
+		app.storageErr = StorageValidationError("configure", "storage configuration is nil")
 		return app
 	}
 
@@ -152,6 +160,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 				Field{Key: "provider", Value: config.Provider},
 				Field{Key: "error", Value: err.Error()})
 		}
+		app.storageErr = StorageValidationError("configure",
+			fmt.Sprintf("failed to load the storage plugin for provider %q: %v", config.Provider, err))
 		return app
 	}
 
@@ -162,6 +172,7 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 				Field{Key: "provider", Value: config.Provider},
 				Field{Key: "error", Value: err.Error()})
 		}
+		app.storageErr = ConfigValidationError(config.Provider, err)
 		return app
 	}
 
@@ -173,6 +184,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 				Field{Key: "provider", Value: config.Provider},
 				Field{Key: "error", Value: err.Error()})
 		}
+		app.storageErr = StorageValidationError("configure",
+			fmt.Sprintf("failed to create the storage instance for provider %q: %v", config.Provider, err))
 		return app
 	}
 
@@ -227,6 +240,15 @@ func (app *App) Storage() Storage {
 // StorageConfig returns the current storage configuration.
 func (app *App) StorageConfig() *StorageConfig {
 	return app.storageConfig
+}
+
+// StorageError returns why the last ConfigureStorage call left the application
+// without a storage backend, or nil if it succeeded or was never called.
+//
+// A failed health check is not reported here: the backend exists and may simply
+// be unreachable for the moment, so Storage is set and the check is logged.
+func (app *App) StorageError() error {
+	return app.storageErr
 }
 
 // PluginManager returns the plugin manager for advanced storage plugin operations.
@@ -327,21 +349,81 @@ func (app *App) handleEmptyArgs(ctx context.Context) error {
 }
 
 // handleBuiltinFlags handles built-in flags like --help and --version.
+//
+// WHY it asks before acting: --help/-h and --version/-v are conveniences the
+// framework offers, not names it owns. An application that registers its own
+// --version (a version to deploy) or -v (verbose) means that flag, and used to
+// lose it silently here -- the built-in ran and the command never did. A
+// built-in therefore yields as soon as the application claims its long name or
+// its short key, and the argument goes to the parser like any other.
 func (app *App) handleBuiltinFlags(ctx context.Context, args []string) (handled bool, err error) {
 	firstArg := args[0]
 
 	// Check for global help flag
-	if firstArg == "--help" || firstArg == "-h" {
+	if app.builtinClaims(firstArg, "help", "h") {
 		return true, app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 	}
 
 	// Check for version flag
-	if firstArg == "--version" || firstArg == "-v" {
+	if app.builtinClaims(firstArg, "version", "v") {
 		app.printVersion()
 		return true, nil
 	}
 
 	return false, nil
+}
+
+// builtinClaims reports whether arg is the built-in flag identified by longName
+// and shortKey, and the application has left that spelling free.
+//
+// The long and short spellings are judged separately: registering --version as
+// a string flag without a short key frees "--version" but leaves "-v" to the
+// built-in, which is what an application asking for both would expect.
+func (app *App) builtinClaims(arg, longName, shortKey string) bool {
+	switch arg {
+	case "--" + longName:
+		return !app.globalFlagNameTaken(longName)
+	case "-" + shortKey:
+		return !app.globalShortKeyTaken(shortKey)
+	default:
+		return false
+	}
+}
+
+// globalFlagNameTaken reports whether the application registered a global flag
+// under the given long name.
+func (app *App) globalFlagNameTaken(name string) bool {
+	return flagNameTaken(app.globalFlags, name)
+}
+
+// globalShortKeyTaken reports whether the application registered a global flag
+// under the given short key.
+func (app *App) globalShortKeyTaken(shortKey string) bool {
+	return shortKeyTaken(app.globalFlags, shortKey)
+}
+
+// flagNameTaken reports whether fs has a flag registered under the given long
+// name. A nil set takes nothing.
+func flagNameTaken(fs *flashflags.FlagSet, name string) bool {
+	return fs != nil && fs.Lookup(name) != nil
+}
+
+// shortKeyTaken reports whether fs has a flag registered under the given short
+// key. A nil set takes nothing.
+//
+// WHY it visits rather than looks up: flash-flags indexes flags by long name,
+// so the short key is only reachable by asking each flag for it.
+func shortKeyTaken(fs *flashflags.FlagSet, shortKey string) bool {
+	if fs == nil || shortKey == "" {
+		return false
+	}
+	var taken bool
+	fs.VisitAll(func(flag *flashflags.Flag) {
+		if flag.ShortKey() == shortKey {
+			taken = true
+		}
+	})
+	return taken
 }
 
 // printVersion prints the application version.
@@ -529,27 +611,33 @@ func (app *App) isLongBooleanFlag(arg string) bool {
 // isShortBooleanFlag checks if a short flag (-f) is boolean.
 // It dynamically checks both built-in flags and custom global flags using
 // the flash-flags ShortKey() method for accurate flag type detection.
+//
+// WHY the application is consulted first: -v and -h are boolean only while
+// they still mean the built-in version and help flags. Once an application
+// registers its own -h for a host name, treating it as boolean would leave
+// its value behind to be parsed as the command.
 func (app *App) isShortBooleanFlag(arg string) bool {
 	shortKey := string(arg[1])
 
-	// Check built-in boolean short flags that are always present
-	if shortKey == "v" || shortKey == "h" {
-		return true
-	}
-
 	// Dynamically check custom global flags using ShortKey() method
 	if app.globalFlags != nil {
-		var isBool bool
+		var isBool, found bool
 		app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
-			if flag.ShortKey() == shortKey && flag.Type() == "bool" {
-				isBool = true
+			if flag.ShortKey() == shortKey {
+				found = true
+				isBool = flag.Type() == "bool"
 			}
 		})
-		return isBool
+		if found {
+			return isBool
+		}
 	}
 
-	return false
-} // helpHandler handles the help command.
+	// Built-in boolean short flags, available while unclaimed
+	return shortKey == "v" || shortKey == "h"
+}
+
+// helpHandler handles the help command.
 func (app *App) helpHandler(ctx *Context) error {
 	generator := NewHelpGenerator(app)
 	fmt.Printf("%s", generator.GenerateAppHelp())

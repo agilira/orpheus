@@ -97,34 +97,27 @@ func (app *App) completeCommands(partial string) *CompletionResult {
 }
 
 // completeFlags provides completion for command flags.
+//
+// It suggests a built-in spelling only while the application has left it free,
+// for the same reason the parser and the help generator do: suggesting -v for
+// the version flag to an application that registered -v for verbosity offers a
+// completion the program will not honour. Registered flags contribute both
+// their long name and their short key, so a shorthand is discoverable by
+// pressing tab, not only by reading the source.
 func (app *App) completeFlags(cmd *Command, partial string) *CompletionResult {
 	var suggestions []string
 
-	// Add global flags
-	suggestions = append(suggestions, "--help", "-h")
+	// Built-in flags, in the spellings still free at the level that handles them
+	suggestions = append(suggestions, builtinFlagSuggestions(app.globalFlags, "help", "h")...)
 	if app.version != "" {
-		suggestions = append(suggestions, "--version", "-v")
+		suggestions = append(suggestions, builtinFlagSuggestions(app.globalFlags, "version", "v")...)
 	}
 
 	// Add custom global flags
-	if app.globalFlags != nil {
-		app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
-			flagName := "--" + flag.Name()
-			if strings.HasPrefix(flagName, partial) {
-				suggestions = append(suggestions, flagName)
-			}
-		})
-	}
+	suggestions = append(suggestions, flagSuggestions(app.globalFlags)...)
 
 	// Add command-specific flags
-	if cmd.Flags() != nil {
-		cmd.Flags().VisitAll(func(flag *flashflags.Flag) {
-			flagName := "--" + flag.Name()
-			if strings.HasPrefix(flagName, partial) {
-				suggestions = append(suggestions, flagName)
-			}
-		})
-	}
+	suggestions = append(suggestions, flagSuggestions(cmd.Flags())...)
 
 	// Filter by partial match and remove duplicates
 	var filtered []string
@@ -141,6 +134,77 @@ func (app *App) completeFlags(cmd *Command, partial string) *CompletionResult {
 		Suggestions: filtered,
 		Directive:   CompletionNoFiles,
 	}
+}
+
+// builtinFlagSuggestions returns the spellings of a built-in flag that fs has
+// not claimed. Both spellings claimed means the built-in is unreachable, and
+// nothing is suggested.
+func builtinFlagSuggestions(fs *flashflags.FlagSet, longName, shortKey string) []string {
+	var out []string
+	if !flagNameTaken(fs, longName) {
+		out = append(out, "--"+longName)
+	}
+	if !shortKeyTaken(fs, shortKey) {
+		out = append(out, "-"+shortKey)
+	}
+	return out
+}
+
+// flagSuggestions returns every spelling registered in fs: the long name, plus
+// the short key where one was given.
+func flagSuggestions(fs *flashflags.FlagSet) []string {
+	if fs == nil {
+		return nil
+	}
+	var out []string
+	fs.VisitAll(func(flag *flashflags.Flag) {
+		out = append(out, "--"+flag.Name())
+		if short := flag.ShortKey(); short != "" {
+			out = append(out, "-"+short)
+		}
+	})
+	return out
+}
+
+// sortedCommands returns the application's commands in name order.
+//
+// WHY it exists: the generators used to range over app.commands directly, and
+// Go randomises map iteration, so every invocation emitted the command blocks
+// in a different order. A completion script is normally generated once and
+// written to a file -- `myapp completion bash > /etc/bash_completion.d/myapp`
+// -- where an output that changes on every run shows up as a spurious diff on
+// every rebuild, and defeats any checksum over it.
+func (app *App) sortedCommands() []*Command {
+	names := make([]string, 0, len(app.commands))
+	for name := range app.commands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	commands := make([]*Command, 0, len(names))
+	for _, name := range names {
+		commands = append(commands, app.commands[name])
+	}
+	return commands
+}
+
+// quotePOSIXSingle escapes s for use inside a single-quoted POSIX shell string,
+// as bash and zsh read one: the quote is closed, an escaped quote emitted, and
+// the quote reopened.
+//
+// WHY: a description is written by the application author, not a user, but an
+// apostrophe is ordinary English -- "Show user's config" used to close the
+// string early and emit a syntactically broken completion script, which the
+// shell reports far from its cause.
+func quotePOSIXSingle(s string) string {
+	return strings.ReplaceAll(s, "'", `'\''`)
+}
+
+// quoteFishSingle escapes s for use inside a single-quoted fish string, where
+// only the backslash and the quote itself are escapable.
+func quoteFishSingle(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	return strings.ReplaceAll(s, "'", `\'`)
 }
 
 // generateBashCompletion generates a bash completion script.
@@ -164,12 +228,12 @@ _%s_completion() {
 `, app.name, app.name, app.getCommandNames()))
 
 	// Add completion for each command
-	for name := range app.commands {
+	for _, cmd := range app.sortedCommands() {
 		sb.WriteString(fmt.Sprintf(`                %s)
                     COMPREPLY=($(compgen -W "--help -h" -- "$cur"))
                     return 0
                     ;;
-`, name))
+`, cmd.Name()))
 	}
 
 	sb.WriteString(`                help)
@@ -212,8 +276,8 @@ _%s() {
 `, app.name, app.name))
 
 	// Add command descriptions for zsh
-	for name, cmd := range app.commands {
-		sb.WriteString(fmt.Sprintf("                %s:'%s'\n", name, cmd.Description()))
+	for _, cmd := range app.sortedCommands() {
+		sb.WriteString(fmt.Sprintf("                %s:'%s'\n", cmd.Name(), quotePOSIXSingle(cmd.Description())))
 	}
 	sb.WriteString("                help:'Show help for commands'\n")
 
@@ -225,8 +289,8 @@ _%s() {
                     _describe 'commands' '(
 `)
 
-	for name, cmd := range app.commands {
-		sb.WriteString(fmt.Sprintf("                        %s:'%s'\n", name, cmd.Description()))
+	for _, cmd := range app.sortedCommands() {
+		sb.WriteString(fmt.Sprintf("                        %s:'%s'\n", cmd.Name(), quotePOSIXSingle(cmd.Description())))
 	}
 
 	sb.WriteString(`                    )'
@@ -258,9 +322,9 @@ func (app *App) generateFishCompletion() string {
 	sb.WriteString(fmt.Sprintf("complete -c %s -f\n", app.name))
 
 	// Add completions for each command
-	for name, cmd := range app.commands {
+	for _, cmd := range app.sortedCommands() {
 		sb.WriteString(fmt.Sprintf("complete -c %s -n '__fish_use_subcommand' -a %s -d '%s'\n",
-			app.name, name, cmd.Description()))
+			app.name, cmd.Name(), quoteFishSingle(cmd.Description())))
 	}
 
 	// Add help command
@@ -268,18 +332,39 @@ func (app *App) generateFishCompletion() string {
 		app.name))
 
 	// Add global flags
-	sb.WriteString(fmt.Sprintf("complete -c %s -s h -l help -d 'Show help'\n", app.name))
+	sb.WriteString(app.fishBuiltinFlag("help", "h", "Show help"))
 	if app.version != "" {
-		sb.WriteString(fmt.Sprintf("complete -c %s -s v -l version -d 'Show version'\n", app.name))
+		sb.WriteString(app.fishBuiltinFlag("version", "v", "Show version"))
 	}
 
 	// Add help completions for each command
-	for name := range app.commands {
+	for _, cmd := range app.sortedCommands() {
 		sb.WriteString(fmt.Sprintf("complete -c %s -n '__fish_seen_subcommand_from help' -a %s\n",
-			app.name, name))
+			app.name, cmd.Name()))
 	}
 
 	return sb.String()
+}
+
+// fishBuiltinFlag emits the fish completion for a built-in flag, naming only
+// the spellings the application has left free. Both claimed emits nothing.
+func (app *App) fishBuiltinFlag(longName, shortKey, description string) string {
+	var spelling string
+	longFree := !flagNameTaken(app.globalFlags, longName)
+	shortFree := !shortKeyTaken(app.globalFlags, shortKey)
+
+	switch {
+	case longFree && shortFree:
+		spelling = fmt.Sprintf("-s %s -l %s", shortKey, longName)
+	case longFree:
+		spelling = "-l " + longName
+	case shortFree:
+		spelling = "-s " + shortKey
+	default:
+		return ""
+	}
+
+	return fmt.Sprintf("complete -c %s %s -d '%s'\n", app.name, spelling, quoteFishSingle(description))
 }
 
 // getCommandNames returns a space-separated list of command names.
