@@ -114,7 +114,10 @@ func NewInputValidator(config ValidationConfig) *InputValidator {
 // This is the primary method for validating file/directory paths provided via CLI flags.
 // It integrates path security validation, file permission analysis, and normalization.
 //
-// Performance: ~500ns for cached results, ~2μs for new validation including file system access
+// Performance (BenchmarkValidatePathFlag): ~140ns and 2 allocations for a
+// cached result, ~8.3us and 33 allocations for a new one, file system access
+// included. Caching is what makes this cheap -- it is on by default, and
+// turning it off costs roughly sixty times the per-call time.
 func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInput {
 	// Check cache first if enabled
 	if v.config.EnableCaching {
@@ -170,7 +173,8 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 // Used for non-path string flags that may still pose security risks through
 // command injection, environment variable injection, or other attack vectors.
 //
-// Performance: ~100ns for simple validation, ~300ns with full sanitization
+// Performance (BenchmarkValidateStringFlag): ~1.8us and 7 allocations with
+// sanitization enabled, which is the default.
 func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedInput {
 	// Check cache first if enabled
 	if v.config.EnableCaching {
@@ -212,7 +216,7 @@ func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedIn
 // Used to validate environment variables that are used as defaults for CLI flags
 // or that influence application behavior. Helps prevent environment poisoning attacks.
 //
-// Performance: ~200ns per validation
+// Performance (BenchmarkValidateEnvironmentValue): ~610ns and 5 allocations.
 func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *ValidatedInput {
 	result := &ValidatedInput{
 		OriginalValue:     value,
@@ -251,7 +255,10 @@ func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *Valida
 // This method should be called before performing file operations like read, write, or execute
 // to ensure the operation is safe and the user has appropriate permissions.
 //
-// Performance: ~1μs per validation including file system access
+// Performance (BenchmarkValidateFileOperation): ~8.6us and 33 allocations
+// uncached, file system access included. It calls ValidatePathFlag first, so
+// with caching on -- the default -- a repeated path costs what that cache
+// lookup costs.
 func (v *InputValidator) ValidateFileOperation(path, operation string) *ValidatedInput {
 	// First validate the path
 	pathResult := v.ValidatePathFlag("file-operation", path)

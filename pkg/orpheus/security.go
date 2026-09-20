@@ -99,7 +99,11 @@ type PathSecurityResult struct {
 // 6. Windows device name protection
 // 7. Case-insensitive security validation
 //
-// Performance: ~200ns per call, zero allocations for valid paths
+// Performance (BenchmarkValidateSecurePath, AMD Ryzen 5 7520U): ~1.4us and 8
+// allocations for a path that passes, ~160ns and 2 allocations for one that is
+// rejected. Rejection is the cheaper case, not the more expensive one: a
+// violation returns at the layer that found it, while a valid path is carried
+// through every remaining check.
 func ValidateSecurePath(path string, config SecurityConfig) *PathSecurityResult {
 	result := &PathSecurityResult{
 		Path:           path,
@@ -197,7 +201,8 @@ func ValidateSecurePath(path string, config SecurityConfig) *PathSecurityResult 
 // - Provides security risk assessment for file operations
 // - Enables proactive permission management
 //
-// Performance: ~1μs per call, includes file system access
+// Performance (BenchmarkAnalyzeFilePermissions): ~3.7us and 14 allocations,
+// file system access included.
 func AnalyzeFilePermissions(path string, config SecurityConfig) (*FilePermission, error) {
 	// First validate the path if security is enabled
 	if config.EnablePathValidation {

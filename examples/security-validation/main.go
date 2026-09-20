@@ -391,8 +391,8 @@ func handleBenchmark(ctx *orpheus.Context) error {
 		fmt.Printf("  - Operations per second: %.0f\n", float64(iterations)/duration.Seconds())
 
 		if detailed {
-			fmt.Printf("  - Memory efficiency: Excellent (cached results)\n")
-			fmt.Printf("  - CPU overhead: < 0.1%% per operation\n")
+			fmt.Printf("  - Repeats hit the validation cache; the first call for a\n")
+			fmt.Printf("    given path pays the file system access (~8us)\n")
 		}
 		fmt.Println()
 	}
@@ -411,16 +411,16 @@ func handleBenchmark(ctx *orpheus.Context) error {
 		fmt.Printf("  - Operations per second: %.0f\n", float64(iterations)/duration.Seconds())
 
 		if detailed {
-			fmt.Printf("  - Pattern matching: Optimized regex\n")
-			fmt.Printf("  - Security overhead: Minimal\n")
+			fmt.Printf("  - Pattern matching: precompiled regex\n")
+			fmt.Printf("  - Sanitization is on by default and dominates this figure\n")
 		}
 		fmt.Println()
 	}
 
 	fmt.Printf("Performance Summary:\n")
 	fmt.Printf("  - All security validations completed successfully\n")
-	fmt.Printf("  - Performance impact: < 1%% application overhead\n")
-	fmt.Printf("  - Security controls: Enterprise-grade with minimal latency\n")
+	fmt.Printf("  - Figures above are this machine's, for these inputs; run\n")
+	fmt.Printf("    `go test -bench=Validate ./pkg/orpheus/` for the full set\n")
 
 	return nil
 }
