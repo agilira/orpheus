@@ -1,0 +1,7 @@
+{
+  "_comment": "gosec configuration. Single source of truth for the settings used by both .github/workflows/pr.yml (hard gate) and ci.yml (informational). Keep them in sync by pointing both at this file rather than repeating --exclude flags, which is how ci.yml came to reference a file that did not exist while pr.yml carried its own list. Do not set global.nosec or global.audit here: gosec reads \"nosec\": \"enabled\" as ignore the #nosec annotations, which resurfaces findings that carry a written justification in the source.",
+  "_exclusions": "None. The production packages pass gosec with no rule excluded, and that is the gate worth keeping: an exclusion added to quiet one finding hides every later instance of the same rule. pr.yml previously excluded G104, G301 and G306, which matched nothing -- those rules only fire in test helpers, and gosec is deliberately run without -tests. Anything that needs silencing belongs in the source as a #nosec with a reason, next to the code that earns it.",
+  "global": {
+    "quiet": "enabled"
+  }
+}
