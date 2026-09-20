@@ -62,26 +62,24 @@ type Prompter interface {
 // terminal raw mode. When fd < 0, AskSecret falls back to plain text
 // reading (useful in tests and non-TTY environments like CI pipes).
 type TerminalPrompter struct {
-	reader  *bufio.Scanner
-	writer  io.Writer
-	fd      int // file descriptor for AskSecret (-1 = fallback to plain read)
-	maxLine int // maximum bytes per input line (defense against CWE-400)
+	reader *bufio.Scanner
+	writer io.Writer
+	fd     int // file descriptor for AskSecret (-1 = fallback to plain read)
 }
 
-// maxInputLine is the default maximum input line length in bytes.
+// maxInputLine is the maximum input line length in bytes, enforced on every
+// prompter by newPrompter. A longer line makes the read fail rather than
+// allocate.
 // WHY 4096: large enough for any reasonable user input (names, API keys,
 // URLs), small enough to prevent memory exhaustion from malicious input.
+// It replaced a maxLine struct field that every constructor set and nothing
+// ever read.
 const maxInputLine = 4096
 
 // NewTerminalPrompter creates a Prompter backed by real stdin/stdout.
 // This is the production constructor. Tests should use NewPrompterFrom.
 func NewTerminalPrompter() *TerminalPrompter {
-	return &TerminalPrompter{
-		reader:  bufio.NewScanner(os.Stdin),
-		writer:  os.Stdout,
-		fd:      int(os.Stdin.Fd()),
-		maxLine: maxInputLine,
-	}
+	return newPrompter(os.Stdin, os.Stdout, int(os.Stdin.Fd()))
 }
 
 // NewPrompterFrom creates a Prompter backed by the given reader and writer.
@@ -91,13 +89,25 @@ func NewTerminalPrompter() *TerminalPrompter {
 // WHY this constructor exists: unit tests inject a buffer here, so every
 // method can be exercised without a real terminal.
 func NewPrompterFrom(r io.Reader, w io.Writer, fd int) *TerminalPrompter {
+	return newPrompter(r, w, fd)
+}
+
+// newPrompter builds a TerminalPrompter with the line limit applied.
+//
+// WHY both constructors go through here: the Buffer call that enforces
+// maxInputLine used to live in NewPrompterFrom alone, so the defence the
+// maxLine field documents held for injected readers -- that is, in tests --
+// and not for os.Stdin, which is the only reader that ever carries untrusted
+// input. Production fell back to bufio.Scanner's own 64 KiB default. One
+// construction path means the limit cannot apply to one caller and not the
+// other.
+func newPrompter(r io.Reader, w io.Writer, fd int) *TerminalPrompter {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, maxInputLine), maxInputLine)
 	return &TerminalPrompter{
-		reader:  scanner,
-		writer:  w,
-		fd:      fd,
-		maxLine: maxInputLine,
+		reader: scanner,
+		writer: w,
+		fd:     fd,
 	}
 }
 
