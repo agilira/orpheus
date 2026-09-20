@@ -2,7 +2,7 @@ module github.com/agilira/orpheus
 
 go 1.25.9
 
-require github.com/agilira/flash-flags v1.1.8
+require github.com/agilira/flash-flags v1.3.0
 
 require (
 	github.com/agilira/go-errors v1.1.2
