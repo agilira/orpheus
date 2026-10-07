@@ -111,3 +111,44 @@ func TestDefaultPluginPathsDoNotDependOnWorkingDirectory(t *testing.T) {
 		}
 	}
 }
+
+func symlinkOrSkip(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+}
+
+func TestLoadPluginRejectsSymlinkEscapingAllowedDir(t *testing.T) {
+	outside := pluginDir(t, "evil.so")
+	allowed := t.TempDir()
+	link := filepath.Join(allowed, "memory.so")
+	symlinkOrSkip(t, filepath.Join(outside, "evil.so"), link)
+
+	_, err := managerFor(allowed).LoadPlugin(context.Background(), link)
+	if err == nil || !strings.Contains(err.Error(), "outside allowed paths") {
+		t.Fatalf("symlink to %s was followed: %v", outside, err)
+	}
+}
+
+func TestLoadPluginFollowsSymlinkInsideAllowedDir(t *testing.T) {
+	allowed := pluginDir(t, "memory-v2.so")
+	link := filepath.Join(allowed, "memory.so")
+	symlinkOrSkip(t, filepath.Join(allowed, "memory-v2.so"), link)
+
+	_, err := managerFor(allowed).LoadPlugin(context.Background(), link)
+	if err == nil || !strings.Contains(err.Error(), "failed to open plugin") {
+		t.Fatalf("symlink inside the allowed directory was refused: %v", err)
+	}
+}
+
+func TestLoadPluginAcceptsAllowedDirBehindSymlink(t *testing.T) {
+	real := pluginDir(t, "memory.so")
+	alias := filepath.Join(t.TempDir(), "plugins")
+	symlinkOrSkip(t, real, alias)
+
+	_, err := managerFor(alias).LoadPlugin(context.Background(), filepath.Join(alias, "memory.so"))
+	if err == nil || !strings.Contains(err.Error(), "failed to open plugin") {
+		t.Fatalf("allowed directory reached through a symlink was refused: %v", err)
+	}
+}

@@ -147,19 +147,21 @@ func (pm *PluginManager) LoadPlugin(ctx context.Context, pluginPath string) (*Lo
 		return existing, nil
 	}
 
-	// Validate file security
-	if err := pm.validatePluginFile(pluginPath); err != nil {
+	// Validate file security; from here on only the resolved path is used,
+	// so the file hashed and opened is the one that was checked.
+	realPath, err := pm.resolvePluginFile(pluginPath)
+	if err != nil {
 		return nil, PluginLoadError(pluginPath, err)
 	}
 
 	// Calculate file hash for integrity
-	hash, err := pm.calculateFileHash(pluginPath)
+	hash, err := pm.calculateFileHash(realPath)
 	if err != nil {
 		return nil, PluginLoadError(pluginPath, fmt.Errorf("failed to calculate file hash: %w", err))
 	}
 
 	// Load the plugin
-	p, err := plugin.Open(pluginPath)
+	p, err := plugin.Open(realPath)
 	if err != nil {
 		return nil, PluginLoadError(pluginPath, fmt.Errorf("failed to open plugin: %w", err))
 	}
@@ -346,6 +348,30 @@ func isWithinDir(dir, path string) bool {
 		return false
 	}
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// resolvePluginFile validates the file and returns its path with every
+// symlink resolved. The resolved path must still lie below an allowed
+// directory (itself resolved), otherwise a link placed in an allowed
+// directory would load a file from anywhere.
+func (pm *PluginManager) resolvePluginFile(pluginPath string) (string, error) {
+	if err := pm.validatePluginFile(pluginPath); err != nil {
+		return "", err
+	}
+	realPath, err := filepath.EvalSymlinks(pluginPath)
+	if err != nil {
+		return "", fmt.Errorf("plugin path cannot be resolved: %w", err)
+	}
+	if len(pm.pluginPaths) == 0 {
+		return realPath, nil
+	}
+	for _, dir := range pm.pluginPaths {
+		realDir, err := filepath.EvalSymlinks(dir)
+		if err == nil && isWithinDir(realDir, realPath) {
+			return realPath, nil
+		}
+	}
+	return "", fmt.Errorf("plugin resolves outside allowed paths: %s -> %s", pluginPath, realPath)
 }
 
 func (pm *PluginManager) validatePluginFile(pluginPath string) error {
