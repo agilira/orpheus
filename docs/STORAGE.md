@@ -300,8 +300,12 @@ Plugins are discovered in these locations (in order):
 2. **Standard Locations**:
    - `/usr/local/lib/orpheus/plugins/`
    - `/opt/orpheus/plugins/`  
-   - `./plugins/`
    - `~/.orpheus/plugins/`
+
+The provider name must match the plugin file name exactly (`sqlite` loads
+`sqlite.so`). No default location is relative to the working directory, so
+running an application inside a downloaded project never loads a plugin
+shipped with it; add such a directory to `AllowedPaths` explicitly if needed.
 
 ## Error Handling
 
