@@ -59,6 +59,10 @@ type Prometheus interface {
 
 // NewPrometheus returns an empty collector.
 func NewPrometheus(opts Options) Prometheus {
+	return newRegistry(opts)
+}
+
+func newRegistry(opts Options) *registry {
 	opts.MaxMetrics = positiveOr(opts.MaxMetrics, defaultMaxMetrics)
 	opts.MaxSeries = positiveOr(opts.MaxSeries, defaultMaxSeries)
 	opts.MaxBytes = positiveOr(opts.MaxBytes, defaultMaxBytes)
@@ -108,42 +112,47 @@ func (r *registry) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Metric handles. A nil family means the registration was dropped; every
-// method is then a no-op.
+// Metric handles, shared by every collector in this package. A nil family
+// means the registration was dropped; every method is then a no-op.
+
+// sink receives the samples of a handle.
+type sink interface {
+	update(f *family, o op, v float64, values []string)
+}
 
 type counter struct {
-	r *registry
+	s sink
 	f *family
 }
 
-func (c counter) Inc(_ context.Context, labels ...string) { c.r.update(c.f, opCounterAdd, 1, labels) }
+func (c counter) Inc(_ context.Context, labels ...string) { c.s.update(c.f, opCounterAdd, 1, labels) }
 
 func (c counter) Add(_ context.Context, v float64, labels ...string) {
-	c.r.update(c.f, opCounterAdd, v, labels)
+	c.s.update(c.f, opCounterAdd, v, labels)
 }
 
 type gauge struct {
-	r *registry
+	s sink
 	f *family
 }
 
 func (g gauge) Set(_ context.Context, v float64, labels ...string) {
-	g.r.update(g.f, opGaugeSet, v, labels)
+	g.s.update(g.f, opGaugeSet, v, labels)
 }
 
-func (g gauge) Inc(_ context.Context, labels ...string) { g.r.update(g.f, opGaugeAdd, 1, labels) }
+func (g gauge) Inc(_ context.Context, labels ...string) { g.s.update(g.f, opGaugeAdd, 1, labels) }
 
-func (g gauge) Dec(_ context.Context, labels ...string) { g.r.update(g.f, opGaugeAdd, -1, labels) }
+func (g gauge) Dec(_ context.Context, labels ...string) { g.s.update(g.f, opGaugeAdd, -1, labels) }
 
 func (g gauge) Add(_ context.Context, v float64, labels ...string) {
-	g.r.update(g.f, opGaugeAdd, v, labels)
+	g.s.update(g.f, opGaugeAdd, v, labels)
 }
 
 type histogram struct {
-	r *registry
+	s sink
 	f *family
 }
 
 func (h histogram) Observe(_ context.Context, v float64, labels ...string) {
-	h.r.update(h.f, opObserve, v, labels)
+	h.s.update(h.f, opObserve, v, labels)
 }
