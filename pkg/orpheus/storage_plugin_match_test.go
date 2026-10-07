@@ -106,7 +106,10 @@ func TestValidatePluginPathRespectsDirectoryBoundary(t *testing.T) {
 
 func TestDefaultPluginPathsDoNotDependOnWorkingDirectory(t *testing.T) {
 	for _, p := range DefaultPluginSecurityConfig().AllowedPaths {
-		if !filepath.IsAbs(p) && !strings.HasPrefix(p, "~/") {
+		// On Windows "/usr/..." is rooted on the current drive: not absolute,
+		// but still independent of the working directory.
+		rooted := filepath.IsAbs(p) || strings.HasPrefix(p, "/")
+		if !rooted && !strings.HasPrefix(p, "~/") {
 			t.Errorf("default plugin path %q is relative to the working directory", p)
 		}
 	}
