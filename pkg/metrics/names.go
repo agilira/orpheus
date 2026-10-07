@@ -102,7 +102,7 @@ func checkLabelNames(labels []string, histogram bool) error {
 }
 
 // checkLabelValues validates the values passed with a sample.
-func checkLabelValues(values []string, want int) error {
+func checkLabelValues(values []string, want int) *DropError {
 	if len(values) != want {
 		return &DropError{Reason: ReasonLabelCount,
 			Detail: fmt.Sprintf("%d label values, want %d", len(values), want)}
