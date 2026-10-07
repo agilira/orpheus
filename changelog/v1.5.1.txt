@@ -1,0 +1,40 @@
+Orpheus v1.5.1 - Arguments After "--" Belong to the Program
+============================================================
+
+Release Date: 2026-10-07
+Type: Fix
+
+FIXED
+-----
+- -h and --help after "--" are forwarded instead of opening Orpheus' help.
+
+  Command.Execute scanned every argument for a help flag before parsing, so
+  `app run -- tool -h` printed the help of `run` and never called its handler,
+  although flash-flags already treats everything after "--" as positional. A
+  command that forwards its arguments to another program -- a wrapper, a
+  launcher, a test runner -- could not pass -h or --help through. The scan
+  now stops at "--", the POSIX end-of-options marker. A help flag before
+  "--" works as before.
+
+- Help no longer prints "(default: )".
+
+  A string flag with an empty default, or a string-slice flag with no
+  default, was listed with "(default: )" or "(default: [])", which says
+  nothing and reads like a rendering bug. Empty defaults are now omitted;
+  non-empty ones, and every numeric default including 0, are shown as before.
+
+- An idle Orpheus process no longer uses CPU.
+
+  go-timecache, reached through go-errors, started a 500µs ticker at import:
+  about 2000 wake-ups per second, roughly 5% of a core, in every Orpheus
+  binary, even while it waited for input or for a signal. go-timecache
+  v1.0.4 parks the ticker when nobody reads the time. Orpheus now requires
+  it, and so do the examples and benchmarks modules.
+
+COMPATIBILITY
+-------------
+Requires go-timecache v1.0.4 (indirect, through go-errors).
+
+One behaviour change, affecting only a case that was broken: a command whose
+arguments contain -h or --help after "--" now runs its handler, with those
+arguments in ctx.Positional(), instead of printing its help.

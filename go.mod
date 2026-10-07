@@ -10,6 +10,6 @@ require (
 )
 
 require (
-	github.com/agilira/go-timecache v1.0.2 // indirect
+	github.com/agilira/go-timecache v1.0.4 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 )

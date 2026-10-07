@@ -1,7 +1,7 @@
 github.com/agilira/go-errors v1.1.2 h1:ksOx5zi88VZCXOKh2IAYFLK6dQeVlE4EjxIA8CVmeOI=
 github.com/agilira/go-errors v1.1.2/go.mod h1:ciAR1Rs6aWYqG195/BDVYABTvlNnRNo6pX6eUhbIGDY=
-github.com/agilira/go-timecache v1.0.2 h1:8tmWsNhhXxmvopotfkX+IBnb+0wpclytdnsA3wPfmk4=
-github.com/agilira/go-timecache v1.0.2/go.mod h1:Td47wj2NGJVCV+G4y+RlfHapluz4STXDeS1cQ1SqKDo=
+github.com/agilira/go-timecache v1.0.4 h1:bokjtEhvKw1b4KRiKGN/5A5HaHp9eh3asdWkdf1OGfw=
+github.com/agilira/go-timecache v1.0.4/go.mod h1:4e2uN0V00sIo5m0t0boLTQtORJmc2u2So/+LGvUbSs0=
 github.com/alecthomas/kingpin/v2 v2.4.0 h1:f48lwail6p8zpO1bC4TxtqACaGqHYA22qkHjHpqDjYY=
 github.com/alecthomas/kingpin/v2 v2.4.0/go.mod h1:0gyi0zQnjuFk8xrkNKamJoyUo382HRL7ATRpFZCw6tE=
 github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 h1:s6gZFSlWYmbqAuRjVTiNNhvNRfY2Wxp9nhfyel4rklc=
