@@ -100,7 +100,7 @@ make fuzz-long     # Extended fuzzing (5min)
 ### Installation
 
 ```bash
-go get github.com/agilira/orpheus@v1.5.1   # Latest stable release
+go get github.com/agilira/orpheus@v1.6.0   # Latest stable release
 # or simply
 go get github.com/agilira/orpheus          # Always latest
 ```

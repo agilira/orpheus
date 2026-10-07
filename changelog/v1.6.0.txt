@@ -1,0 +1,74 @@
+Orpheus v1.6.0 - Terminal Output, Metrics Backends, Safer Plugin Loading
+=========================================================================
+
+Release Date: 2026-10-08
+Type: Feature + Security Fix
+
+ADDED
+-----
+- pkg/term: terminal output helpers, standard library only, optional.
+
+  Detect reports whether a writer may receive colors and animation. It
+  fails closed: only a character device counts as a terminal, and NO_COLOR,
+  a --no-color flag and TERM=dumb are honored. Sanitize escapes control
+  characters (C0, DEL, C1), format characters (bidi overrides, zero-width
+  characters, BOM, invisible tag characters), line separators and invalid
+  UTF-8 as visible \x1b / \u202e escapes, so a file or server name chosen by
+  someone else cannot recolor, overwrite or reorder the line that reports it.
+  Paint, Table, Width and a Spinner (silent for operations under 300ms, with
+  byte progress) build on it: every string they print is sanitized first,
+  and color never changes the layout.
+
+- pkg/metrics: reference implementations of MetricsCollector, standard
+  library only, optional.
+
+  NewPrometheus keeps metrics in memory and serves the Prometheus text
+  format 0.0.4; NewJSONL writes one JSON object per sample to an io.Writer.
+  MetricsCollector methods cannot return errors, so both collectors validate
+  every registration and sample and drop what is invalid: bad names, wrong
+  label counts, NaN, negative counter increments, conflicting
+  registrations, and anything over the bounds on metrics, series and
+  exposition size. Drops are counted in orpheus_metrics_dropped_total{reason}
+  and passed to Options.OnError. Label values and help text are escaped so
+  that no value can leave its quotes or add a line.
+
+  Listen and Serve expose a collector with safe defaults: an address without
+  a host binds 127.0.0.1, not every interface; on loopback, a request whose
+  Host header does not name localhost or a loopback IP is refused with 421,
+  so a web page cannot read the endpoint through DNS rebinding; only
+  /metrics is served, with timeouts and an 8 KiB header limit.
+
+SECURITY
+--------
+- Storage plugins: a configuration now loads only the plugin it names.
+
+  Loading a Go plugin runs its code in the process. Four defects let a
+  configuration load a different file:
+  * an empty provider matched every discovered plugin, and a partial name
+    matched by substring ("mem" loaded memory-evil.so). The provider is now
+    required and must equal the file name without .so;
+  * allowed directories were compared as string prefixes, so
+    /opt/orpheus/plugins-evil and paths containing ".." passed. A plugin
+    path must now be canonical and lie strictly below an allowed directory;
+  * ./plugins was a default search path, so running an application inside
+    a downloaded project loaded the plugins shipped with it. Removed;
+  * a symlink inside an allowed directory could point anywhere. The path is
+    now resolved and must stay below a resolved allowed directory, and the
+    resolved file is the one hashed and opened.
+
+  Found because a test with an empty provider loaded a plugin installed on
+  the machine; under Go 1.27 that plugin, built with an older Go, aborted
+  the test process with an unrecoverable fatal error.
+
+COMPATIBILITY
+-------------
+pkg/term and pkg/metrics are new and optional; applications that do not
+import them are unaffected. No new module dependencies.
+
+Behaviour changes, all in storage plugin selection:
+- StorageConfig.Provider must not be empty when PluginPath is empty.
+- Provider names are matched exactly against the plugin file name.
+- ./plugins is no longer searched by default; add it to AllowedPaths
+  explicitly if an application relies on it.
+- A plugin reached through a symlink that leaves the allowed directories is
+  refused.
