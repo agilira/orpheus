@@ -94,7 +94,8 @@ func DefaultPluginSecurityConfig() *PluginSecurityConfig {
 		AllowedPaths: []string{
 			"/usr/local/lib/orpheus/plugins",
 			"/opt/orpheus/plugins",
-			"./plugins",
+			// No path relative to the working directory: running a CLI
+			// inside a cloned repository must not load plugins it ships.
 			"~/.orpheus/plugins",
 		},
 		RequiredSymbols: []string{
@@ -146,19 +147,21 @@ func (pm *PluginManager) LoadPlugin(ctx context.Context, pluginPath string) (*Lo
 		return existing, nil
 	}
 
-	// Validate file security
-	if err := pm.validatePluginFile(pluginPath); err != nil {
+	// Validate file security; from here on only the resolved path is used,
+	// so the file hashed and opened is the one that was checked.
+	realPath, err := pm.resolvePluginFile(pluginPath)
+	if err != nil {
 		return nil, PluginLoadError(pluginPath, err)
 	}
 
 	// Calculate file hash for integrity
-	hash, err := pm.calculateFileHash(pluginPath)
+	hash, err := pm.calculateFileHash(realPath)
 	if err != nil {
 		return nil, PluginLoadError(pluginPath, fmt.Errorf("failed to calculate file hash: %w", err))
 	}
 
 	// Load the plugin
-	p, err := plugin.Open(pluginPath)
+	p, err := plugin.Open(realPath)
 	if err != nil {
 		return nil, PluginLoadError(pluginPath, fmt.Errorf("failed to open plugin: %w", err))
 	}
@@ -251,6 +254,11 @@ func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *Stor
 		return pm.LoadPlugin(ctx, config.PluginPath)
 	}
 
+	// An empty name would match any plugin found on the search paths.
+	if config.Provider == "" {
+		return nil, ConfigValidationError(config.Provider, fmt.Errorf("provider name is empty"))
+	}
+
 	// Try to find plugin by provider name
 	discovered, err := pm.DiscoverPlugins(ctx)
 	if err != nil {
@@ -259,7 +267,8 @@ func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *Stor
 
 	// Look for plugin matching the provider name
 	for _, pluginPath := range discovered {
-		if strings.Contains(filepath.Base(pluginPath), config.Provider) {
+		// Exact match only: a substring would let "mem" load memory-evil.so.
+		if strings.TrimSuffix(filepath.Base(pluginPath), ".so") == config.Provider {
 			return pm.LoadPlugin(ctx, pluginPath)
 		}
 	}
@@ -312,21 +321,57 @@ func (pm *PluginManager) validatePluginPath(pluginPath string) error {
 		return fmt.Errorf("plugin path must be absolute: %s", pluginPath)
 	}
 
+	// The OS resolves ".." after following symlinks, Clean does not, so a
+	// path that is not already clean could be judged on a different file.
+	if filepath.Clean(pluginPath) != pluginPath {
+		return fmt.Errorf("plugin path is not canonical: %s", pluginPath)
+	}
+
 	// Validate against allowed paths if configured
 	if len(pm.pluginPaths) > 0 {
-		allowed := false
 		for _, allowedPath := range pm.pluginPaths {
-			if strings.HasPrefix(pluginPath, allowedPath) {
-				allowed = true
-				break
+			if isWithinDir(allowedPath, pluginPath) {
+				return nil
 			}
 		}
-		if !allowed {
-			return fmt.Errorf("plugin path not in allowed paths: %s", pluginPath)
-		}
+		return fmt.Errorf("plugin path not in allowed paths: %s", pluginPath)
 	}
 
 	return nil
+}
+
+// isWithinDir reports whether path lies strictly below dir. A string prefix
+// is not enough: "/opt/plugins-evil" starts with "/opt/plugins".
+func isWithinDir(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil || rel == "." || filepath.IsAbs(rel) {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// resolvePluginFile validates the file and returns its path with every
+// symlink resolved. The resolved path must still lie below an allowed
+// directory (itself resolved), otherwise a link placed in an allowed
+// directory would load a file from anywhere.
+func (pm *PluginManager) resolvePluginFile(pluginPath string) (string, error) {
+	if err := pm.validatePluginFile(pluginPath); err != nil {
+		return "", err
+	}
+	realPath, err := filepath.EvalSymlinks(pluginPath)
+	if err != nil {
+		return "", fmt.Errorf("plugin path cannot be resolved: %w", err)
+	}
+	if len(pm.pluginPaths) == 0 {
+		return realPath, nil
+	}
+	for _, dir := range pm.pluginPaths {
+		realDir, err := filepath.EvalSymlinks(dir)
+		if err == nil && isWithinDir(realDir, realPath) {
+			return realPath, nil
+		}
+	}
+	return "", fmt.Errorf("plugin resolves outside allowed paths: %s -> %s", pluginPath, realPath)
 }
 
 func (pm *PluginManager) validatePluginFile(pluginPath string) error {
