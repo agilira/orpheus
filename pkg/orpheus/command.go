@@ -214,9 +214,17 @@ func (c *Command) Execute(ctx *Context) error {
 }
 
 // hasHelpFlag checks if help flag is present in args
+//
+// WHY stop at "--": everything after the POSIX end-of-options marker belongs to
+// positional arguments, which flash-flags already honors. A command that forwards
+// its arguments to another program ("app run -- tool -h") must hand -h to that
+// program instead of printing its own help.
 func (c *Command) hasHelpFlag(args []string) bool {
 	for _, arg := range args {
-		if arg == "--help" || arg == "-h" {
+		switch arg {
+		case "--":
+			return false
+		case "--help", "-h":
 			return true
 		}
 	}

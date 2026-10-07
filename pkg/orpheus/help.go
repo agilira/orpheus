@@ -298,8 +298,9 @@ func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag) string {
 	// Add description
 	line.WriteString(flag.Usage())
 
-	// Add default value for non-bool flags
-	if flag.Type() != "bool" && flag.Value() != nil {
+	// Add default value for non-bool flags. An empty string or list is not shown:
+	// "(default: )" tells the reader nothing and reads like a rendering bug.
+	if flag.Type() != "bool" && !isEmptyDefault(flag.Value()) {
 		line.WriteString(" (default: ")
 		line.WriteString(fmt.Sprintf("%v", flag.Value()))
 		line.WriteString(")")
@@ -324,4 +325,17 @@ func (c *Command) AddExample(example string) *Command {
 // GetHelpGenerator returns the help generator for the application.
 func (app *App) GetHelpGenerator() *HelpGenerator {
 	return NewHelpGenerator(app)
+}
+
+func isEmptyDefault(v interface{}) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case []string:
+		return len(x) == 0
+	default:
+		return false
+	}
 }
