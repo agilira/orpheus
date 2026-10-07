@@ -41,6 +41,8 @@ See Orpheus in action - building a Git-like CLI with subcommands in minutes:
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
 - **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
+- **Metrics Backends**: Optional `pkg/metrics` with Prometheus and JSON Lines implementations of `MetricsCollector`, standard library only
+- **Terminal Output**: Optional `pkg/term` with TTY and `NO_COLOR` detection, colors, aligned tables and a delayed spinner; every printed string is sanitized against escape-sequence injection
 - **Interactive Prompts**: Built-in `Prompter` interface for user input (text, secrets, menus, confirmations) with terminal-safe masking
 - **Secure by Design**: [Red-team tested](./pkg/orpheus/security_test.go) and [fuzz tested](./pkg/orpheus/orpheus_fuzz_test.go)
 - **Security Validation**: Including input sanitization, path traversal protection, and various security controls
@@ -389,6 +391,28 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
     return nil
 })
 ```
+
+Ready-made collectors live in the optional `pkg/metrics` package (standard library only):
+
+```go
+import "github.com/agilira/orpheus/pkg/metrics"
+
+prom := metrics.NewPrometheus(metrics.Options{})
+app.SetMetricsCollector(prom)
+
+ln, err := metrics.Listen(":9464") // no host: binds 127.0.0.1
+if err != nil {
+    return err
+}
+go metrics.Serve(ctx, ln, prom) // only /metrics, timeouts, DNS-rebinding guard on loopback
+
+// or one JSON object per sample:
+app.SetMetricsCollector(metrics.NewJSONL(file, metrics.Options{}))
+```
+
+Invalid or unbounded input (bad names, wrong label counts, NaN, too many
+series) is dropped, counted in `orpheus_metrics_dropped_total{reason}` and
+reported to `Options.OnError`; the collectors never panic.
 
 **Performance**: 0.24 ns/op and no allocation when not configured; when configured, no measurable difference per dispatch — the cost is whatever your own logger, tracer or collector does
 
