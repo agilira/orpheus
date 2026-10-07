@@ -106,8 +106,8 @@ func TestTableHeadersAreBoldWithColor(t *testing.T) {
 func TestTableWideAndCombiningRunes(t *testing.T) {
 	tb := term.NewTable(term.Caps{}, "NAME", "X")
 	tb.Row(term.Text("模型"), term.Text("1"))
-	tb.Row(term.Text("café"), term.Text("2"))
-	want := "NAME  X\n模型  1\ncafé  2\n"
+	tb.Row(term.Text("cafe\u0301"), term.Text("2"))
+	want := "NAME  X\n模型  1\ncafe\u0301  2\n"
 	if got := render(t, tb); got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -134,7 +134,7 @@ func TestWidth(t *testing.T) {
 		{"模型", 4},
 		{"한국", 4},
 		{"ｆｕｌｌ", 8},
-		{"é", 1},
+		{"e\u0301", 1},
 		{"\U0001F600", 2},
 	}
 	for _, tc := range cases {
