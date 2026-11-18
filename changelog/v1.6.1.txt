@@ -1,0 +1,25 @@
+Orpheus v1.6.1 - A Lone "-" Reaches the Command
+================================================
+
+Release Date: 2026-11-18
+Type: Fix
+
+FIXED
+-----
+- A lone "-" on the command line now reaches the handler in
+  ctx.Positional(), as POSIX tools expect: "prog add job -" can read
+  standard input.
+
+  It was dropped twice. Command flags are parsed by flash-flags, which took
+  every argument starting with '-' for a flag and silently discarded "-"
+  (fixed in flash-flags v1.3.2, now required). Before the command,
+  splitGlobalArgs also took it for a global flag; it is now where global
+  flags end, so "prog - add" reports "-" as an unknown command instead of
+  running "add" as if "-" had not been typed.
+
+  Found through a CLI whose "schedule add NAME -" was meant to read the
+  prompt from standard input and received no prompt at all.
+
+DEPENDENCIES
+------------
+- github.com/agilira/flash-flags v1.3.0 -> v1.3.2.

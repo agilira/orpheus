@@ -495,8 +495,9 @@ func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string) {
 			break
 		}
 
-		// Stop at first non-flag argument (the command)
-		if !strings.HasPrefix(arg, "-") {
+		// Stop at first non-flag argument (the command). A lone "-" is an
+		// operand by POSIX convention (standard input), never a flag.
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
 			break
 		}
 
