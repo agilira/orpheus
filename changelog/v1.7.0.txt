@@ -1,0 +1,33 @@
+Orpheus v1.7.0 - The Floor Moves to Go 1.26
+===========================================
+
+Release Date: 2026-11-20
+Type: Minor (minimum Go version raised)
+
+DEPENDENCIES
+------------
+- golang.org/x/term v0.43.0 -> v0.48.0
+- golang.org/x/sys  v0.44.0 -> v0.50.0 (indirect)
+
+This supersedes a stale Dependabot PR that targeted the older v0.44.0. The
+bump went to the current v0.48.0 rather than stopping at an already
+out-of-date release.
+
+GO VERSION
+----------
+golang.org/x/term v0.46.0 and later require go >= 1.26.0, so this release
+raises the module's own go directive from 1.25.9 to 1.26.0. That is the one
+consumer-visible effect, and the reason this is a minor release rather than
+a patch: a project still building on go 1.25 should stay on v1.6.1 until it
+moves its toolchain forward.
+
+Orpheus itself is compatible and tested through go 1.27; no source change
+was needed for the new toolchain floor.
+
+QUALITY GATES
+-------------
+  go build ./...          PASS
+  go vet ./...            PASS
+  staticcheck ./...       PASS (ci.yml)
+  gosec                   PASS (ci.yml)
+  go test -race ./...     PASS (ci.yml, build matrix on linux, macos, windows)
