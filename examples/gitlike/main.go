@@ -144,7 +144,12 @@ func main() {
 	// Run the application with enhanced error handling
 	if err := app.Run(os.Args[1:]); err != nil {
 		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
-			log.Printf("Error: %s", orpheusErr.UserMessage())
+			// Strip CR/LF before logging: a crafted argument reflected back in
+			// a user message must not be able to forge extra log lines
+			// (gosec G706, CWE-117).
+			safeMessage := strings.ReplaceAll(orpheusErr.UserMessage(), "\n", " ")
+			safeMessage = strings.ReplaceAll(safeMessage, "\r", " ")
+			log.Printf("Error: %s", safeMessage)
 			if orpheusErr.IsRetryable() {
 				log.Printf("This operation can be retried")
 			}
