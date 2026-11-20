@@ -4,7 +4,7 @@ github.com/agilira/go-errors v1.1.2 h1:ksOx5zi88VZCXOKh2IAYFLK6dQeVlE4EjxIA8CVme
 github.com/agilira/go-errors v1.1.2/go.mod h1:ciAR1Rs6aWYqG195/BDVYABTvlNnRNo6pX6eUhbIGDY=
 github.com/agilira/go-timecache v1.0.4 h1:bokjtEhvKw1b4KRiKGN/5A5HaHp9eh3asdWkdf1OGfw=
 github.com/agilira/go-timecache v1.0.4/go.mod h1:4e2uN0V00sIo5m0t0boLTQtORJmc2u2So/+LGvUbSs0=
-golang.org/x/sys v0.44.0 h1:ildZl3J4uzeKP07r2F++Op7E9B29JRUy+a27EibtBTQ=
-golang.org/x/sys v0.44.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
-golang.org/x/term v0.43.0 h1:S4RLU2sB31O/NCl+zFN9Aru9A/Cq2aqKpTZJ6B+DwT4=
-golang.org/x/term v0.43.0/go.mod h1:lrhlHNdQJHO+1qVYiHfFKVuVioJIheAc3fBSMFYEIsk=
+golang.org/x/sys v0.50.0 h1:dkKZEFTEKaLr1sjhs0WiKqoi8Jj5nHbS3Njmx1UoMJs=
+golang.org/x/sys v0.50.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
+golang.org/x/term v0.48.0 h1:G6UU1eiSB8nl3DzeUGt7Mg+2SctI8tPS6Z5/mBt6cOk=
+golang.org/x/term v0.48.0/go.mod h1:BRDLHCZr2SUjIeBHHpRyQeC9xzSAVbzY2rvKgafnHf4=
