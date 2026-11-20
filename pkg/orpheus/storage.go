@@ -123,6 +123,13 @@ type StorageConfig struct {
 	// If empty, looks for built-in providers first, then standard plugin locations
 	PluginPath string `json:"plugin_path,omitempty" yaml:"plugin_path,omitempty"`
 
+	// AllowedPluginPaths lists directories, in addition to the secure defaults,
+	// from which a plugin may be loaded. The defaults are system locations only
+	// (never the working directory), so an application that ships a plugin in its
+	// own directory must name that directory here to opt in explicitly. Leaving
+	// it empty keeps the defaults unchanged.
+	AllowedPluginPaths []string `json:"allowed_plugin_paths,omitempty" yaml:"allowed_plugin_paths,omitempty"`
+
 	// Config contains provider-specific configuration options
 	Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`
 

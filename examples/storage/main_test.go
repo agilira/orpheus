@@ -114,9 +114,10 @@ func newStorageTestApp(logger *TestLogger, pluginPath string) *orpheus.App {
 		SetLogger(logger)
 
 	config := &orpheus.StorageConfig{
-		Provider:   "memory",
-		PluginPath: pluginPath,
-		Config:     map[string]interface{}{},
+		Provider:           "memory",
+		PluginPath:         pluginPath,
+		AllowedPluginPaths: []string{filepath.Dir(pluginPath)},
+		Config:             map[string]interface{}{},
 	}
 	app.ConfigureStorage(config)
 

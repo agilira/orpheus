@@ -49,7 +49,10 @@ func main() {
 	config := &orpheus.StorageConfig{
 		Provider:   "memory",
 		PluginPath: pluginPath,
-		Config:     map[string]interface{}{},
+		// The demo ships its plugin under ./plugins, which the secure defaults
+		// never allow implicitly, so the directory is opted in explicitly.
+		AllowedPluginPaths: []string{filepath.Dir(pluginPath)},
+		Config:             map[string]interface{}{},
 	}
 
 	fmt.Printf("Configuring storage with plugin: %s\n", config.PluginPath)

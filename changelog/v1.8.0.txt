@@ -1,0 +1,52 @@
+Orpheus v1.8.0 - A Door the Application Opens Itself
+===================================================
+
+Release Date: 2026-11-20
+Type: Minor (new API)
+
+ADDED
+-----
+- StorageConfig.AllowedPluginPaths []string
+
+  A storage plugin is loaded only from an allow-list of directories, and the
+  secure default is system locations only -- /usr/local/lib/orpheus/plugins,
+  /opt/orpheus/plugins, ~/.orpheus/plugins -- never the working directory, so
+  a CLI run inside a cloned repository cannot load a plugin that repository
+  happens to ship.
+
+  That left no supported way for an application to load a plugin it keeps in
+  its own directory: the allow-list was built from the default and could not
+  be extended through ConfigureStorage. AllowedPluginPaths is that way. The
+  directories it names are appended to the secure defaults, so an application
+  opts its own plugin directory in explicitly and the working directory is
+  still never allowed implicitly.
+
+      config := &orpheus.StorageConfig{
+          Provider:           "memory",
+          PluginPath:         pluginPath,
+          AllowedPluginPaths: []string{filepath.Dir(pluginPath)},
+      }
+
+  Leaving the field empty keeps the previous behaviour exactly.
+
+FIXED
+-----
+- The examples/storage demo could not load its own plugin.
+
+  It ships memory.so under ./plugins and loaded it by absolute path, which the
+  default allow-list refuses. The demo -- and its tests -- now opt that
+  directory in through AllowedPluginPaths, which is both the fix and the
+  worked example of the new field. The failure was only ever reachable from
+  the nested example module, which CI does not build, so no released library
+  behaviour changed.
+
+QUALITY GATES
+-------------
+  gofmt -l .              PASS (clean)
+  go vet ./...            PASS
+  gosec -conf .gosec.json PASS (0 issues)
+  go test -race ./pkg/... PASS
+  examples/storage        PASS (plugin loads and the command suite runs)
+
+Two unit tests pin the new behaviour: one that the named directories are
+added to the defaults, one that an empty field leaves the defaults untouched.
