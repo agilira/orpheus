@@ -5,7 +5,7 @@ go 1.26.0
 require github.com/agilira/flash-flags v1.3.2
 
 require (
-	github.com/agilira/go-errors v1.1.2
+	github.com/agilira/go-errors v1.1.3
 	golang.org/x/term v0.48.0
 )
 
