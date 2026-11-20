@@ -107,6 +107,20 @@ config := &orpheus.PluginSecurityConfig{
 }
 ```
 
+The default allowed paths are system locations only — never the working
+directory — so a CLI run inside a cloned repository cannot load a plugin it
+ships. An application that keeps its plugin in its own directory opts that
+directory in explicitly through `StorageConfig.AllowedPluginPaths`, which this
+demo does for its `./plugins` folder:
+
+```go
+config := &orpheus.StorageConfig{
+    Provider:           "memory",
+    PluginPath:         pluginPath,
+    AllowedPluginPaths: []string{filepath.Dir(pluginPath)},
+}
+```
+
 ## Files
 
 - `main.go` - Main application with CLI interface

@@ -145,9 +145,16 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 		return app
 	}
 
-	// Initialize plugin manager if not already created
+	// Initialize plugin manager if not already created. Any directories the
+	// caller opted into through AllowedPluginPaths are appended to the secure
+	// defaults, so an application can load a plugin it ships in its own
+	// directory without the working directory ever being allowed implicitly.
 	if app.pluginManager == nil {
-		app.pluginManager = NewPluginManager(app.logger, DefaultPluginSecurityConfig())
+		securityConfig := DefaultPluginSecurityConfig()
+		if len(config.AllowedPluginPaths) > 0 {
+			securityConfig.AllowedPaths = append(securityConfig.AllowedPaths, config.AllowedPluginPaths...)
+		}
+		app.pluginManager = NewPluginManager(app.logger, securityConfig)
 	}
 
 	// Load the storage plugin
