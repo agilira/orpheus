@@ -472,7 +472,7 @@ func (app *App) handleHelpCommand(ctx context.Context, cmdArgs []string) error {
 func (app *App) runCommand(parentCtx context.Context, cmdName string, args []string) error {
 	cmd, exists := app.commands[cmdName]
 	if !exists {
-		return NotFoundError(cmdName, fmt.Sprintf("command '%s' not found", cmdName))
+		return NotFoundError(cmdName, "unknown command")
 	}
 
 	// Create execution context
@@ -656,7 +656,7 @@ func (app *App) helpHandler(ctx *Context) error {
 func (app *App) showCommandHelp(cmdName string) error {
 	cmd, exists := app.commands[cmdName]
 	if !exists {
-		return NotFoundError(cmdName, fmt.Sprintf("command '%s' not found", cmdName))
+		return NotFoundError(cmdName, "unknown command")
 	}
 
 	generator := NewHelpGenerator(app)

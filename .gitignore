@@ -84,3 +84,5 @@ tmp/
 *.cast
 demo-script.sh
 RECORDING.md
+/examples/storage/storage-demo
+/examples/storage-simple/storage-simple-demo

@@ -499,7 +499,7 @@ func TestErrorHandling(t *testing.T) {
 		{
 			name:          "unknown command",
 			args:          []string{"unknown"},
-			expectedError: "command 'unknown' not found",
+			expectedError: "command 'unknown': [ORF1002]: unknown command",
 		},
 		{
 			name:          "echo without args",

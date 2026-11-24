@@ -102,3 +102,35 @@ jobs:
     - name: Short Test (no race, faster)
       run: go test -short -timeout 5m ./...
       timeout-minutes: ${{ matrix.timeout || 15 }}
+
+  # The root module is only part of the repository. The examples and the
+  # benchmarks are separate modules that "go build ./..." never reaches, so
+  # they drifted until none of them built: Dependabot bumped the root go.mod
+  # and left them asking for "go mod tidy". This job keeps them honest.
+  #
+  # go vet and go test rather than go build: examples/storage/providers is a
+  # plugin, built with -buildmode=plugin, and has no main function.
+  submodules:
+    name: Submodules
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
+        cache: true
+
+    - name: Vet and test every submodule
+      run: |
+        set -euo pipefail
+        status=0
+        for mod in $(find . -mindepth 2 -name go.mod | sort); do
+          dir=$(dirname "$mod")
+          echo "::group::$dir"
+          (cd "$dir" && go vet ./... && go test -count=1 -timeout 5m ./...) || status=1
+          echo "::endgroup::"
+        done
+        exit $status

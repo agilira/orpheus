@@ -118,44 +118,21 @@ With `Run`, this context is canceled by Orpheus' default signal handling.
 
 ### Arguments
 
-The `Args` surface returns the **raw arguments** passed to the command after the
-command name. Flag tokens (`--name`) and their values are included in this slice.
-Use this API when you rely on the documented raw-input semantics.
+`GetArg` and `ArgCount` return the **positional arguments**: flag tokens and
+their values are excluded. For `app remote add -f origin URL`, `GetArg(0)` is
+`"origin"`, wherever the flag is written.
 
 ```go
-// Get raw argument count (includes flag tokens)
-count := ctx.ArgCount()
-
-// Get raw argument by index
-arg := ctx.GetArg(index)
+count := ctx.ArgCount()  // number of positional arguments
+arg := ctx.GetArg(index) // "" when index is out of range
 ```
 
-### Positional Arguments
+Before v1.9.0 they indexed the raw arguments, so a flag written before the
+positionals was read as one. The raw arguments, flags included, are still in
+the `ctx.Args` field.
 
-Added in v1.3.0. These accessors return the **post-parse positional arguments**:
-flag tokens and their values are excluded by construction. Use this API when you
-need to validate that the user supplied positional values independently of any
-flags that may also be present.
-
-```go
-// Full positional slice (flag tokens excluded)
-positionals := ctx.Positional()
-
-// Number of positional arguments
-count := ctx.PositionalCount()
-
-// Safe single-index accessor — returns "" when index is out of range
-value := ctx.GetPositional(index)
-```
-
-All three methods return safe zero values when `ctx.Flags` is nil (e.g. tests
-building a `Context` outside the dispatch chain).
-
-**Choosing between `Args` and `Positional`:** if your handler receives
-`app cmd --flag value positional`, `ctx.GetArg(0)` returns `"--flag"` while
-`ctx.GetPositional(0)` returns `"positional"`. A required-positional check
-using `ArgCount() < 1` silently accepts the call in the former case; use
-`PositionalCount() < 1` to express the intent correctly.
+`Positional()`, `PositionalCount()` and `GetPositional(index)`, added in v1.3.0
+for the same purpose, return the same arguments.
 
 ### Command Flags
 

@@ -21,7 +21,8 @@ type Context struct {
 	// Command is the currently executing command
 	Command *Command
 
-	// Args are the raw arguments passed to the command (after command name)
+	// Args are the raw arguments passed to the command (after command name),
+	// flags included. GetArg and ArgCount read the positional arguments.
 	Args []string
 
 	// Flags is the parsed flag set for this command
@@ -51,35 +52,45 @@ func (ctx *Context) Context() context.Context {
 	return context.Background()
 }
 
-// GetArg returns the argument at the specified index.
-// Returns empty string if index is out of bounds.
+// GetArg returns the positional argument at index, or "" when there is
+// none. Flags and their values are not positional: in
+// "app remote add -f origin URL", GetArg(0) is "origin".
+//
+// WHY positional: GetArg used to index ctx.Args, the raw arguments, so a
+// flag written before the positionals was read as one. Every handler in the
+// README and the examples called GetArg(0) for the first operand, and the
+// gitlike example added a remote named "-f". ctx.Args keeps the raw view for
+// the rare handler that wants it.
+//
+// A Context built outside the dispatch path has no parsed flags; ctx.Args
+// is then the only view there is, and GetArg reads it.
 func (ctx *Context) GetArg(index int) string {
-	if index < 0 || index >= len(ctx.Args) {
+	args := ctx.positionals()
+	if index < 0 || index >= len(args) {
 		return ""
 	}
-	return ctx.Args[index]
+	return args[index]
 }
 
-// ArgCount returns the number of arguments.
+// ArgCount returns the number of positional arguments. See GetArg.
 func (ctx *Context) ArgCount() int {
-	return len(ctx.Args)
+	return len(ctx.positionals())
 }
 
-// Positional returns the slice of POSITIONAL arguments after flag
-// parsing — flag tokens (--name) and their values are excluded. The
-// returned slice is the parser's view; callers iterate without
-// risking flag tokens being mistaken for positionals.
-//
-// WHY a dedicated method: ctx.Args is documented to carry the RAW
-// args passed to the command (after the command name) and consumers
-// may rely on that semantics. Handlers that need post-parse
-// positionals were stuck reconstructing them by filtering ctx.Args
-// against ctx.Flags — error-prone. Positional() exposes the value
-// flashflags already computed.
-//
-// Returns nil when no flags have been parsed yet (e.g. the command
-// has no handler attached or ctx is built outside the dispatch
-// path); callers MUST nil-check before indexing.
+// positionals is the parser's positional arguments, or ctx.Args when no
+// flags were parsed.
+func (ctx *Context) positionals() []string {
+	if ctx.Flags == nil {
+		return ctx.Args
+	}
+	return ctx.Flags.Args()
+}
+
+// Positional returns the positional arguments after flag parsing, or nil
+// when no flags have been parsed (a Context built outside the dispatch
+// path). Since v1.9.0 GetArg and ArgCount read the same arguments;
+// Positional, PositionalCount and GetPositional remain for the code that
+// adopted them in v1.3.0.
 func (ctx *Context) Positional() []string {
 	if ctx.Flags == nil {
 		return nil
@@ -87,9 +98,8 @@ func (ctx *Context) Positional() []string {
 	return ctx.Flags.Args()
 }
 
-// PositionalCount returns the number of positional arguments after
-// flag parsing. Companion to Positional(); see its docstring for
-// the WHY-vs-ArgCount contrast.
+// PositionalCount returns the number of positional arguments after flag
+// parsing. See Positional.
 func (ctx *Context) PositionalCount() int {
 	if ctx.Flags == nil {
 		return 0
@@ -97,10 +107,8 @@ func (ctx *Context) PositionalCount() int {
 	return len(ctx.Flags.Args())
 }
 
-// GetPositional returns the positional argument at the given index,
-// or empty string if the index is out of range. Companion to
-// PositionalCount(); see Positional() for the semantic contrast
-// against GetArg.
+// GetPositional returns the positional argument at index, or "" when there
+// is none. See Positional.
 func (ctx *Context) GetPositional(index int) string {
 	if ctx.Flags == nil {
 		return ""
