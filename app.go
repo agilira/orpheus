@@ -1,0 +1,768 @@
+// app.go: the App type, its configuration and command dispatch
+//
+// Copyright (c) 2025 AGILira - A. Giordano
+// Series: an AGILira library
+// SPDX-License-Identifier: MPL-2.0
+
+package orpheus
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	flashflags "github.com/agilira/flash-flags"
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/prompt"
+	"github.com/agilira/orpheus/storage"
+)
+
+// App represents the main CLI application.
+type App struct {
+	name             string
+	description      string
+	version          string
+	commands         map[string]*Command
+	globalFlags      *flashflags.FlagSet
+	globalDefaults   flagDefaults
+	globalParsed     bool
+	defaultCmd       string
+	logger           observe.Logger
+	auditLogger      observe.AuditLogger
+	tracer           observe.Tracer
+	metricsCollector observe.MetricsCollector
+	storage          storage.Storage
+	storageConfig    *storage.Config
+	storageErr       error
+	pluginManager    *storage.PluginManager
+	prompter         prompt.Prompter
+}
+
+// New creates a new Orpheus application.
+// The built-in "help" command is not registered here: handleCommandExecution
+// intercepts the name directly, and the help generator lists it from a literal.
+func New(name string) *App {
+	return &App{
+		name:        name,
+		commands:    make(map[string]*Command),
+		globalFlags: flashflags.New(name),
+	}
+}
+
+// SetDescription sets the application description.
+func (app *App) SetDescription(description string) *App {
+	app.description = description
+	return app
+}
+
+// SetVersion sets the application version.
+func (app *App) SetVersion(version string) *App {
+	app.version = version
+	return app
+}
+
+// SetLogger sets the logger for the application.
+func (app *App) SetLogger(logger observe.Logger) *App {
+	app.logger = logger
+	return app
+}
+
+// SetAuditLogger sets the audit logger for the application.
+func (app *App) SetAuditLogger(auditLogger observe.AuditLogger) *App {
+	app.auditLogger = auditLogger
+	return app
+}
+
+// SetTracer sets the tracer for the application.
+func (app *App) SetTracer(tracer observe.Tracer) *App {
+	app.tracer = tracer
+	return app
+}
+
+// SetMetricsCollector sets the metrics collector for the application.
+func (app *App) SetMetricsCollector(collector observe.MetricsCollector) *App {
+	app.metricsCollector = collector
+	return app
+}
+
+// SetStorage sets the storage backend for the application.
+// This provides persistent key-value storage for CLI applications.
+func (app *App) SetStorage(storage storage.Storage) *App {
+	app.storage = storage
+	return app
+}
+
+// SetPrompter sets the interactive prompter for the application.
+// When set, command handlers can use ctx.Prompter() to ask the user
+// questions, read secrets, display menus, and request confirmation.
+// Pass nil to disable interactive prompts (non-interactive mode).
+func (app *App) SetPrompter(prompter prompt.Prompter) *App {
+	app.prompter = prompter
+	return app
+}
+
+// ConfigureStorage configures storage from a StorageConfig and initializes the
+// backend, handling plugin loading, validation and initialization.
+//
+// Storage is optional, so a failure here does not stop the application and does
+// not break the chain: the method returns the App either way. The reason is
+// recorded and readable through StorageError, and Storage stays nil.
+//
+// WHY the reason is recorded rather than only logged: every failure path here
+// used to be reported through app.logger alone, so an application that had not
+// called SetLogger -- the default -- lost the reason entirely and was left with
+// a nil Storage and nothing to say why. A caller that requires storage should
+// check StorageError, or use ctx.RequireStorage inside a handler.
+func (app *App) ConfigureStorage(config *storage.Config) *App {
+	app.storageConfig = config
+	app.storageErr = nil
+
+	// Validate configuration input
+	if config == nil {
+		if app.logger != nil {
+			ctx := context.Background()
+			app.logger.Warn(ctx, "Storage configuration is nil - skipping storage setup")
+		}
+		app.storageErr = storage.ValidationError("configure", "storage configuration is nil")
+		return app
+	}
+
+	// Initialize plugin manager if not already created. Any directories the
+	// caller opted into through AllowedPluginPaths are appended to the secure
+	// defaults, so an application can load a plugin it ships in its own
+	// directory without the working directory ever being allowed implicitly.
+	if app.pluginManager == nil {
+		app.pluginManager = storage.NewPluginManager(app.logger, pluginSecurityConfig(config))
+	}
+
+	// Load the storage plugin
+	ctx := context.Background()
+	loadedPlugin, err := app.pluginManager.LoadPluginsFromConfig(ctx, config)
+	if err != nil {
+		// Log the error but don't fail - storage is optional
+		if app.logger != nil {
+			app.logger.Error(ctx, "Failed to load storage plugin",
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
+		}
+		app.storageErr = storageConfigureError(
+			fmt.Sprintf("failed to load the storage plugin for provider %q", config.Provider), err)
+		return app
+	}
+
+	// Validate the plugin configuration
+	if err := loadedPlugin.Plugin.Validate(config.Config); err != nil {
+		if app.logger != nil {
+			app.logger.Error(ctx, "Storage configuration validation failed",
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
+		}
+		app.storageErr = storage.ConfigValidationError(config.Provider, err)
+		return app
+	}
+
+	// Create the storage instance
+	storage, err := loadedPlugin.Plugin.New(config.Config)
+	if err != nil {
+		if app.logger != nil {
+			app.logger.Error(ctx, "Failed to create storage instance",
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
+		}
+		app.storageErr = storageConfigureError(
+			fmt.Sprintf("failed to create the storage instance for provider %q", config.Provider), err)
+		return app
+	}
+
+	// Test the storage connection
+	if err := storage.Health(ctx); err != nil {
+		if app.logger != nil {
+			app.logger.Warn(ctx, "Storage health check failed",
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
+		}
+		// Continue anyway - storage might be temporarily unavailable
+	}
+
+	// Set the storage instance
+	app.storage = storage
+
+	if app.logger != nil {
+		app.logger.Info(ctx, "Storage configured successfully",
+			observe.Field{Key: "provider", Value: config.Provider},
+			observe.Field{Key: "plugin", Value: loadedPlugin.Plugin.Name()},
+			observe.Field{Key: "version", Value: loadedPlugin.Plugin.Version()})
+	}
+
+	return app
+}
+
+// pluginSecurityConfig returns the default plugin security configuration
+// with the directories config.AllowedPluginPaths opts into appended.
+func pluginSecurityConfig(config *storage.Config) *storage.PluginSecurityConfig {
+	securityConfig := storage.DefaultPluginSecurityConfig()
+	if len(config.AllowedPluginPaths) > 0 {
+		securityConfig.AllowedPaths = append(securityConfig.AllowedPaths, config.AllowedPluginPaths...)
+	}
+	return securityConfig
+}
+
+// storageConfigureError reports a ConfigureStorage failure as the storage
+// validation error it always was, keeping cause in the error chain.
+//
+// WHY: the cause used to be flattened into the message with %v, so
+// errors.Is and errors.As on StorageError could not reach it.
+func storageConfigureError(message string, cause error) *errs.Error {
+	return errs.NewErrorWithCause(errs.ErrCodeStorageValidation, "storage",
+		fmt.Sprintf("configure validation failed: %s: %v", message, cause), cause).
+		WithContext("operation", "storage.configure").
+		WithSeverity("error").
+		WithUserMessage("Invalid storage operation parameters")
+}
+
+// Logger returns the configured logger.
+func (app *App) Logger() observe.Logger {
+	return app.logger
+}
+
+// AuditLogger returns the configured audit logger.
+func (app *App) AuditLogger() observe.AuditLogger {
+	return app.auditLogger
+}
+
+// Tracer returns the configured tracer.
+func (app *App) Tracer() observe.Tracer {
+	return app.tracer
+}
+
+// MetricsCollector returns the configured metrics collector.
+func (app *App) MetricsCollector() observe.MetricsCollector {
+	return app.metricsCollector
+}
+
+// Storage returns the configured storage backend.
+func (app *App) Storage() storage.Storage {
+	return app.storage
+}
+
+// StorageConfig returns the current storage configuration.
+func (app *App) StorageConfig() *storage.Config {
+	return app.storageConfig
+}
+
+// StorageError returns why the last ConfigureStorage call left the application
+// without a storage backend, or nil if it succeeded or was never called.
+//
+// A failed health check is not reported here: the backend exists and may simply
+// be unreachable for the moment, so Storage is set and the check is logged.
+func (app *App) StorageError() error {
+	return app.storageErr
+}
+
+// PluginManager returns the plugin manager for advanced storage plugin operations.
+func (app *App) PluginManager() *storage.PluginManager {
+	return app.pluginManager
+}
+
+// AddGlobalFlag adds a global string flag.
+func (app *App) AddGlobalFlag(name, shorthand, defaultValue, description string) *App {
+	if shorthand != "" {
+		app.globalFlags.StringVar(name, shorthand, defaultValue, description)
+	} else {
+		app.globalFlags.String(name, defaultValue, description)
+	}
+	app.globalDefaults.record(name, defaultValue)
+	return app
+}
+
+// AddGlobalBoolFlag adds a global boolean flag.
+func (app *App) AddGlobalBoolFlag(name, shorthand string, defaultValue bool, description string) *App {
+	if shorthand != "" {
+		app.globalFlags.BoolVar(name, shorthand, defaultValue, description)
+	} else {
+		app.globalFlags.Bool(name, defaultValue, description)
+	}
+	app.globalDefaults.record(name, defaultValue)
+	return app
+}
+
+// AddGlobalIntFlag adds a global integer flag.
+func (app *App) AddGlobalIntFlag(name, shorthand string, defaultValue int, description string) *App {
+	if shorthand != "" {
+		app.globalFlags.IntVar(name, shorthand, defaultValue, description)
+	} else {
+		app.globalFlags.Int(name, defaultValue, description)
+	}
+	app.globalDefaults.record(name, defaultValue)
+	return app
+}
+
+// Command adds a command using a simple handler function.
+func (app *App) Command(name, description string, handler CommandHandler) *App {
+	cmd := NewCommand(name, description).SetHandler(handler)
+	app.commands[name] = cmd
+	return app
+}
+
+// AddCommand adds a pre-configured command.
+func (app *App) AddCommand(cmd *Command) *App {
+	app.commands[cmd.Name()] = cmd
+	return app
+}
+
+// SetDefaultCommand sets the command to run when no command is specified.
+func (app *App) SetDefaultCommand(cmdName string) *App {
+	app.defaultCmd = cmdName
+	return app
+}
+
+// Run executes the application with the given arguments.
+// It installs Orpheus' default signal-aware context so command handlers can
+// observe Ctrl-C cancellation, plus SIGTERM on POSIX platforms, through ctx.Context().
+//
+// An App holds its parsed flags: Run and RunContext must not be called
+// concurrently on the same App, nor from one of its handlers. Sequential runs
+// are fine, each starting from the flag defaults. Build one App per goroutine
+// to run commands in parallel.
+func (app *App) Run(args []string) error {
+	ctx, stop := defaultRunContext()
+	defer stop()
+	return app.RunContext(ctx, args)
+}
+
+// RunContext executes the application with the given arguments and parent context.
+// The concurrency rule of Run applies.
+func (app *App) RunContext(ctx context.Context, args []string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Handle empty args. WHY the reset: the default command reads the global
+	// flags like any other, and without it saw the values of the previous run.
+	if len(args) == 0 {
+		if app.globalParsed {
+			app.globalFlags.Reset()
+		}
+		return app.handleEmptyArgs(ctx)
+	}
+
+	// Parse global flags and get command. A built-in --help or --version
+	// anywhere among the global flags ends the run before anything is parsed.
+	globalArgs, cmdArgs, builtin := app.splitGlobalArgs(args)
+	if builtin != "" {
+		return app.runBuiltin(ctx, builtin)
+	}
+	if err := parseFresh(app.globalFlags, &app.globalParsed, globalArgs); err != nil {
+		return errs.ValidationError("", "global flag parsing failed: "+err.Error())
+	}
+
+	// Handle command execution
+	return app.handleCommandExecution(ctx, cmdArgs)
+}
+
+// handleEmptyArgs handles the case when no arguments are provided.
+func (app *App) handleEmptyArgs(ctx context.Context) error {
+	if app.defaultCmd != "" {
+		return app.runCommand(ctx, app.defaultCmd, []string{})
+	}
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+}
+
+// builtinHelp and builtinVersion name the built-in flags splitGlobalArgs reports.
+const (
+	builtinHelp    = "help"
+	builtinVersion = "version"
+)
+
+// builtinFlag reports which built-in flag arg is, or "" when it is none.
+//
+// WHY it asks before acting: --help/-h and --version/-v are conveniences the
+// framework offers, not names it owns. An application that registers its own
+// --version (a version to deploy) or -v (verbose) means that flag, and used to
+// lose it silently here -- the built-in ran and the command never did. A
+// built-in therefore yields as soon as the application claims its long name or
+// its short key, and the argument goes to the parser like any other.
+//
+// The literal switch keeps the common case -- an ordinary flag -- to string
+// comparisons; the registered flags are consulted only for a built-in spelling.
+func (app *App) builtinFlag(arg string) string {
+	switch arg {
+	case "--help", "-h":
+		if app.builtinClaims(arg, builtinHelp, "h") {
+			return builtinHelp
+		}
+	case "--version", "-v":
+		if app.builtinClaims(arg, builtinVersion, "v") {
+			return builtinVersion
+		}
+	}
+	return ""
+}
+
+// runBuiltin performs the built-in flag reported by splitGlobalArgs.
+func (app *App) runBuiltin(ctx context.Context, builtin string) error {
+	if builtin == builtinVersion {
+		app.printVersion()
+		return nil
+	}
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+}
+
+// builtinClaims reports whether arg is the built-in flag identified by longName
+// and shortKey, and the application has left that spelling free.
+//
+// The long and short spellings are judged separately: registering --version as
+// a string flag without a short key frees "--version" but leaves "-v" to the
+// built-in, which is what an application asking for both would expect.
+func (app *App) builtinClaims(arg, longName, shortKey string) bool {
+	switch arg {
+	case "--" + longName:
+		return !app.globalFlagNameTaken(longName)
+	case "-" + shortKey:
+		return !app.globalShortKeyTaken(shortKey)
+	default:
+		return false
+	}
+}
+
+// globalFlagNameTaken reports whether the application registered a global flag
+// under the given long name.
+func (app *App) globalFlagNameTaken(name string) bool {
+	return flagNameTaken(app.globalFlags, name)
+}
+
+// globalShortKeyTaken reports whether the application registered a global flag
+// under the given short key.
+func (app *App) globalShortKeyTaken(shortKey string) bool {
+	return shortKeyTaken(app.globalFlags, shortKey)
+}
+
+// flagNameTaken reports whether fs has a flag registered under the given long
+// name. A nil set takes nothing.
+func flagNameTaken(fs *flashflags.FlagSet, name string) bool {
+	return fs != nil && fs.Lookup(name) != nil
+}
+
+// shortKeyTaken reports whether fs has a flag registered under the given short
+// key. A nil set takes nothing.
+//
+// WHY it visits rather than looks up: flash-flags indexes flags by long name,
+// so the short key is only reachable by asking each flag for it.
+func shortKeyTaken(fs *flashflags.FlagSet, shortKey string) bool {
+	if fs == nil || shortKey == "" {
+		return false
+	}
+	var taken bool
+	fs.VisitAll(func(flag *flashflags.Flag) {
+		if flag.ShortKey() == shortKey {
+			taken = true
+		}
+	})
+	return taken
+}
+
+// printVersion prints the application version.
+func (app *App) printVersion() {
+	if app.version != "" {
+		fmt.Printf("%s version %s\n", app.name, app.version)
+	} else {
+		fmt.Printf("%s (no version set)\n", app.name)
+	}
+}
+
+// handleCommandExecution handles the execution of commands.
+func (app *App) handleCommandExecution(ctx context.Context, cmdArgs []string) error {
+	// Get command name
+	if len(cmdArgs) == 0 {
+		return app.handleEmptyArgs(ctx)
+	}
+
+	cmdName := cmdArgs[0]
+	cmdArgs = cmdArgs[1:] // Remove command name from args
+
+	// Handle built-in help command
+	if cmdName == "help" {
+		return app.handleHelpCommand(ctx, cmdArgs)
+	}
+
+	return app.runCommand(ctx, cmdName, cmdArgs)
+}
+
+// handleHelpCommand handles the built-in help command.
+func (app *App) handleHelpCommand(ctx context.Context, cmdArgs []string) error {
+	if len(cmdArgs) > 0 {
+		return app.showCommandHelp(cmdArgs)
+	}
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+}
+
+// runCommand executes a specific command.
+func (app *App) runCommand(parentCtx context.Context, cmdName string, args []string) error {
+	cmd, exists := app.commands[cmdName]
+	if !exists {
+		return errs.NotFoundError(cmdName, "unknown command")
+	}
+
+	// Create execution context
+	cmdCtx := &Context{
+		App:         app,
+		Args:        args,
+		GlobalFlags: app.globalFlags,
+		storage:     app.storage,
+		prompter:    app.prompter,
+		ctx:         parentCtx,
+	}
+
+	// Execute the command
+	return cmd.Execute(cmdCtx)
+}
+
+// splitGlobalArgs separates global flags from command and command args, and
+// reports a built-in --help or --version written among the global flags.
+//
+// WHY the built-ins are looked for here and not only in args[0]: they used to
+// be recognized only as the first argument, so `app --verbose --help` reached
+// the flag parser, which printed its own help and failed the run, and
+// `app --verbose --version` failed as an unknown flag. Checking each global
+// flag token as it is walked costs one string comparison per token, and a
+// value consumed by a flag is skipped, so `--config -h` is still a value.
+func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string, builtin string) {
+	var i int
+	for i = 0; i < len(args); i++ {
+		arg := args[i]
+
+		// WHY: "--" is the POSIX end-of-flags sentinel.
+		// Everything after it is a positional argument (the command).
+		if arg == "--" {
+			i++ // skip the sentinel itself
+			break
+		}
+
+		// Stop at first non-flag argument (the command). A lone "-" is an
+		// operand by POSIX convention (standard input), never a flag.
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			break
+		}
+
+		if builtin = app.builtinFlag(arg); builtin != "" {
+			return nil, nil, builtin
+		}
+
+		// Process this flag
+		processed, skipNext := app.processSingleFlag(args, i)
+		globalArgs = append(globalArgs, processed...)
+		if skipNext {
+			i++ // Skip the value
+		}
+	}
+
+	// Everything from the command onwards is command args
+	cmdArgs = args[i:]
+	return globalArgs, cmdArgs, ""
+}
+
+// processSingleFlag processes a single flag and returns the processed args and whether to skip next arg.
+func (app *App) processSingleFlag(args []string, i int) (processed []string, skipNext bool) {
+	arg := args[i]
+
+	// Check if this is a boolean global flag
+	isBoolFlag := app.isBooleanGlobalFlag(arg)
+
+	if isBoolFlag || strings.Contains(arg, "=") {
+		// Boolean flag or flag with embedded value
+		return []string{arg}, false
+	}
+
+	// WHY: for known value-accepting flags, always consume the next argument
+	// regardless of whether it starts with '-'. Legitimate values like "-5"
+	// (negative numbers) or "-pattern" must not be mistaken for flags.
+	// For unknown flags, fall back to the prefix heuristic.
+	if i+1 < len(args) {
+		nextArg := args[i+1]
+		isKnownValue := app.isValueGlobalFlag(arg)
+
+		if isKnownValue || !strings.HasPrefix(nextArg, "-") {
+			// WHY: flash-flags treats long-flag arguments starting with '-'
+			// as separate flags (e.g., --offset -5 fails). Short flags (-o -5)
+			// are handled correctly by flash-flags. To work around the long-flag
+			// limitation, merge into --flag=value form for the parser.
+			if isKnownValue && strings.HasPrefix(nextArg, "-") && strings.HasPrefix(arg, "--") {
+				merged := arg + "=" + nextArg
+				return []string{merged}, true
+			}
+			return []string{arg, nextArg}, true
+		}
+	}
+
+	return []string{arg}, false
+}
+
+// isValueGlobalFlag checks if the given argument is a registered non-boolean
+// global flag (i.e., a flag that expects a value argument).
+// WHY: needed to correctly handle values starting with '-' like --offset -5.
+func (app *App) isValueGlobalFlag(arg string) bool {
+	if strings.HasPrefix(arg, "--") {
+		flagName := arg[2:]
+		// Flags with embedded value (--flag=val) already handled by caller
+		if strings.ContainsRune(flagName, '=') {
+			return false
+		}
+		if f := app.globalFlags.Lookup(flagName); f != nil && f.Type() != "bool" {
+			return true
+		}
+		return false
+	}
+
+	// A short flag or a cluster of them (-abc): only the last key of a
+	// cluster can take a value, as in flash-flags.
+	if len(arg) >= 2 && arg[0] == '-' && !strings.ContainsRune(arg, '=') {
+		found, isBool := app.globalShortKind(arg[len(arg)-1:])
+		return found && !isBool
+	}
+
+	return false
+}
+
+// globalShortKind reports whether a global flag is registered under shortKey
+// and, if so, whether it is boolean.
+func (app *App) globalShortKind(shortKey string) (found, isBool bool) {
+	if app.globalFlags == nil {
+		return false, false
+	}
+	app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
+		if flag.ShortKey() == shortKey {
+			found = true
+			isBool = flag.Type() == "bool"
+		}
+	})
+	return found, isBool
+}
+
+// isBooleanGlobalFlag checks if the given argument is a boolean global flag.
+func (app *App) isBooleanGlobalFlag(arg string) bool {
+	if strings.HasPrefix(arg, "--") {
+		return app.isLongBooleanFlag(arg)
+	}
+
+	if len(arg) == 2 && arg[0] == '-' {
+		return app.isShortBooleanFlag(arg)
+	}
+
+	if len(arg) > 2 && arg[0] == '-' {
+		return app.isBooleanShortCluster(arg)
+	}
+
+	return false
+}
+
+// isBooleanShortCluster reports whether arg is a cluster of boolean global
+// short flags, such as -xq.
+//
+// WHY: a cluster was not recognized as boolean, so the next argument -- the
+// command name -- was taken as its value and `app -xq deploy` never ran
+// deploy. A cluster whose last key takes a value is left to isValueGlobalFlag.
+func (app *App) isBooleanShortCluster(arg string) bool {
+	for i := 1; i < len(arg); i++ {
+		if found, isBool := app.globalShortKind(arg[i : i+1]); !found || !isBool {
+			return false
+		}
+	}
+	return true
+}
+
+// isLongBooleanFlag checks if a long flag (--flag) is boolean.
+func (app *App) isLongBooleanFlag(arg string) bool {
+	flagName := arg[2:]
+	if eqPos := strings.IndexByte(flagName, '='); eqPos != -1 {
+		flagName = flagName[:eqPos]
+	}
+
+	if flag := app.globalFlags.Lookup(flagName); flag != nil && flag.Type() == "bool" {
+		return true
+	}
+
+	return false
+}
+
+// isShortBooleanFlag checks if a short flag (-f) is boolean.
+// It dynamically checks both built-in flags and custom global flags using
+// the flash-flags ShortKey() method for accurate flag type detection.
+//
+// WHY the application is consulted first: -v and -h are boolean only while
+// they still mean the built-in version and help flags. Once an application
+// registers its own -h for a host name, treating it as boolean would leave
+// its value behind to be parsed as the command.
+func (app *App) isShortBooleanFlag(arg string) bool {
+	shortKey := arg[1:2]
+
+	if found, isBool := app.globalShortKind(shortKey); found {
+		return isBool
+	}
+
+	// Built-in boolean short flags, available while unclaimed
+	return shortKey == "v" || shortKey == "h"
+}
+
+// helpHandler handles the help command.
+func (app *App) helpHandler(ctx *Context) error {
+	generator := NewHelpGenerator(app)
+	fmt.Printf("%s", generator.GenerateAppHelp())
+	return nil
+}
+
+// showCommandHelp shows help for the command named by path, such as
+// ["remote", "add"].
+//
+// WHY the whole path: only the first name was read, so `app help remote add`
+// printed the help of remote and the help of add was unreachable this way.
+func (app *App) showCommandHelp(path []string) error {
+	cmd, exists := app.commands[path[0]]
+	if !exists {
+		return errs.NotFoundError(path[0], "unknown command")
+	}
+	for _, name := range path[1:] {
+		sub := cmd.GetSubcommand(name)
+		if sub == nil {
+			return errs.NotFoundError(cmd.name, fmt.Sprintf("unknown subcommand '%s'", name))
+		}
+		cmd = sub
+	}
+
+	generator := NewHelpGenerator(app)
+	fmt.Printf("%s", generator.GenerateCommandHelp(cmd))
+	return nil
+}
+
+// GenerateHelp generates the main help text for the application.
+// This method provides consistent help formatting by delegating to HelpGenerator.
+// Use this method when you need to get the help content as a string instead of
+// printing it directly.
+func (app *App) GenerateHelp() string {
+	generator := NewHelpGenerator(app)
+	return generator.GenerateAppHelp()
+}
+
+// GetCommands returns a copy of the commands map for introspection.
+func (app *App) GetCommands() map[string]*Command {
+	commands := make(map[string]*Command)
+	for name, cmd := range app.commands {
+		commands[name] = cmd
+	}
+	return commands
+}
+
+// Name returns the application name.
+func (app *App) Name() string {
+	return app.name
+}
+
+// Version returns the application version.
+func (app *App) Version() string {
+	return app.version
+}
+
+// Description returns the application description.
+func (app *App) Description() string {
+	return app.description
+}

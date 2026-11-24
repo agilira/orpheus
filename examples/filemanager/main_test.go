@@ -13,7 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 // createTestApp creates the filemanager app for testing
@@ -300,7 +301,7 @@ func TestInfoCommandErrors(t *testing.T) {
 					return
 				}
 
-				orpheusErr, ok := err.(*orpheus.OrpheusError)
+				orpheusErr, ok := err.(*errs.Error)
 				if !ok {
 					t.Errorf("Expected OrpheusError, got %T", err)
 					return

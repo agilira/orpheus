@@ -172,7 +172,9 @@ import (
     "os"
     "time"
 
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
+    "github.com/agilira/orpheus/observe"
+    "github.com/agilira/orpheus/metrics"
 )
 
 func main() {
@@ -188,9 +190,9 @@ func main() {
         runCtx := ctx.Context()
         
         // Distributed tracing
-        var span orpheus.Span
+        var span observe.Span
         if tracer := ctx.Tracer(); tracer != nil {
-            var s orpheus.Span
+            var s observe.Span
             runCtx, s = tracer.StartSpan(runCtx, "process_data")
             span = s
             defer span.End()

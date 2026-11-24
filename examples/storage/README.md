@@ -94,7 +94,7 @@ go test -fuzz=FuzzConcurrentPluginOperations -fuzztime=30s
 For production use, configure strict security policies:
 
 ```go
-config := &orpheus.PluginSecurityConfig{
+config := &storage.PluginSecurityConfig{
     // Signature verification is not available: with false no plugin
     // loads at all, so loading one is an explicit opt-in.
     AllowUnsignedPlugins: true,
@@ -116,7 +116,7 @@ directory in explicitly through `StorageConfig.AllowedPluginPaths`, which this
 demo does for its `./plugins` folder:
 
 ```go
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider:           "memory",
     PluginPath:         pluginPath,
     AllowedPluginPaths: []string{filepath.Dir(pluginPath)},

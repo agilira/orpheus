@@ -13,7 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 
 	// Run the application with enhanced error handling
 	if err := app.Run(os.Args[1:]); err != nil {
-		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+		if orpheusErr, ok := err.(*errs.Error); ok {
 			// Display user-friendly message
 			fmt.Fprintf(os.Stderr, "Error: %s\n", orpheusErr.UserMessage())
 
@@ -157,7 +158,7 @@ func extractListParams(ctx *orpheus.Context) listParams {
 func readDirectory(path string) ([]fs.DirEntry, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return nil, orpheus.ExecutionError("list", fmt.Sprintf("cannot read directory %s: %v", path, err)).
+		return nil, errs.ExecutionError("list", fmt.Sprintf("cannot read directory %s: %v", path, err)).
 			WithUserMessage("Unable to read the specified directory").
 			WithContext("path", path).
 			WithContext("error_type", "permission_or_not_found").
@@ -280,7 +281,7 @@ func performSearch(params searchParams) ([]string, error) {
 	err := filepath.WalkDir(params.dir, walkFunc)
 
 	if err != nil {
-		return nil, orpheus.ExecutionError("search", fmt.Sprintf("search failed: %v", err)).
+		return nil, errs.ExecutionError("search", fmt.Sprintf("search failed: %v", err)).
 			WithUserMessage("Unable to search in the specified directory").
 			WithContext("directory", params.dir).
 			WithContext("pattern", params.pattern).
@@ -361,7 +362,7 @@ func displayResults(matches []string, verbose bool) {
 
 func infoHandler(ctx *orpheus.Context) error {
 	if ctx.ArgCount() == 0 {
-		return orpheus.ValidationError("info", "missing file path argument").
+		return errs.ValidationError("info", "missing file path argument").
 			WithUserMessage("Please specify a file or directory path").
 			WithContext("usage", "filemanager info <path>")
 	}
@@ -373,7 +374,7 @@ func infoHandler(ctx *orpheus.Context) error {
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return orpheus.NotFoundError("info", fmt.Sprintf("cannot access %s: %v", path, err))
+		return errs.NotFoundError("info", fmt.Sprintf("cannot access %s: %v", path, err))
 	}
 
 	fmt.Printf("File: %s\n", path)

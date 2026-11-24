@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 // createTestApp creates a test app with the same configuration as main
@@ -126,7 +127,7 @@ func validateErrorExpectation(t *testing.T, err error, expectError bool) error {
 
 // validateIntegrationErrorProperties validates specific error properties for integration tests
 func validateIntegrationErrorProperties(t *testing.T, err error, tt integrationTest) {
-	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	orpheusErr, ok := err.(*errs.Error)
 	if !ok {
 		t.Errorf("expected OrpheusError but got %T", err)
 		return
@@ -138,21 +139,21 @@ func validateIntegrationErrorProperties(t *testing.T, err error, tt integrationT
 }
 
 // validateExitCode validates the exit code property
-func validateExitCode(t *testing.T, orpheusErr *orpheus.OrpheusError, expected int) {
+func validateExitCode(t *testing.T, orpheusErr *errs.Error, expected int) {
 	if orpheusErr.ExitCode() != expected {
 		t.Errorf("expected exit code %d but got %d", expected, orpheusErr.ExitCode())
 	}
 }
 
 // validateRetryable validates the retryable property
-func validateRetryable(t *testing.T, orpheusErr *orpheus.OrpheusError, expected bool) {
+func validateRetryable(t *testing.T, orpheusErr *errs.Error, expected bool) {
 	if orpheusErr.IsRetryable() != expected {
 		t.Errorf("expected retryable=%v but got %v", expected, orpheusErr.IsRetryable())
 	}
 }
 
 // validateUserMessage validates that user message is set
-func validateUserMessage(t *testing.T, orpheusErr *orpheus.OrpheusError) {
+func validateUserMessage(t *testing.T, orpheusErr *errs.Error) {
 	if orpheusErr.UserMessage() == "" {
 		t.Errorf("expected user message but got empty string")
 	}
@@ -167,7 +168,7 @@ func TestErrorContextAccumulation(t *testing.T) {
 		t.Fatal("expected error but got none")
 	}
 
-	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	orpheusErr, ok := err.(*errs.Error)
 	if !ok {
 		t.Fatalf("expected OrpheusError but got %T", err)
 	}
@@ -206,7 +207,7 @@ func TestErrorChaining(t *testing.T) {
 		t.Fatal("expected error but got none")
 	}
 
-	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	orpheusErr, ok := err.(*errs.Error)
 	if !ok {
 		t.Fatalf("expected OrpheusError but got %T", err)
 	}
@@ -286,7 +287,7 @@ func TestErrorMessageConsistency(t *testing.T) {
 				t.Fatal("expected error but got none")
 			}
 
-			orpheusErr, ok := err.(*orpheus.OrpheusError)
+			orpheusErr, ok := err.(*errs.Error)
 			if !ok {
 				t.Fatalf("expected OrpheusError but got %T", err)
 			}

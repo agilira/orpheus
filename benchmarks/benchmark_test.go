@@ -12,7 +12,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/spf13/cobra"
 	"github.com/urfave/cli/v2"

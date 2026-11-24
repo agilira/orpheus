@@ -26,7 +26,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 // createBasicApp creates and configures the basic example application
@@ -59,7 +60,7 @@ func createBasicApp() *orpheus.App {
 	echoCmd := orpheus.NewCommand("echo", "Echo back the arguments").
 		SetHandler(func(ctx *orpheus.Context) error {
 			if ctx.ArgCount() == 0 {
-				return orpheus.ValidationError("echo", "no arguments provided")
+				return errs.ValidationError("echo", "no arguments provided")
 			}
 
 			for i := 0; i < ctx.ArgCount(); i++ {
@@ -76,7 +77,7 @@ func createBasicApp() *orpheus.App {
 	deployCmd := orpheus.NewCommand("deploy", "Deploy to environment").
 		SetHandler(func(ctx *orpheus.Context) error {
 			if ctx.ArgCount() == 0 {
-				return orpheus.ValidationError("deploy", "environment required")
+				return errs.ValidationError("deploy", "environment required")
 			}
 
 			env := ctx.GetArg(0)

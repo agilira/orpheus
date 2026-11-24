@@ -1,0 +1,23 @@
+const Bold pkg/term.Style = 5
+const Gray pkg/term.Style = 4
+const Green pkg/term.Style = 1
+const None pkg/term.Style = 0
+const Red pkg/term.Style = 3
+const Yellow pkg/term.Style = 2
+func Detect(io.Writer, func(string) (string, bool), bool) pkg/term.Caps
+func FormatBytes(int64) string
+func IsSafeRune(rune) bool
+func NewTable(pkg/term.Caps, ...string) pkg/term.Table
+func Paint(pkg/term.Caps, pkg/term.Style, string) string
+func ProgressLine(string, int64, int64) string
+func Sanitize(string) string
+func StartSpinner(io.Writer, pkg/term.Caps, string, pkg/term.SpinnerOptions) pkg/term.Spinner
+func Styled(pkg/term.Style, string) pkg/term.Cell
+func Text(string) pkg/term.Cell
+func Width(string) int
+type Caps struct{Color bool; Animate bool}
+type Cell struct{Text string; Style pkg/term.Style}
+type Spinner interface{Stop() error; Update(int64, int64)}
+type SpinnerOptions struct{Delay time.Duration; Interval time.Duration}
+type Style uint8
+type Table interface{Render(io.Writer) error; Row(...pkg/term.Cell)}

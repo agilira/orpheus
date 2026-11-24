@@ -1,0 +1,469 @@
+// app_test.go: tests for Orpheus application framework
+//
+// Copyright (c) 2025 AGILira - A. Giordano
+// Series: an AGILira library
+// SPDX-License-Identifier: MPL-2.0
+
+package orpheus_test
+
+import (
+	"context"
+	"io"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
+)
+
+func TestAppCreation(t *testing.T) {
+	app := orpheus.New("testapp")
+
+	if app.Name() != "testapp" {
+		t.Errorf("expected app name 'testapp', got '%s'", app.Name())
+	}
+
+	if app.Version() != "" {
+		t.Errorf("expected empty version, got '%s'", app.Version())
+	}
+
+	if app.Description() != "" {
+		t.Errorf("expected empty description, got '%s'", app.Description())
+	}
+}
+
+func TestAppConfiguration(t *testing.T) {
+	app := orpheus.New("testapp").
+		SetDescription("Test application").
+		SetVersion("1.0.0")
+
+	if app.Description() != "Test application" {
+		t.Errorf("expected description 'Test application', got '%s'", app.Description())
+	}
+
+	if app.Version() != "1.0.0" {
+		t.Errorf("expected version '1.0.0', got '%s'", app.Version())
+	}
+}
+
+func TestCommandRegistration(t *testing.T) {
+	var executed bool
+	var receivedCtx *orpheus.Context
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		executed = true
+		receivedCtx = ctx
+		return nil
+	})
+
+	commands := app.GetCommands()
+	if len(commands) != 1 {
+		t.Errorf("expected 1 command, got %d", len(commands))
+	}
+
+	if _, exists := commands["test"]; !exists {
+		t.Error("expected 'test' command to exist")
+	}
+
+	// Test command execution
+	err := app.Run([]string{"test"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if !executed {
+		t.Error("command was not executed")
+	}
+
+	if receivedCtx == nil {
+		t.Error("context was not passed to handler")
+	}
+
+	if receivedCtx.App != app {
+		t.Error("context does not contain correct app reference")
+	}
+}
+
+func TestCommandWithArgs(t *testing.T) {
+	var receivedArgs []string
+
+	app := orpheus.New("testapp")
+	app.Command("echo", "Echo arguments", func(ctx *orpheus.Context) error {
+		receivedArgs = make([]string, ctx.ArgCount())
+		for i := 0; i < ctx.ArgCount(); i++ {
+			receivedArgs[i] = ctx.GetArg(i)
+		}
+		return nil
+	})
+
+	err := app.Run([]string{"echo", "hello", "world"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	expectedArgs := []string{"hello", "world"}
+	if len(receivedArgs) != len(expectedArgs) {
+		t.Errorf("expected %d args, got %d", len(expectedArgs), len(receivedArgs))
+	}
+
+	for i, expected := range expectedArgs {
+		if receivedArgs[i] != expected {
+			t.Errorf("expected arg[%d] = '%s', got '%s'", i, expected, receivedArgs[i])
+		}
+	}
+}
+
+type appContextKey string
+
+func TestRunUsesSignalAwareContext(t *testing.T) {
+	var received context.Context
+	var done <-chan struct{}
+	var runErr error
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		done = received.Done()
+		runErr = received.Err()
+		return nil
+	})
+
+	if err := app.Run([]string{"test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received == nil {
+		t.Fatal("expected command context")
+	}
+	if done == nil {
+		t.Fatal("expected Run to provide a signal-aware cancellable context")
+	}
+	if runErr != nil {
+		t.Errorf("expected signal-aware context without error during command execution, got %v", runErr)
+	}
+}
+
+func TestRunContextNilUsesBackgroundContext(t *testing.T) {
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+
+	if err := app.RunContext(context.TODO(), []string{"test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received == nil {
+		t.Fatal("expected command context")
+	}
+	if err := received.Err(); err != nil {
+		t.Errorf("expected background context without error, got %v", err)
+	}
+}
+
+func TestRunContextPropagatesContextToCommand(t *testing.T) {
+	const key appContextKey = "request-id"
+	parent := context.WithValue(context.Background(), key, "abc-123")
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("test", "Test command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+
+	if err := app.RunContext(parent, []string{"test"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received != parent {
+		t.Fatal("expected RunContext parent to be passed to command")
+	}
+	if got := received.Value(key); got != "abc-123" {
+		t.Errorf("expected propagated value abc-123, got %v", got)
+	}
+}
+
+func TestRunContextPropagatesContextToDefaultCommand(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	cancel()
+	var received context.Context
+
+	app := orpheus.New("testapp")
+	app.Command("default", "Default command", func(ctx *orpheus.Context) error {
+		received = ctx.Context()
+		return nil
+	})
+	app.SetDefaultCommand("default")
+
+	if err := app.RunContext(parent, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received != parent {
+		t.Fatal("expected RunContext parent to be passed to default command")
+	}
+	if err := received.Err(); err != context.Canceled {
+		t.Errorf("expected canceled context, got %v", err)
+	}
+}
+
+func TestDefaultCommand(t *testing.T) {
+	var executed bool
+
+	app := orpheus.New("testapp")
+	app.Command("default", "Default command", func(ctx *orpheus.Context) error {
+		executed = true
+		return nil
+	})
+	app.SetDefaultCommand("default")
+
+	err := app.Run([]string{})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if !executed {
+		t.Error("default command was not executed")
+	}
+}
+
+func TestCommandNotFound(t *testing.T) {
+	app := orpheus.New("testapp")
+
+	err := app.Run([]string{"nonexistent"})
+	if err == nil {
+		t.Error("expected error for nonexistent command")
+	}
+
+	orpheusErr, ok := err.(*errs.Error)
+	if !ok {
+		t.Errorf("expected OrpheusError, got %T", err)
+	}
+
+	if !orpheusErr.IsNotFoundError() {
+		t.Error("expected NotFoundError")
+	}
+}
+
+func TestVersionFlag(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = w
+
+	app := orpheus.New("testapp").SetVersion("1.2.3")
+	err = app.Run([]string{"--version"})
+
+	if closeErr := w.Close(); closeErr != nil {
+		t.Errorf("failed to close pipe: %v", closeErr)
+	}
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	buf := make([]byte, 1024)
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Errorf("failed to read from pipe: %v", err)
+		return
+	}
+	output := string(buf[:n])
+
+	expected := "testapp version 1.2.3\n"
+	if output != expected {
+		t.Errorf("expected '%s', got '%s'", expected, output)
+	}
+}
+
+func TestHelpGeneration(t *testing.T) {
+	app := createTestAppWithCommands()
+	output := captureHelpOutput(t, app)
+	validateHelpContent(t, output)
+}
+
+// createTestAppWithCommands creates a test app with sample commands
+func createTestAppWithCommands() *orpheus.App {
+	app := orpheus.New("testapp").
+		SetDescription("Test application for help").
+		SetVersion("1.0.0")
+
+	app.Command("cmd1", "First command", func(ctx *orpheus.Context) error {
+		return nil
+	})
+
+	app.Command("cmd2", "Second command", func(ctx *orpheus.Context) error {
+		return nil
+	})
+
+	return app
+}
+
+// captureHelpOutput captures stdout from help command execution
+func captureHelpOutput(t *testing.T, app *orpheus.App) string {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = w
+
+	err = app.Run([]string{"--help"})
+
+	if closeErr := w.Close(); closeErr != nil {
+		t.Errorf("failed to close pipe: %v", closeErr)
+	}
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	buf := make([]byte, 2048)
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Errorf("failed to read from pipe: %v", err)
+	}
+
+	return string(buf[:n])
+}
+
+// validateHelpContent validates that help output contains expected elements
+func validateHelpContent(t *testing.T, output string) {
+	expectedElements := []struct {
+		content string
+		message string
+	}{
+		{"Test application for help", "help should contain app description"},
+		{"Usage: testapp [command] [flags]", "help should contain usage line"},
+		{"cmd1", "help should contain cmd1"},
+		{"cmd2", "help should contain cmd2"},
+		{"First command", "help should contain cmd1 description"},
+		{"--help", "help should contain --help flag"},
+		{"--version", "help should contain --version flag"},
+	}
+
+	for _, element := range expectedElements {
+		if !strings.Contains(output, element.content) {
+			t.Error(element.message)
+		}
+	}
+}
+
+func TestErrorHandling(t *testing.T) {
+	app := orpheus.New("testapp")
+	app.Command("fail", "Failing command", func(ctx *orpheus.Context) error {
+		return errs.ExecutionError("fail", "something went wrong")
+	})
+
+	err := app.Run([]string{"fail"})
+	if err == nil {
+		t.Error("expected error from failing command")
+	}
+
+	orpheusErr, ok := err.(*errs.Error)
+	if !ok {
+		t.Errorf("expected OrpheusError, got %T", err)
+	}
+
+	if !orpheusErr.IsExecutionError() {
+		t.Error("expected ExecutionError")
+	}
+
+	if orpheusErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", orpheusErr.ExitCode())
+	}
+}
+
+func TestGlobalFlags(t *testing.T) {
+	app := orpheus.New("testapp")
+	app.AddGlobalBoolFlag("verbose", "v", false, "Enable verbose output")
+	app.AddGlobalFlag("config", "c", "default.conf", "Config file")
+
+	// This test verifies that global flags can be added without errors
+	// Full flag parsing will be tested when flash-flags integration is complete
+
+	commands := app.GetCommands()
+	if len(commands) != 0 {
+		t.Errorf("expected 0 commands after adding global flags, got %d", len(commands))
+	}
+}
+
+// TestObservabilityGettersInApp verifies that observability component getters work correctly
+func TestObservabilityGettersInApp(t *testing.T) {
+	// Test with nil observability components (default state)
+	t.Run("NilObservabilityComponents", func(t *testing.T) {
+		app := orpheus.New("testapp")
+
+		if logger := app.Logger(); logger != nil {
+			t.Error("Expected nil logger when not configured")
+		}
+		if audit := app.AuditLogger(); audit != nil {
+			t.Error("Expected nil audit logger when not configured")
+		}
+		if tracer := app.Tracer(); tracer != nil {
+			t.Error("Expected nil tracer when not configured")
+		}
+		if metrics := app.MetricsCollector(); metrics != nil {
+			t.Error("Expected nil metrics collector when not configured")
+		}
+	})
+}
+
+// TestHandleEmptyArgs tests behavior when no arguments are provided
+func TestHandleEmptyArgs(t *testing.T) {
+	t.Run("NoDefaultCommandShowsHelp", func(t *testing.T) {
+		app := orpheus.New("testapp")
+
+		// Test with empty args - should show help since no default command
+		err := app.Run([]string{})
+		if err != nil {
+			t.Errorf("Expected no error when showing help, got: %v", err)
+		}
+	})
+
+	t.Run("WithDefaultCommandRunsDefault", func(t *testing.T) {
+		app := orpheus.New("testapp")
+		var executedCommand string
+
+		// Add a default command
+		app.Command("greet", "Greet command", func(ctx *orpheus.Context) error {
+			executedCommand = "greet"
+			return nil
+		})
+
+		app.SetDefaultCommand("greet")
+
+		// Test with empty args - should run default command
+		err := app.Run([]string{})
+		if err != nil {
+			t.Errorf("Expected no error when running default command, got: %v", err)
+		}
+
+		if executedCommand != "greet" {
+			t.Errorf("Expected default command 'greet' to run, but got: %s", executedCommand)
+		}
+	})
+}
+
+// TestPrintVersionWithoutVersion tests version printing when no version is set
+func TestPrintVersionWithoutVersion(t *testing.T) {
+	app := orpheus.New("testapp")
+	// Don't set version to test the "no version set" path
+
+	err := app.Run([]string{"--version"})
+	if err != nil {
+		t.Errorf("Expected no error when showing version, got: %v", err)
+	}
+}

@@ -14,7 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/observe"
 )
 
 // TestObservabilityExample tests the observability example functionality
@@ -151,8 +152,8 @@ func TestSimpleLogger(t *testing.T) {
 
 	// Test different log levels
 	ctx := context.Background()
-	logger.Info(ctx, "test message", orpheus.StringField("key", "value"))
-	logger.Error(ctx, "error message", orpheus.IntField("code", 500))
+	logger.Info(ctx, "test message", observe.StringField("key", "value"))
+	logger.Error(ctx, "error message", observe.IntField("code", 500))
 
 	w.Close()
 	<-done
@@ -325,8 +326,8 @@ func runApp(args []string) error {
 			// Log command start
 			if logger := ctx.Logger(); logger != nil {
 				logger.Info(context.Background(), "Starting data processing",
-					orpheus.StringField("operation", "process"),
-					orpheus.StringField("user", "demo-user"),
+					observe.StringField("operation", "process"),
+					observe.StringField("user", "demo-user"),
 				)
 			}
 
@@ -345,8 +346,8 @@ func runApp(args []string) error {
 			// Log progress
 			if logger := ctx.Logger(); logger != nil {
 				logger.Debug(context.Background(), "Processing file",
-					orpheus.StringField("filename", fileName),
-					orpheus.IntField("records", 100),
+					observe.StringField("filename", fileName),
+					observe.IntField("records", 100),
 				)
 			}
 
@@ -357,8 +358,8 @@ func runApp(args []string) error {
 			duration := time.Since(start).Milliseconds()
 			if logger := ctx.Logger(); logger != nil {
 				logger.Info(context.Background(), "Processing completed successfully",
-					orpheus.StringField("filename", fileName),
-					orpheus.IntField("duration_ms", int(duration)),
+					observe.StringField("filename", fileName),
+					observe.IntField("duration_ms", int(duration)),
 				)
 			}
 

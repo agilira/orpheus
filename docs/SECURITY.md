@@ -6,7 +6,7 @@ Orpheus has undergone comprehensive security testing and implements professional
 
 ## Security Posture Summary
 
-**465 Security Test Cases** - All passing
+**506 Security Test Cases** - All passing
 **Costs measured, not estimated** - see [Performance Impact](#performance-impact)
 
 ## Security Controls Implemented
@@ -162,7 +162,7 @@ a percent-escape. Every value follows the string-flag rules above.
   before `app.Run`:
 
 ```go
-validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+validator := security.NewInputValidator(security.DefaultValidationConfig())
 if err := validator.ValidateArgs(os.Args[1:]); err != nil {
     fmt.Fprintln(os.Stderr, err)
     os.Exit(2)
@@ -231,7 +231,7 @@ if err := app.Run(os.Args[1:]); err != nil {
 Measured on an AMD Ryzen 5 7520U. Reproduce with:
 
 ```bash
-go test -run=XXX -bench='Validate|Analyze' -benchtime=2s -count=3 ./pkg/orpheus/
+go test -run=XXX -bench='Validate|Analyze' -benchtime=2s -count=3 ./security/
 ```
 
 | Operation | Time | Allocations |
@@ -258,7 +258,7 @@ holding the original and sanitized strings.
 
 ### Red Team Testing Results
 
-**Test Coverage**: 465 security test cases (`go test -v -run 'Security|Valid|Path|Sanitiz|Injection|Traversal|Prompt' ./pkg/orpheus/ | grep -c -- '--- PASS'`)
+**Test Coverage**: 506 security test cases (`go test -v -run 'Security|Valid|Path|Sanitiz|Injection|Traversal|Prompt' . ./errs ./observe ./storage ./security ./prompt | grep -c -- '--- PASS'`)
 - Path traversal attacks: 8 test scenarios
 - File permission validation: 4 test scenarios  
 - Malicious input handling: 11 attack vectors
@@ -292,7 +292,7 @@ make test-security
 make security-scan
 
 # Run with race detector
-go test -race ./pkg/orpheus/...
+go test -race ./...
 ```
 
 ## Security Configuration
@@ -302,8 +302,8 @@ go test -race ./pkg/orpheus/...
 `DefaultValidationConfig()` returns:
 
 ```go
-orpheus.ValidationConfig{
-    SecurityConfig:     orpheus.DefaultSecurityConfig(),
+security.ValidationConfig{
+    SecurityConfig:     security.DefaultConfig(),
     ValidatePathArgs:   true,
     ValidateFileArgs:   true,
     NormalizePaths:     true,
@@ -321,11 +321,11 @@ orpheus.ValidationConfig{
 
 ```go
 // Start from the defaults and tighten what the application needs
-config := orpheus.DefaultValidationConfig()
+config := security.DefaultValidationConfig()
 config.MaxArgLength = 2048                          // stricter per-value limit
 config.TrustedEnvPrefixes = []string{"MYAPP_", "HOME"} // MYAPP_* and HOME only
 config.CacheSize = 500
-validator := orpheus.NewInputValidator(config)
+validator := security.NewInputValidator(config)
 ```
 
 ## Security Best Practices

@@ -1,0 +1,81 @@
+Orpheus v1.12.0 - One Package per Concern
+=========================================
+
+Release Date: 2026-11-24
+Type: Minor (new import paths, no API change)
+
+CHANGED - layout
+----------------
+pkg/orpheus held everything. The code now lives in focused packages:
+
+    github.com/agilira/orpheus           App, Command, Context, help,
+                                         completion, signals
+    github.com/agilira/orpheus/errs      Error, ErrCode*, constructors
+    github.com/agilira/orpheus/observe   Logger, AuditLogger, Tracer,
+                                         MetricsCollector, Field
+    github.com/agilira/orpheus/storage   Storage, Config, Stats, Plugin,
+                                         PluginManager, storage errors
+    github.com/agilira/orpheus/security  InputValidator, ValidateSecurePath,
+                                         file permission checks, Config
+    github.com/agilira/orpheus/prompt    Prompter, Terminal
+    github.com/agilira/orpheus/metrics   (was pkg/metrics)
+    github.com/agilira/orpheus/term      (was pkg/term)
+
+Inside the new packages names lose their prefix: storage.Config is
+StorageConfig, storage.GetError is StorageGetError, storage.IsNotFound
+is IsStorageNotFound, security.Config is SecurityConfig,
+prompt.NewTerminal is NewTerminalPrompter. The examples and the docs
+use the new paths.
+
+ADDED
+-----
+- errs.NewErrorWithCause: NewError with the cause kept in the error
+  chain. The storage constructors need it from another package.
+
+COMPATIBILITY
+-------------
+pkg/orpheus, pkg/metrics and pkg/term stay, with exactly the v1.11.0
+API: type aliases, re-declared constants, one-line wrappers and the
+very same sentinel values. Code importing them compiles unchanged and
+gets the very same types, so values pass freely between the old and the
+new paths. Three differences are observable:
+
+1. Reflection on package paths: reflect.TypeOf(x).PkgPath() is the new
+   package's path, and %T prints the new package name (*errs.Error,
+   not *orpheus.Error). Code comparing those strings sees the change.
+2. Storage plugins built against an earlier version must be rebuilt, as
+   Go plugins already require on any change of a package they share.
+3. Reassigning a facade variable (orpheus.ErrKeyNotFound = ...) no
+   longer affects the package that defines it.
+
+VERIFIED
+--------
+- pkg/*/testdata/api_v1.11.0.txt record the v1.11.0 API (constants with
+  values, variables, functions, types, fields, method sets), generated
+  before any code moved. TestAPIUnchanged compares each facade with it;
+  TestFacadeMirrorsPackages fails if a facade misses an identifier of a
+  package it mirrors; TestWrappersCallTheirTarget checks each wrapper
+  returns what its target returns; TestSentinelsAreTheSameValues checks
+  errors.Is across the two names.
+- The v1.11.0 external tests of pkg/orpheus, pkg/metrics and pkg/term,
+  and the v1.11.0 examples, compile and pass against this version
+  unchanged.
+- apidiff reports every moved type as changed (it compares the package
+  that defines a type), with nothing removed and no signature changed
+  beyond that.
+- Tests: 429 top-level tests and 718 subtests before, 443 and 718 after
+  (the new checks above). Statement coverage of the library: 91.6%
+  before, 91.7% after.
+- Dispatch is unchanged: BenchmarkOrpheus 3 allocations, 144 B per
+  operation. Every other benchmark allocates as before, except
+  BenchmarkAppStorageConfiguration, 83 -> 77 allocations: the error of
+  a failed ConfigureStorage is now formatted once. Run interleaved with
+  v1.11.0, times are within the noise of the machine.
+
+INTERNAL
+--------
+- Tests moved with the code they test. The fuzz targets moved too:
+  security (FuzzValidateSecurePath, FuzzValidateInput), prompt, storage
+  (security_fuzz_test.go only fuzzed the plugin manager), root
+  (FuzzCommandParsing). make fuzz runs every target in turn: go test
+  -fuzz accepts one target in one package.

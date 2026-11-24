@@ -115,11 +115,11 @@ app.AddCommand(cmd)
 ### Error Handling
 ```go
 if ctx.ArgCount() == 0 {
-    return orpheus.ValidationError("info", "missing file path argument")
+    return errs.ValidationError("info", "missing file path argument")
 }
 
 if err != nil {
-    return orpheus.ExecutionError("search", fmt.Sprintf("search failed: %v", err))
+    return errs.ExecutionError("search", fmt.Sprintf("search failed: %v", err))
 }
 ```
 

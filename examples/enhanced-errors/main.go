@@ -19,7 +19,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func main() {
@@ -58,7 +59,7 @@ func main() {
 
 	// Enhanced error handling with detailed information
 	if err := app.Run(os.Args[1:]); err != nil {
-		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+		if orpheusErr, ok := err.(*errs.Error); ok {
 			// Always show user-friendly message
 			fmt.Fprintf(os.Stderr, "Error: %s\n", orpheusErr.UserMessage())
 
@@ -95,7 +96,7 @@ func handleValidate(ctx *orpheus.Context) error {
 	format := ctx.GetFlagString("format")
 
 	if data == "" {
-		return orpheus.ValidationError("validate", "data parameter is required").
+		return errs.ValidationError("validate", "data parameter is required").
 			WithUserMessage("Please provide data to validate using the --data flag").
 			WithContext("expected_format", format).
 			WithContext("usage", "enhanced-errors validate --data 'your-data'").
@@ -107,7 +108,7 @@ func handleValidate(ctx *orpheus.Context) error {
 
 	// Simulate validation logic
 	if data == "invalid" {
-		return orpheus.ValidationError("validate", "data contains invalid content").
+		return errs.ValidationError("validate", "data contains invalid content").
 			WithUserMessage("The provided data does not match the expected format").
 			WithContext("provided_data", data).
 			WithContext("expected_format", format).
@@ -133,7 +134,7 @@ func handleConnect(ctx *orpheus.Context) error {
 	port := ctx.GetFlagInt("port")
 
 	if timeout < 5 {
-		return orpheus.ExecutionError("connect", "connection timeout too short").
+		return errs.ExecutionError("connect", "connection timeout too short").
 			WithUserMessage("Connection timeout is too short for reliable connection").
 			WithContext("provided_timeout", timeout).
 			WithContext("minimum_timeout", 5).
@@ -150,7 +151,7 @@ func handleConnect(ctx *orpheus.Context) error {
 
 	// Simulate connection failure for demonstration
 	if timeout < 10 {
-		return orpheus.ExecutionError("connect", "connection failed: timeout exceeded").
+		return errs.ExecutionError("connect", "connection failed: timeout exceeded").
 			WithUserMessage("Unable to establish connection within the specified timeout").
 			WithContext("host", host).
 			WithContext("port", port).
@@ -171,7 +172,7 @@ func handleProcess(ctx *orpheus.Context) error {
 	create := ctx.GetFlagBool("create")
 
 	if file == "" {
-		return orpheus.ValidationError("process", "file parameter is required").
+		return errs.ValidationError("process", "file parameter is required").
 			WithUserMessage("Please specify a file to process using the --file flag").
 			WithContext("usage", "enhanced-errors process --file path/to/file.txt").
 			WithContext("supported_formats", []string{".txt", ".json", ".yaml", ".xml"})
@@ -179,7 +180,7 @@ func handleProcess(ctx *orpheus.Context) error {
 
 	// Simulate file check
 	if file == "nonexistent.txt" && !create {
-		return orpheus.NotFoundError("process", "specified file does not exist").
+		return errs.NotFoundError("process", "specified file does not exist").
 			WithUserMessage("The file you specified could not be found").
 			WithContext("requested_file", file).
 			WithContext("current_directory", getCurrentDir()).
@@ -208,7 +209,7 @@ func handleCritical(ctx *orpheus.Context) error {
 	}
 
 	// Simulate a critical system error
-	return orpheus.InternalError("system resource exhaustion detected").
+	return errs.InternalError("system resource exhaustion detected").
 		WithUserMessage("A critical system error has occurred").
 		WithContext("error_type", "resource_exhaustion").
 		WithContext("affected_resources", []string{"memory", "file_descriptors"}).

@@ -21,7 +21,8 @@ import (
     "log"
     "os"
 
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
+    "github.com/agilira/orpheus/storage"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
         SetVersion("1.0.0")
     
     // Configure storage
-    config := &orpheus.StorageConfig{
+    config := &storage.Config{
         Provider: "sqlite", 
         Config: map[string]interface{}{
             "path": "./app.db",
@@ -48,25 +49,25 @@ func main() {
 }
 
 func setCommand(ctx *orpheus.Context) error {
-    storage := ctx.Storage()
-    if storage == nil {
-        return orpheus.ErrStorageNotConfigured
+    store := ctx.Storage()
+    if store == nil {
+        return storage.ErrNotConfigured
     }
     
     key := ctx.GetArg(0)
     value := ctx.GetArg(1)
     
-    return storage.Set(ctx, key, []byte(value))
+    return store.Set(ctx, key, []byte(value))
 }
 
 func getCommand(ctx *orpheus.Context) error {
-    storage, err := ctx.RequireStorage()
+    store, err := ctx.RequireStorage()
     if err != nil {
         return err
     }
     
     key := ctx.GetArg(0)
-    value, err := storage.Get(ctx, key)
+    value, err := store.Get(ctx, key)
     if err != nil {
         return err
     }
@@ -149,7 +150,7 @@ type StorageConfig struct {
 
 #### SQLite Storage
 ```go
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider: "sqlite",
     Config: map[string]interface{}{
         "path":            "./myapp.db",
@@ -165,7 +166,7 @@ config := &orpheus.StorageConfig{
 
 #### File-based Storage
 ```go
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider: "file",
     Config: map[string]interface{}{
         "directory":       "./data",
@@ -179,7 +180,7 @@ config := &orpheus.StorageConfig{
 
 #### Redis Storage
 ```go
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider: "redis",
     PluginPath: "/opt/plugins/redis.so",
     Config: map[string]interface{}{
@@ -196,13 +197,13 @@ config := &orpheus.StorageConfig{
 #### Configuration from File
 ```go
 // Load from JSON
-var config orpheus.StorageConfig
+var config storage.Config
 data, _ := os.ReadFile("storage.json")
 json.Unmarshal(data, &config)
 app.ConfigureStorage(&config)
 
 // Load from YAML
-var config orpheus.StorageConfig
+var config storage.Config
 data, _ := os.ReadFile("storage.yaml") 
 yaml.Unmarshal(data, &config)
 app.ConfigureStorage(&config)
@@ -346,20 +347,20 @@ The storage system uses AGILira's structured error handling:
 
 ```go
 // Check error types
-if orpheus.IsStorageNotFound(err) {
+if storage.IsNotFound(err) {
     // Handle key not found
     fmt.Println("Key not found")
     return nil
 }
 
-if orpheus.IsStorageUnavailable(err) {
+if storage.IsUnavailable(err) {
     // Handle temporary failures (retryable)
     fmt.Println("Storage temporarily unavailable, retrying...")
     time.Sleep(time.Second)
     // retry operation
 }
 
-if orpheus.IsStorageValidationError(err) {
+if storage.IsValidationError(err) {
     // Handle configuration errors
     fmt.Printf("Configuration error: %v\n", err)
     return err
@@ -382,7 +383,7 @@ if orpheus.IsStorageValidationError(err) {
 
 ```go
 // Enable metrics collection
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider:      "sqlite",
     EnableMetrics: true,
     Config:        map[string]interface{}{"path": "./app.db"},
@@ -390,8 +391,8 @@ config := &orpheus.StorageConfig{
 app.ConfigureStorage(config)
 
 // Access metrics
-storage := ctx.Storage()
-stats, err := storage.Stats(ctx)
+store := ctx.Storage()
+stats, err := store.Stats(ctx)
 if err == nil {
     fmt.Printf("Total operations: %d\n", stats.GetOperations)
     fmt.Printf("Average latency: %v\n", stats.AvgGetLatency)
@@ -404,7 +405,7 @@ if err == nil {
 
 ```go
 // Enable distributed tracing
-app.SetTracer(myTracer).ConfigureStorage(&orpheus.StorageConfig{
+app.SetTracer(myTracer).ConfigureStorage(&storage.Config{
     Provider:      "sqlite", 
     EnableTracing: true,
     Config:        map[string]interface{}{"path": "./app.db"},
@@ -422,7 +423,7 @@ func myCommand(ctx *orpheus.Context) error {
 
 ```go
 // Enable security auditing
-app.SetAuditLogger(myAuditLogger).ConfigureStorage(&orpheus.StorageConfig{
+app.SetAuditLogger(myAuditLogger).ConfigureStorage(&storage.Config{
     Provider:    "sqlite",
     EnableAudit: true, 
     Config:      map[string]interface{}{"path": "./app.db"},
@@ -442,7 +443,7 @@ app.SetAuditLogger(myAuditLogger).ConfigureStorage(&orpheus.StorageConfig{
 
 ```go
 // Configure plugin security
-securityConfig := &orpheus.PluginSecurityConfig{
+securityConfig := &storage.PluginSecurityConfig{
     AllowUnsignedPlugins: false,           // Refuse every plugin (see below)
     ValidateChecksums:    true,            // Record the SHA-256 in LoadedPlugin.Hash
     MaxPluginSize:        50 << 20,        // 50MB max plugin size
@@ -456,7 +457,7 @@ securityConfig := &orpheus.PluginSecurityConfig{
 }
 
 // Create plugin manager with security config
-pluginManager := orpheus.NewPluginManager(logger, securityConfig)
+pluginManager := storage.NewPluginManager(logger, securityConfig)
 ```
 
 ### Unsigned Plugins
@@ -476,13 +477,13 @@ check of that hash is up to the application.
 
 ```go
 // Keys are automatically validated for security
-err := storage.Set(ctx, "../../../etc/passwd", data) 
+err := store.Set(ctx, "../../../etc/passwd", data) 
 // Returns: validation error (path traversal detected)
 
-err := storage.Set(ctx, "user\x00admin", data)
+err := store.Set(ctx, "user\x00admin", data)
 // Returns: validation error (null byte injection detected) 
 
-err := storage.Set(ctx, strings.Repeat("x", 10000), data)
+err := store.Set(ctx, strings.Repeat("x", 10000), data)
 // Returns: validation error (key too long)
 ```
 
@@ -492,7 +493,7 @@ err := storage.Set(ctx, strings.Repeat("x", 10000), data)
 
 ```go
 // Configure connection pooling for database providers
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider: "postgres",
     Config: map[string]interface{}{
         "host":          "localhost",
@@ -509,7 +510,7 @@ config := &orpheus.StorageConfig{
 
 ```go
 // Enable provider-level caching 
-config := &orpheus.StorageConfig{
+config := &storage.Config{
     Provider: "redis",
     Config: map[string]interface{}{
         "host":        "localhost",
@@ -526,16 +527,16 @@ config := &orpheus.StorageConfig{
 ```go
 // Use batch operations for better performance
 func bulkInsert(ctx *orpheus.Context, data map[string][]byte) error {
-    storage := ctx.Storage()
+    store := ctx.Storage()
     
     // Some providers support batch operations
-    if batcher, ok := storage.(BatchStorage); ok {
+    if batcher, ok := store.(BatchStorage); ok {
         return batcher.SetBatch(ctx, data)
     }
     
     // Fallback to individual operations
     for key, value := range data {
-        if err := storage.Set(ctx, key, value); err != nil {
+        if err := store.Set(ctx, key, value); err != nil {
             return err
         }
     }
@@ -576,7 +577,7 @@ func TestStorageIntegration(t *testing.T) {
     // Use temporary directory
     tempDir := t.TempDir()
     
-    config := &orpheus.StorageConfig{
+    config := &storage.Config{
         Provider: "sqlite",
         Config: map[string]interface{}{
             "path": filepath.Join(tempDir, "test.db"),
@@ -586,13 +587,13 @@ func TestStorageIntegration(t *testing.T) {
     app := orpheus.New("testapp").ConfigureStorage(config) 
     
     // Test storage operations
-    storage := app.Storage()
+    store := app.Storage()
     ctx := context.Background()
     
-    err := storage.Set(ctx, "key1", []byte("value1"))
+    err := store.Set(ctx, "key1", []byte("value1"))
     assert.NoError(t, err)
     
-    value, err := storage.Get(ctx, "key1")
+    value, err := store.Get(ctx, "key1")
     assert.NoError(t, err)
     assert.Equal(t, []byte("value1"), value)
 }
@@ -649,8 +650,8 @@ pluginManager.LoadPlugin(ctx, "/path/to/plugin.so")
 1. **Graceful Degradation**
 ```go
 func myCommand(ctx *orpheus.Context) error {
-    storage := ctx.Storage()
-    if storage == nil {
+    store := ctx.Storage()
+    if store == nil {
         // App works without storage (reduced functionality)
         fmt.Println("Storage not configured, using defaults")
         return nil
@@ -664,15 +665,15 @@ func myCommand(ctx *orpheus.Context) error {
 2. **Error Recovery**
 ```go
 func robustGet(ctx *orpheus.Context, key string) ([]byte, error) {
-    storage, err := ctx.RequireStorage()
+    store, err := ctx.RequireStorage()
     if err != nil {
         return nil, err
     }
     
-    value, err := storage.Get(ctx, key)
-    if orpheus.IsStorageUnavailable(err) {
+    value, err := store.Get(ctx, key)
+    if storage.IsUnavailable(err) {
         // Retry with exponential backoff
-        return retryWithBackoff(ctx, storage, key)
+        return retryWithBackoff(ctx, store, key)
     }
     return value, err
 }
@@ -683,8 +684,8 @@ func robustGet(ctx *orpheus.Context, key string) ([]byte, error) {
 func main() {
     app := orpheus.New("myapp").ConfigureStorage(config)
     defer func() {
-        if storage := app.Storage(); storage != nil {
-            storage.Close()
+        if store := app.Storage(); store != nil {
+            store.Close()
         }
     }()
     
@@ -734,9 +735,9 @@ logger := orpheus.NewLogger().SetLevel("DEBUG")
 app.SetLogger(logger).ConfigureStorage(config)
 
 // Check storage health
-storage := app.Storage()
-if storage != nil {
-    err := storage.Health(context.Background())
+store := app.Storage()
+if store != nil {
+    err := store.Health(context.Background())
     if err != nil {
         log.Printf("Storage health check failed: %v", err)
     }
@@ -746,7 +747,7 @@ if storage != nil {
 #### Performance Issues  
 ```go
 // Analyze storage statistics
-stats, _ := storage.Stats(ctx)
+stats, _ := store.Stats(ctx)
 fmt.Printf("Average latencies:\n")
 fmt.Printf("  Get: %v\n", stats.AvgGetLatency)
 fmt.Printf("  Set: %v\n", stats.AvgSetLatency)

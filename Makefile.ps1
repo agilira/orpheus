@@ -226,19 +226,27 @@ function Invoke-Bench {
 
 function Invoke-Fuzz {
     Write-ColorOutput "Running fuzz tests..." $Yellow
-    go test "./pkg/orpheus" -fuzz=. -fuzztime=30s
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    foreach ($pkg in (go list ./...)) {
+        foreach ($f in (go test -list '^Fuzz' $pkg | Where-Object { $_ -like 'Fuzz*' })) {
+            go test $pkg -run '^$' -fuzz="^$f$" -fuzztime=30s
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+    }
 }
 
 function Invoke-FuzzLong {
     Write-ColorOutput "Running extended fuzz tests..." $Yellow
-    go test "./pkg/orpheus" -fuzz=. -fuzztime=5m
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    foreach ($pkg in (go list ./...)) {
+        foreach ($f in (go test -list '^Fuzz' $pkg | Where-Object { $_ -like 'Fuzz*' })) {
+            go test $pkg -run '^$' -fuzz="^$f$" -fuzztime=5m
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+    }
 }
 
 function Invoke-FuzzPath {
     Write-ColorOutput "Running path validation fuzz test..." $Yellow
-    go test "./pkg/orpheus" -fuzz=FuzzValidateSecurePath -fuzztime=30s
+    go test "./security" -fuzz=FuzzValidateSecurePath -fuzztime=30s
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

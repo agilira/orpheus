@@ -1,5 +1,22 @@
 # Orpheus API Reference
 
+## Packages
+
+| Import path | Contents |
+|---|---|
+| `github.com/agilira/orpheus` | App, Command, Context, help, completion |
+| `github.com/agilira/orpheus/errs` | Error, the `ErrCode*` codes and their constructors |
+| `github.com/agilira/orpheus/observe` | Logger, AuditLogger, Tracer, MetricsCollector, Field |
+| `github.com/agilira/orpheus/storage` | Storage, Config, the plugin manager, storage errors |
+| `github.com/agilira/orpheus/security` | InputValidator, ValidateSecurePath, file permission checks |
+| `github.com/agilira/orpheus/prompt` | Prompter and its terminal implementation |
+| `github.com/agilira/orpheus/metrics` | Prometheus and JSON Lines collectors |
+| `github.com/agilira/orpheus/term` | Terminal capabilities, colors, tables, spinner |
+
+The v1.11.0 import paths `pkg/orpheus`, `pkg/metrics` and `pkg/term` keep
+the same API: their names are aliases of the types above, so code using
+them compiles unchanged and values pass freely between the two paths.
+
 ## App Methods
 
 ### Creation and Configuration
@@ -174,7 +191,7 @@ implementation in tests for deterministic execution.
 
 ```go
 // Wire a terminal prompter at application startup
-app.SetPrompter(orpheus.NewTerminalPrompter())
+app.SetPrompter(prompt.NewTerminal())
 
 // In a handler — get the prompter (returns error if not configured)
 p, err := ctx.RequirePrompter()
@@ -217,17 +234,17 @@ if err := app.StorageError(); err != nil {
 }
 
 // In a handler
-storage, err := ctx.RequireStorage()
+store, err := ctx.RequireStorage()
 if err != nil {
     return err
 }
 
-if err := storage.Set(ctx, "key", []byte("value")); err != nil {
+if err := store.Set(ctx, "key", []byte("value")); err != nil {
     return err
 }
-data, err := storage.Get(ctx, "key")
-keys, err := storage.List(ctx, "prefix:")
-if err := storage.Delete(ctx, "key"); err != nil {
+data, err := store.Get(ctx, "key")
+keys, err := store.List(ctx, "prefix:")
+if err := store.Delete(ctx, "key"); err != nil {
     return err
 }
 ```
@@ -240,17 +257,17 @@ The framework provides enhanced structured error handling with go-errors integra
 
 ```go
 // Create enhanced errors with automatic user messages and severity
-return orpheus.ValidationError("deploy", "missing environment argument")
-return orpheus.ExecutionError("deploy", "failed to connect to server")
-return orpheus.NotFoundError("deploy", "configuration file not found")
-return orpheus.InternalError("unexpected panic in handler")
+return errs.ValidationError("deploy", "missing environment argument")
+return errs.ExecutionError("deploy", "failed to connect to server")
+return errs.NotFoundError("deploy", "configuration file not found")
+return errs.InternalError("unexpected panic in handler")
 ```
 
 ### Enhanced Error Features
 
 ```go
 // Create enhanced error with context and user message
-err := orpheus.ValidationError("deploy", "missing environment").
+err := errs.ValidationError("deploy", "missing environment").
     WithUserMessage("Please specify a deployment environment").
     WithContext("available_envs", []string{"dev", "staging", "prod"}).
     WithContext("user_input", userInput).
@@ -278,7 +295,7 @@ const (
 if err.IsValidationError() {
     // Handle validation errors
 }
-if err.ErrorCode() == orpheus.ErrCodeValidation {
+if err.ErrorCode() == errs.ErrCodeValidation {
     // Handle specific error code
 }
 ```
@@ -287,7 +304,7 @@ if err.ErrorCode() == orpheus.ErrCodeValidation {
 
 ```go
 // Create custom error with specific code
-return orpheus.NewOrpheusError(orpheus.ErrCodeExecution, "deploy", "connection failed")
+return errs.NewError(errs.ErrCodeExecution, "deploy", "connection failed")
 ```
 
 ### End-to-End Error Integration
@@ -299,7 +316,8 @@ import (
     "log"
     "os"
     
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
+    "github.com/agilira/orpheus/errs"
 )
 
 func main() {
@@ -309,13 +327,13 @@ func main() {
         SetHandler(func(ctx *orpheus.Context) error {
             env := ctx.GetArg(0)
             if env == "" {
-                return orpheus.ValidationError("deploy", "environment argument required").
+                return errs.ValidationError("deploy", "environment argument required").
                     WithUserMessage("Please specify a deployment environment (dev, staging, prod)").
                     WithContext("available_environments", []string{"dev", "staging", "prod"})
             }
             
             if env == "production" && !ctx.GetFlagBool("confirm") {
-                return orpheus.ValidationError("deploy", "production deployment requires confirmation").
+                return errs.ValidationError("deploy", "production deployment requires confirmation").
                     WithUserMessage("Production deployments require the --confirm flag for safety").
                     WithContext("environment", env).
                     WithSeverity("critical")
@@ -323,7 +341,7 @@ func main() {
             
             // Simulate deployment that might fail
             if env == "staging" {
-                return orpheus.ExecutionError("deploy", "failed to connect to staging server").
+                return errs.ExecutionError("deploy", "failed to connect to staging server").
                     WithUserMessage("Unable to connect to the staging environment").
                     WithContext("server", "staging.example.com").
                     WithContext("port", 22).
@@ -339,7 +357,7 @@ func main() {
     
     // Handle errors with enhanced error information
     if err := app.Run(os.Args[1:]); err != nil {
-        if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+        if orpheusErr, ok := err.(*errs.Error); ok {
             // Display user-friendly message
             log.Printf("Error: %s", orpheusErr.UserMessage())
             
@@ -365,7 +383,7 @@ func main() {
 [SECURITY.md](SECURITY.md) for what each check accepts and rejects.
 
 ```go
-validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+validator := security.NewInputValidator(security.DefaultValidationConfig())
 
 result := validator.ValidatePathFlag("config", path)       // *ValidatedInput
 result  = validator.ValidateStringFlag("name", value)      // *ValidatedInput
@@ -385,7 +403,7 @@ func main() {
     app := orpheus.New("mytool")
     // ... commands ...
 
-    validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+    validator := security.NewInputValidator(security.DefaultValidationConfig())
     if err := validator.ValidateArgs(os.Args[1:]); err != nil {
         fmt.Fprintln(os.Stderr, err)
         os.Exit(2)

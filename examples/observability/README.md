@@ -79,7 +79,7 @@ The example shows the recommended pattern for using observability:
 // Always check if observability is configured
 if logger := ctx.Logger(); logger != nil {
     logger.Info(context.Background(), "Operation started",
-        orpheus.StringField("operation", "process"),
+        observe.StringField("operation", "process"),
     )
 }
 

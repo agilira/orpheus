@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
 )
 
 // captureOutput captures stdout during function execution
