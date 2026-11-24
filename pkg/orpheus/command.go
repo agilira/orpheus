@@ -254,8 +254,9 @@ func (c *Command) handleSubcommands(ctx *Context, args []string) (bool, error) {
 		return true, err // Subcommand was executed
 	}
 
-	// Subcommand not found - this is an error
-	return false, NotFoundError(c.name+" "+potentialSubcmd, fmt.Sprintf("unknown subcommand '%s' for command '%s'", potentialSubcmd, c.name))
+	// Subcommand not found. The error names the parent command; the message
+	// names only the subcommand, since Error() already prints the command.
+	return false, NotFoundError(c.name, fmt.Sprintf("unknown subcommand '%s'", potentialSubcmd))
 }
 
 // validateHandler checks if the command has a valid handler

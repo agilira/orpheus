@@ -1,29 +1,28 @@
 # Orpheus Examples
 
-## Positional Arguments (v1.3.0)
+## Positional Arguments (v1.9.0)
 
-Use `ctx.Positional()` / `ctx.PositionalCount()` / `ctx.GetPositional(index)`
-when you need the post-parse positional values without flag tokens.
+`ctx.GetArg(index)` and `ctx.ArgCount()` return the positional values, flag
+tokens excluded, wherever the flags are written.
 
 ```go
-// Before v1.3.0 — ctx.GetArg(0) returns "--output" when the user
-// types: app convert --output report.pdf input.txt
-// A check like "if ctx.ArgCount() < 1" silently accepts the call.
-
-// v1.3.0 — use Positional* to express the intent correctly.
+// app convert --output report.pdf input.txt
 convertCmd := orpheus.NewCommand("convert", "Convert a file").
     AddFlag("output", "o", "", "Output file path").
     SetHandler(func(ctx *orpheus.Context) error {
-        if ctx.PositionalCount() < 1 {
+        if ctx.ArgCount() < 1 {
             return orpheus.ValidationError("convert", "input file required").
                 WithUserMessage("Please provide the input file path")
         }
-        input := ctx.GetPositional(0)  // "input.txt" — flag tokens excluded
+        input := ctx.GetArg(0) // "input.txt", not "--output"
         output := ctx.GetFlagString("output")
         fmt.Printf("Converting %s → %s\n", input, output)
         return nil
     })
 ```
+
+Before v1.9.0 `GetArg(0)` returned `"--output"` here; `GetPositional`, added in
+v1.3.0, returns the same as `GetArg` now.
 
 ## Context Cancellation (v1.4.0)
 

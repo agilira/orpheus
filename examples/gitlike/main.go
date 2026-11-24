@@ -152,8 +152,8 @@ func main() {
 	}
 }
 
-// printError writes the message of err and the hints its handler attached
-// (usage, example, suggestion) to stderr.
+// printError writes the command, the message of err and the hints its
+// handler attached (usage, example, suggestion) to stderr.
 //
 // CR and LF are replaced: a crafted argument reflected back in a message must
 // not be able to forge extra output lines (gosec G706, CWE-117).
@@ -164,7 +164,12 @@ func printError(err error) {
 		fmt.Fprintf(os.Stderr, "gitlike: %s\n", clean(err.Error()))
 		return
 	}
-	fmt.Fprintf(os.Stderr, "gitlike: %s\n", clean(detail.Message))
+	prefix := "gitlike"
+	var orpheusErr *orpheus.Error
+	if errors.As(err, &orpheusErr) && orpheusErr.Command != "" {
+		prefix += " " + orpheusErr.Command
+	}
+	fmt.Fprintf(os.Stderr, "%s: %s\n", clean(prefix), clean(detail.Message))
 	for _, key := range []string{"usage", "example", "suggestion"} {
 		if hint, ok := detail.Context[key]; ok {
 			fmt.Fprintf(os.Stderr, "  %-11s %s\n", key, clean(fmt.Sprint(hint)))
@@ -310,15 +315,15 @@ func setupBranchCommand(app *orpheus.App) {
 
 // Remote command handlers
 func handleRemoteAdd(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 2 {
+	if ctx.ArgCount() < 2 {
 		return orpheus.ValidationError("remote add", "requires name and URL: remote add <name> <url>").
 			WithUserMessage("Please provide both remote name and URL").
 			WithContext("usage", "gitlike remote add <name> <url>").
 			WithContext("example", "gitlike remote add origin https://github.com/user/repo.git")
 	}
 
-	name := ctx.GetPositional(0)
-	url := ctx.GetPositional(1)
+	name := ctx.GetArg(0)
+	url := ctx.GetArg(1)
 
 	if _, exists := gitData.Remotes[name]; exists {
 		return orpheus.ValidationError("remote add", fmt.Sprintf("remote '%s' already exists", name)).
@@ -356,11 +361,11 @@ func handleRemoteAdd(ctx *orpheus.Context) error {
 }
 
 func handleRemoteRemove(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 1 {
+	if ctx.ArgCount() < 1 {
 		return orpheus.ValidationError("remote remove", "requires remote name: remote remove <name>")
 	}
 
-	name := ctx.GetPositional(0)
+	name := ctx.GetArg(0)
 
 	if _, exists := gitData.Remotes[name]; !exists {
 		return orpheus.ValidationError("remote remove", fmt.Sprintf("remote '%s' does not exist", name))
@@ -398,11 +403,11 @@ func handleRemoteList(ctx *orpheus.Context) error {
 }
 
 func handleRemoteShow(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 1 {
+	if ctx.ArgCount() < 1 {
 		return orpheus.ValidationError("remote show", "requires remote name: remote show <name>")
 	}
 
-	name := ctx.GetPositional(0)
+	name := ctx.GetArg(0)
 
 	url, exists := gitData.Remotes[name]
 	if !exists {
@@ -422,12 +427,12 @@ func handleRemoteShow(ctx *orpheus.Context) error {
 
 // Config command handlers
 func handleConfigSet(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 2 {
+	if ctx.ArgCount() < 2 {
 		return orpheus.ValidationError("config set", "requires key and value: config set <key> <value>")
 	}
 
-	key := ctx.GetPositional(0)
-	value := ctx.GetPositional(1)
+	key := ctx.GetArg(0)
+	value := ctx.GetArg(1)
 
 	gitData.Config[key] = value
 
@@ -451,11 +456,11 @@ func handleConfigSet(ctx *orpheus.Context) error {
 }
 
 func handleConfigGet(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 1 {
+	if ctx.ArgCount() < 1 {
 		return orpheus.ValidationError("config get", "requires configuration key: config get <key>")
 	}
 
-	key := ctx.GetPositional(0)
+	key := ctx.GetArg(0)
 
 	value, exists := gitData.Config[key]
 	if !exists {
@@ -490,11 +495,11 @@ func handleConfigList(ctx *orpheus.Context) error {
 }
 
 func handleConfigUnset(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 1 {
+	if ctx.ArgCount() < 1 {
 		return orpheus.ValidationError("config unset", "requires configuration key: config unset <key>")
 	}
 
-	key := ctx.GetPositional(0)
+	key := ctx.GetArg(0)
 
 	if _, exists := gitData.Config[key]; !exists {
 		return orpheus.ValidationError("config unset", fmt.Sprintf("configuration key '%s' not found", key))
@@ -570,11 +575,11 @@ func handleBranchList(ctx *orpheus.Context) error {
 }
 
 func handleBranchCreate(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 1 {
+	if ctx.ArgCount() < 1 {
 		return orpheus.ValidationError("branch create", "requires branch name: branch create <name>")
 	}
 
-	name := ctx.GetPositional(0)
+	name := ctx.GetArg(0)
 	from := ctx.GetFlagString("from")
 
 	if strings.Contains(name, " ") {
@@ -586,11 +591,11 @@ func handleBranchCreate(ctx *orpheus.Context) error {
 }
 
 func handleBranchDelete(ctx *orpheus.Context) error {
-	if ctx.PositionalCount() < 1 {
+	if ctx.ArgCount() < 1 {
 		return orpheus.ValidationError("branch delete", "requires branch name: branch delete <name>")
 	}
 
-	name := ctx.GetPositional(0)
+	name := ctx.GetArg(0)
 	force := ctx.GetFlagBool("force")
 
 	if name == "main" && !force {
