@@ -14,7 +14,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package storage
 
 import (
 	"context"
@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/agilira/orpheus/errs"
 )
 
 // Test Storage Interface Compliance
@@ -100,7 +102,7 @@ func TestStorageInterfaceCompliance(t *testing.T) {
 
 	// Verify operations fail after close
 	err = storage.Set(ctx, "key", []byte("value"))
-	if !errors.Is(err, ErrStorageClosed) {
+	if !errors.Is(err, ErrClosed) {
 		t.Errorf("Expected ErrStorageClosed after close, got %v", err)
 	}
 }
@@ -254,42 +256,42 @@ func TestStorageErrors(t *testing.T) {
 		{
 			name: "StorageGetError",
 			errorFunc: func() error {
-				return StorageGetError("test_key", errors.New("connection failed"))
+				return GetError("test_key", errors.New("connection failed"))
 			},
 			expected: "get operation failed for key 'test_key'",
 		},
 		{
 			name: "StorageSetError",
 			errorFunc: func() error {
-				return StorageSetError("test_key", errors.New("write failed"))
+				return SetError("test_key", errors.New("write failed"))
 			},
 			expected: "set operation failed for key 'test_key'",
 		},
 		{
 			name: "StorageDeleteError",
 			errorFunc: func() error {
-				return StorageDeleteError("test_key", errors.New("delete failed"))
+				return DeleteError("test_key", errors.New("delete failed"))
 			},
 			expected: "delete operation failed for key 'test_key'",
 		},
 		{
 			name: "StorageListError",
 			errorFunc: func() error {
-				return StorageListError("prefix", errors.New("list failed"))
+				return ListError("prefix", errors.New("list failed"))
 			},
 			expected: "list operation failed for prefix 'prefix'",
 		},
 		{
 			name: "StorageNotFoundError",
 			errorFunc: func() error {
-				return StorageNotFoundError("missing_key")
+				return NotFoundError("missing_key")
 			},
 			expected: "key 'missing_key' not found",
 		},
 		{
 			name: "StorageValidationError",
 			errorFunc: func() error {
-				return StorageValidationError("Set", "key cannot be empty")
+				return ValidationError("Set", "key cannot be empty")
 			},
 			expected: "Set validation failed: key cannot be empty",
 		},
@@ -310,7 +312,7 @@ func TestStorageErrors(t *testing.T) {
 		{
 			name: "StorageUnavailableError",
 			errorFunc: func() error {
-				return StorageUnavailableError("redis", errors.New("connection timeout"))
+				return UnavailableError("redis", errors.New("connection timeout"))
 			},
 			expected: "storage provider 'redis' is unavailable",
 		},
@@ -330,7 +332,7 @@ func TestStorageErrors(t *testing.T) {
 			}
 
 			// Test if it's an Orpheus error with proper structure
-			if orpheusErr, ok := err.(*Error); ok {
+			if orpheusErr, ok := err.(*errs.Error); ok {
 				if orpheusErr.ErrorCode() == "" {
 					t.Error("Expected non-empty error code")
 				}
@@ -368,50 +370,50 @@ func TestErrorTypeChecking(t *testing.T) {
 	}{
 		{
 			name:      "IsStorageNotFound with StorageNotFoundError",
-			error:     StorageNotFoundError("test_key"),
-			checkFunc: IsStorageNotFound,
+			error:     NotFoundError("test_key"),
+			checkFunc: IsNotFound,
 			expected:  true,
 		},
 		{
 			name:      "IsStorageNotFound with ErrKeyNotFound",
 			error:     ErrKeyNotFound,
-			checkFunc: IsStorageNotFound,
+			checkFunc: IsNotFound,
 			expected:  true,
 		},
 		{
 			name:      "IsStorageNotFound with other error",
 			error:     errors.New("other error"),
-			checkFunc: IsStorageNotFound,
+			checkFunc: IsNotFound,
 			expected:  false,
 		},
 		{
 			name:      "IsStorageValidationError with validation error",
-			error:     StorageValidationError("Set", "invalid key"),
-			checkFunc: IsStorageValidationError,
+			error:     ValidationError("Set", "invalid key"),
+			checkFunc: IsValidationError,
 			expected:  true,
 		},
 		{
 			name:      "IsStorageValidationError with other error",
 			error:     errors.New("other error"),
-			checkFunc: IsStorageValidationError,
+			checkFunc: IsValidationError,
 			expected:  false,
 		},
 		{
 			name:      "IsStorageUnavailable with unavailable error",
-			error:     StorageUnavailableError("redis", errors.New("timeout")),
-			checkFunc: IsStorageUnavailable,
+			error:     UnavailableError("redis", errors.New("timeout")),
+			checkFunc: IsUnavailable,
 			expected:  true,
 		},
 		{
 			name:      "IsStorageUnavailable with sentinel error",
-			error:     ErrStorageUnavailable,
-			checkFunc: IsStorageUnavailable,
+			error:     ErrUnavailable,
+			checkFunc: IsUnavailable,
 			expected:  true,
 		},
 		{
 			name:      "IsStorageUnavailable with other error",
 			error:     errors.New("other error"),
-			checkFunc: IsStorageUnavailable,
+			checkFunc: IsUnavailable,
 			expected:  false,
 		},
 	}
@@ -462,12 +464,12 @@ func TestStorageWithContext(t *testing.T) {
 func TestStorageConfig(t *testing.T) {
 	tests := []struct {
 		name   string
-		config StorageConfig
+		config Config
 		valid  bool
 	}{
 		{
 			name: "Valid minimal config",
-			config: StorageConfig{
+			config: Config{
 				Provider: "sqlite",
 				Config: map[string]interface{}{
 					"path": "/tmp/test.db",
@@ -477,7 +479,7 @@ func TestStorageConfig(t *testing.T) {
 		},
 		{
 			name: "Valid config with all options",
-			config: StorageConfig{
+			config: Config{
 				Provider:      "redis",
 				PluginPath:    "/opt/plugins/redis.so",
 				Config:        map[string]interface{}{"host": "localhost", "port": 6379},
@@ -490,7 +492,7 @@ func TestStorageConfig(t *testing.T) {
 		},
 		{
 			name: "Empty provider",
-			config: StorageConfig{
+			config: Config{
 				Provider: "",
 				Config:   map[string]interface{}{},
 			},

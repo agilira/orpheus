@@ -17,7 +17,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package storage
 
 import (
 	"context"

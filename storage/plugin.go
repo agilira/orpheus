@@ -16,7 +16,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package storage
 
 import (
 	"context"
@@ -28,6 +28,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/observe"
 )
 
 // PluginManager manages the lifecycle of storage plugins with security validation
@@ -48,7 +51,7 @@ type PluginManager struct {
 	mutex sync.RWMutex
 
 	// logger for plugin operations (optional, uses app logger if available)
-	logger Logger
+	logger observe.Logger
 
 	// securityConfig controls plugin loading security checks
 	securityConfig *PluginSecurityConfig
@@ -62,7 +65,7 @@ type PluginManager struct {
 // LoadedPlugin represents a successfully loaded and validated storage plugin
 type LoadedPlugin struct {
 	// Plugin is the loaded StoragePlugin interface
-	Plugin StoragePlugin
+	Plugin Plugin
 
 	// Path is the filesystem path where the plugin was loaded from
 	Path string
@@ -119,7 +122,7 @@ func DefaultPluginSecurityConfig() *PluginSecurityConfig {
 }
 
 // NewPluginManager creates a new plugin manager with the specified configuration
-func NewPluginManager(logger Logger, securityConfig *PluginSecurityConfig) *PluginManager {
+func NewPluginManager(logger observe.Logger, securityConfig *PluginSecurityConfig) *PluginManager {
 	if securityConfig == nil {
 		securityConfig = DefaultPluginSecurityConfig()
 	}
@@ -199,7 +202,7 @@ func (pm *PluginManager) loadPlugin(ctx context.Context, pluginPath string, allo
 }
 
 // openPlugin opens the file, checks its symbols and runs its constructor.
-func (pm *PluginManager) openPlugin(realPath string) (StoragePlugin, error) {
+func (pm *PluginManager) openPlugin(realPath string) (Plugin, error) {
 	p, err := plugin.Open(realPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open plugin: %w", err)
@@ -211,7 +214,7 @@ func (pm *PluginManager) openPlugin(realPath string) (StoragePlugin, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NewStoragePlugin symbol not found: %w", err)
 	}
-	constructor, ok := symbol.(func() StoragePlugin)
+	constructor, ok := symbol.(func() Plugin)
 	if !ok {
 		return nil, fmt.Errorf("NewStoragePlugin has invalid signature")
 	}
@@ -225,7 +228,7 @@ func (pm *PluginManager) openPlugin(realPath string) (StoragePlugin, error) {
 // register records a new plugin under its name and resolved path. A second
 // file claiming a loaded name is refused: replacing the entry would leave
 // the first file's path pointing at a record no longer in the registry.
-func (pm *PluginManager) register(sp StoragePlugin, pluginPath, realPath, hash string) (*LoadedPlugin, error) {
+func (pm *PluginManager) register(sp Plugin, pluginPath, realPath, hash string) (*LoadedPlugin, error) {
 	name := sp.Name()
 	if existing, ok := pm.registry[name]; ok {
 		return nil, fmt.Errorf("plugin name %q already loaded from %s", name, existing.Path)
@@ -261,7 +264,7 @@ func (pm *PluginManager) GetPlugin(name string) (*LoadedPlugin, error) {
 
 	plugin, exists := pm.registry[name]
 	if !exists {
-		return nil, NewError(ErrCodePluginError, "storage", fmt.Sprintf("plugin '%s' not found in registry", name)).
+		return nil, errs.NewError(errs.ErrCodePluginError, "storage", fmt.Sprintf("plugin '%s' not found in registry", name)).
 			WithContext("operation", "storage.GetPlugin").
 			WithContext("plugin_name", name).
 			WithSeverity("error")
@@ -298,7 +301,7 @@ func (pm *PluginManager) DiscoverPlugins(ctx context.Context) ([]string, error) 
 }
 
 // LoadPluginsFromConfig loads storage plugins based on storage configuration
-func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *StorageConfig) (*LoadedPlugin, error) {
+func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *Config) (*LoadedPlugin, error) {
 	// If specific plugin path is provided, use it directly
 	allowUnsigned := pm.securityConfig.AllowUnsignedPlugins || config.AllowUnsignedPlugins
 	if config.PluginPath != "" {
@@ -324,7 +327,7 @@ func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *Stor
 		}
 	}
 
-	return nil, NewError(ErrCodePluginError, "storage", fmt.Sprintf("no plugin found for provider '%s'", config.Provider)).
+	return nil, errs.NewError(errs.ErrCodePluginError, "storage", fmt.Sprintf("no plugin found for provider '%s'", config.Provider)).
 		WithContext("operation", "storage.LoadPluginsFromConfig").
 		WithContext("provider", config.Provider).
 		WithSeverity("error").
@@ -352,7 +355,7 @@ func (pm *PluginManager) UnloadPlugin(ctx context.Context, name string) error {
 
 	plugin, exists := pm.registry[name]
 	if !exists {
-		return NewError(ErrCodePluginError, "storage", fmt.Sprintf("plugin '%s' not loaded", name)).
+		return errs.NewError(errs.ErrCodePluginError, "storage", fmt.Sprintf("plugin '%s' not loaded", name)).
 			WithContext("operation", "storage.UnloadPlugin").
 			WithContext("plugin_name", name).
 			WithSeverity("warning")
@@ -600,10 +603,10 @@ func expandPluginPath(path string) (string, bool) {
 func (pm *PluginManager) logDebug(ctx context.Context, message string, args ...interface{}) {
 	if pm.logger != nil {
 		// Convert args to Field slice for the Logger interface
-		fields := make([]Field, 0, len(args)/2)
+		fields := make([]observe.Field, 0, len(args)/2)
 		for i := 0; i < len(args)-1; i += 2 {
 			if key, ok := args[i].(string); ok {
-				fields = append(fields, Field{Key: key, Value: args[i+1]})
+				fields = append(fields, observe.Field{Key: key, Value: args[i+1]})
 			}
 		}
 		pm.logger.Debug(ctx, message, fields...)
@@ -613,10 +616,10 @@ func (pm *PluginManager) logDebug(ctx context.Context, message string, args ...i
 func (pm *PluginManager) logInfo(ctx context.Context, message string, args ...interface{}) {
 	if pm.logger != nil {
 		// Convert args to Field slice for the Logger interface
-		fields := make([]Field, 0, len(args)/2)
+		fields := make([]observe.Field, 0, len(args)/2)
 		for i := 0; i < len(args)-1; i += 2 {
 			if key, ok := args[i].(string); ok {
-				fields = append(fields, Field{Key: key, Value: args[i+1]})
+				fields = append(fields, observe.Field{Key: key, Value: args[i+1]})
 			}
 		}
 		pm.logger.Info(ctx, message, fields...)
@@ -626,10 +629,10 @@ func (pm *PluginManager) logInfo(ctx context.Context, message string, args ...in
 func (pm *PluginManager) logWarn(ctx context.Context, message string, args ...interface{}) {
 	if pm.logger != nil {
 		// Convert args to Field slice for the Logger interface
-		fields := make([]Field, 0, len(args)/2)
+		fields := make([]observe.Field, 0, len(args)/2)
 		for i := 0; i < len(args)-1; i += 2 {
 			if key, ok := args[i].(string); ok {
-				fields = append(fields, Field{Key: key, Value: args[i+1]})
+				fields = append(fields, observe.Field{Key: key, Value: args[i+1]})
 			}
 		}
 		pm.logger.Warn(ctx, message, fields...)

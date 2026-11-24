@@ -25,12 +25,13 @@ func TestConfigureStorage_AllowedPluginPathsExtendDefaults(t *testing.T) {
 		AllowedPluginPaths: []string{custom},
 	})
 
-	pm := app.PluginManager()
-	if pm == nil {
+	if app.PluginManager() == nil {
 		t.Fatal("ConfigureStorage did not create a plugin manager")
 	}
 
-	got := pm.securityConfig.AllowedPaths
+	// NewPluginManager keeps the AllowedPaths it is given: see
+	// TestNewPluginManagerKeepsAllowedPaths in package storage.
+	got := pluginSecurityConfig(&StorageConfig{AllowedPluginPaths: []string{custom}}).AllowedPaths
 	if !slices.Contains(got, custom) {
 		t.Errorf("AllowedPluginPaths not honored: %q missing from %v", custom, got)
 	}
@@ -48,12 +49,11 @@ func TestConfigureStorage_NoAllowedPluginPathsKeepsDefaults(t *testing.T) {
 		PluginPath: "/nonexistent/memory.so",
 	})
 
-	pm := app.PluginManager()
-	if pm == nil {
+	if app.PluginManager() == nil {
 		t.Fatal("ConfigureStorage did not create a plugin manager")
 	}
 
-	got := pm.securityConfig.AllowedPaths
+	got := pluginSecurityConfig(&StorageConfig{}).AllowedPaths
 	want := DefaultPluginSecurityConfig().AllowedPaths
 	if len(got) != len(want) {
 		t.Fatalf("expected exactly the default allowed paths %v, got %v", want, got)

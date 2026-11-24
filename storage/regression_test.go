@@ -4,7 +4,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package storage
 
 import (
 	"context"
@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/agilira/orpheus/observe"
 )
 
 // A plugin of package orpheus cannot be opened by this test binary, whose
@@ -86,7 +88,7 @@ func buildRegressionHost(t *testing.T) string {
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
 		t.Skip("Go plugins are not supported on " + runtime.GOOS)
 	}
-	repo, err := filepath.Abs("../..")
+	repo, err := filepath.Abs("..")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +208,7 @@ func TestStorageRegression_UnsignedPluginRefusedByDefault(t *testing.T) {
 	if !errors.Is(err, errSignatureUnavailable) || !strings.Contains(err.Error(), "AllowUnsignedPlugins") {
 		t.Fatalf("LoadPlugin with default config: %v", err)
 	}
-	_, err = pm.LoadPluginsFromConfig(context.Background(), &StorageConfig{Provider: "memory", PluginPath: path})
+	_, err = pm.LoadPluginsFromConfig(context.Background(), &Config{Provider: "memory", PluginPath: path})
 	if !errors.Is(err, errSignatureUnavailable) {
 		t.Fatalf("LoadPluginsFromConfig without opt-in: %v", err)
 	}
@@ -251,7 +253,7 @@ func TestStorageRegression_DiscoveryCancellationReported(t *testing.T) {
 	if _, err := pm.DiscoverPlugins(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("DiscoverPlugins with cancelled context: %v", err)
 	}
-	_, err := pm.LoadPluginsFromConfig(ctx, &StorageConfig{Provider: "memory"})
+	_, err := pm.LoadPluginsFromConfig(ctx, &Config{Provider: "memory"})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("LoadPluginsFromConfig with cancelled context: %v", err)
 	}
@@ -259,36 +261,36 @@ func TestStorageRegression_DiscoveryCancellationReported(t *testing.T) {
 
 func TestStorageRegression_StorageErrorsKeepCause(t *testing.T) {
 	cases := map[string]error{
-		"get":         StorageGetError("k", ErrStorageUnavailable),
-		"set":         StorageSetError("k", ErrStorageUnavailable),
-		"delete":      StorageDeleteError("k", ErrStorageUnavailable),
-		"list":        StorageListError("p", ErrStorageUnavailable),
-		"plugin":      PluginLoadError("/p.so", ErrStorageUnavailable),
-		"config":      ConfigValidationError("x", ErrStorageUnavailable),
-		"unavailable": StorageUnavailableError("x", ErrStorageUnavailable),
+		"get":         GetError("k", ErrUnavailable),
+		"set":         SetError("k", ErrUnavailable),
+		"delete":      DeleteError("k", ErrUnavailable),
+		"list":        ListError("p", ErrUnavailable),
+		"plugin":      PluginLoadError("/p.so", ErrUnavailable),
+		"config":      ConfigValidationError("x", ErrUnavailable),
+		"unavailable": UnavailableError("x", ErrUnavailable),
 	}
 	for name, err := range cases {
-		if !errors.Is(err, ErrStorageUnavailable) || !IsStorageUnavailable(err) {
+		if !errors.Is(err, ErrUnavailable) || !IsUnavailable(err) {
 			t.Errorf("%s: cause lost: %v", name, err)
 		}
 	}
-	if !IsStorageNotFound(StorageGetError("k", ErrKeyNotFound)) {
+	if !IsNotFound(GetError("k", ErrKeyNotFound)) {
 		t.Error("IsStorageNotFound(StorageGetError(ErrKeyNotFound)) = false")
 	}
 }
 
 func TestStorageRegression_IsStorageHelpersSeeWrappedErrors(t *testing.T) {
 	wrap := func(err error) error { return fmt.Errorf("loading profile: %w", err) }
-	if !IsStorageNotFound(wrap(StorageNotFoundError("profile"))) {
+	if !IsNotFound(wrap(NotFoundError("profile"))) {
 		t.Error("IsStorageNotFound(wrapped) = false")
 	}
-	if !IsStorageValidationError(wrap(StorageValidationError("set", "bad"))) {
+	if !IsValidationError(wrap(ValidationError("set", "bad"))) {
 		t.Error("IsStorageValidationError(wrapped) = false")
 	}
-	if !IsStorageUnavailable(wrap(StorageUnavailableError("x", errors.New("down")))) {
+	if !IsUnavailable(wrap(UnavailableError("x", errors.New("down")))) {
 		t.Error("IsStorageUnavailable(wrapped) = false")
 	}
-	if IsStorageNotFound(StorageSetError("k", errors.New("disk full"))) {
+	if IsNotFound(SetError("k", errors.New("disk full"))) {
 		t.Error("IsStorageNotFound(unrelated error) = true")
 	}
 }
@@ -433,7 +435,7 @@ func TestStorageRegression_DiscoveryCancellationWithoutSearchPaths(t *testing.T)
 	if _, err := pm.DiscoverPlugins(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("DiscoverPlugins: %v", err)
 	}
-	if _, err := pm.LoadPluginsFromConfig(ctx, &StorageConfig{Provider: "memory"}); !errors.Is(err, context.Canceled) {
+	if _, err := pm.LoadPluginsFromConfig(ctx, &Config{Provider: "memory"}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("LoadPluginsFromConfig: %v", err)
 	}
 }
@@ -461,7 +463,7 @@ type regressionRecordingLogger struct {
 	warn []string
 }
 
-func (l *regressionRecordingLogger) Warn(_ context.Context, msg string, _ ...Field) {
+func (l *regressionRecordingLogger) Warn(_ context.Context, msg string, _ ...observe.Field) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.warn = append(l.warn, msg)

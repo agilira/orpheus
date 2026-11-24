@@ -1,6 +1,5 @@
-// Storage System for Orpheus CLI Framework
-//
-// This package provides pluggable storage capabilities for CLI applications,
+// Package storage provides pluggable storage capabilities for Orpheus
+// applications,
 // enabling persistent state management with zero-overhead when unused.
 //
 // Features:
@@ -14,8 +13,7 @@
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
-
-package orpheus
+package storage
 
 import (
 	"context"
@@ -48,7 +46,7 @@ type Storage interface {
 
 	// Stats returns operational statistics for monitoring and debugging.
 	// Returns nil if statistics are not available or supported.
-	Stats(ctx context.Context) (*StorageStats, error)
+	Stats(ctx context.Context) (*Stats, error)
 
 	// Close releases any resources held by the storage implementation.
 	// After calling Close, the Storage instance should not be used.
@@ -57,7 +55,7 @@ type Storage interface {
 
 // StorageStats provides operational metrics for storage backends.
 // All fields are optional and may be zero if not supported.
-type StorageStats struct {
+type Stats struct {
 	// TotalKeys is the number of keys currently stored
 	TotalKeys int64 `json:"total_keys"`
 
@@ -91,7 +89,7 @@ type StorageStats struct {
 // StoragePlugin defines the interface that storage providers must implement
 // to be loaded as plugins. This enables dynamic loading of storage backends
 // without compile-time dependencies.
-type StoragePlugin interface {
+type Plugin interface {
 	// Name returns the unique identifier for this storage provider
 	Name() string
 
@@ -115,7 +113,7 @@ type StoragePlugin interface {
 }
 
 // StorageConfig holds the configuration for storage initialization
-type StorageConfig struct {
+type Config struct {
 	// Provider specifies which storage provider to use
 	Provider string `json:"provider" yaml:"provider"`
 

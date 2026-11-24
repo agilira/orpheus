@@ -97,7 +97,7 @@ func FuzzPluginPathSecurity(f *testing.F) {
 	f.Add("~/../../../etc/passwd")
 
 	// Setup test harness
-	tempDir := createTempDir(f)
+	tempDir := f.TempDir()
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
 			f.Logf("Warning: failed to remove temp dir: %v", err)
@@ -224,7 +224,7 @@ func FuzzPluginBinaryContent(f *testing.F) {
 	f.Add([]byte("<?php system($_GET['cmd']); ?>"))
 
 	// Setup test environment
-	tempDir := createTempDir(f)
+	tempDir := f.TempDir()
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
 			f.Logf("Warning: failed to remove temp dir: %v", err)
@@ -305,7 +305,7 @@ func FuzzConcurrentPluginOperations(f *testing.F) {
 	f.Add([]byte("unload"))
 	f.Add([]byte("concurrent"))
 
-	tempDir := createTempDir(f)
+	tempDir := f.TempDir()
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
 			f.Logf("Warning: failed to remove temp dir: %v", err)
@@ -420,7 +420,7 @@ func FuzzPluginDiscoveryPaths(f *testing.F) {
 	f.Add(strings.Repeat("subdir/", 50))
 
 	// Create base temp directory
-	tempDir := createTempDir(f)
+	tempDir := f.TempDir()
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
 			f.Logf("Warning: failed to remove temp dir: %v", err)

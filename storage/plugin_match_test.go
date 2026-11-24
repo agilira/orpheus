@@ -14,7 +14,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package storage
 
 import (
 	"context"
@@ -47,7 +47,7 @@ func managerFor(dirs ...string) *PluginManager {
 
 func TestLoadPluginsFromConfigRejectsEmptyProvider(t *testing.T) {
 	pm := managerFor(pluginDir(t, "memory.so"))
-	_, err := pm.LoadPluginsFromConfig(context.Background(), &StorageConfig{Provider: ""})
+	_, err := pm.LoadPluginsFromConfig(context.Background(), &Config{Provider: ""})
 	if err == nil {
 		t.Fatal("empty provider was accepted")
 	}
@@ -60,7 +60,7 @@ func TestLoadPluginsFromConfigRejectsPartialName(t *testing.T) {
 	for _, provider := range []string{"mem", "emo", "y", ".so", "memory.so"} {
 		t.Run(provider, func(t *testing.T) {
 			pm := managerFor(pluginDir(t, "memory.so"))
-			_, err := pm.LoadPluginsFromConfig(context.Background(), &StorageConfig{Provider: provider})
+			_, err := pm.LoadPluginsFromConfig(context.Background(), &Config{Provider: provider})
 			if err == nil || !strings.Contains(err.Error(), "no plugin found") {
 				t.Fatalf("provider %q selected a plugin it does not name: %v", provider, err)
 			}
@@ -71,7 +71,7 @@ func TestLoadPluginsFromConfigRejectsPartialName(t *testing.T) {
 func TestLoadPluginsFromConfigSelectsExactName(t *testing.T) {
 	dir := pluginDir(t, "memory-evil.so", "memory.so")
 	pm := managerFor(dir)
-	_, err := pm.LoadPluginsFromConfig(context.Background(), &StorageConfig{Provider: "memory"})
+	_, err := pm.LoadPluginsFromConfig(context.Background(), &Config{Provider: "memory"})
 	if err == nil {
 		t.Fatal("a fixture that is not a plugin was loaded")
 	}

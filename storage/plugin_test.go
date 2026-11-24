@@ -11,7 +11,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package storage
 
 import (
 	"context"
@@ -23,6 +23,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/observe"
 )
 
 // MockLogger implements Logger interface for testing
@@ -37,33 +40,33 @@ type LogEntry struct {
 	Fields  map[string]interface{}
 }
 
-func (m *MockLogger) Trace(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("TRACE", msg, fields)
 }
 
-func (m *MockLogger) Debug(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Debug(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("DEBUG", msg, fields)
 }
 
-func (m *MockLogger) Info(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Info(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("INFO", msg, fields)
 }
 
-func (m *MockLogger) Warn(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Warn(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("WARN", msg, fields)
 }
 
-func (m *MockLogger) Error(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Error(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("ERROR", msg, fields)
 }
 
-func (m *MockLogger) WithFields(fields ...Field) Logger {
+func (m *MockLogger) WithFields(fields ...observe.Field) observe.Logger {
 	// For testing purposes, return the same logger
 	// In a real implementation, this would return a new logger with additional fields
 	return m
 }
 
-func (m *MockLogger) addLog(level, msg string, fields []Field) {
+func (m *MockLogger) addLog(level, msg string, fields []observe.Field) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -152,7 +155,7 @@ func (m *MockStorage) Get(ctx context.Context, key string) ([]byte, error) {
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return nil, ErrStorageClosed
+		return nil, ErrClosed
 	}
 
 	value, exists := m.data[key]
@@ -168,7 +171,7 @@ func (m *MockStorage) Set(ctx context.Context, key string, value []byte) error {
 	defer m.mu.Unlock()
 
 	if m.closed {
-		return ErrStorageClosed
+		return ErrClosed
 	}
 
 	m.data[key] = value
@@ -180,7 +183,7 @@ func (m *MockStorage) Delete(ctx context.Context, key string) error {
 	defer m.mu.Unlock()
 
 	if m.closed {
-		return ErrStorageClosed
+		return ErrClosed
 	}
 
 	delete(m.data, key)
@@ -192,7 +195,7 @@ func (m *MockStorage) List(ctx context.Context, prefix string) ([]string, error)
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return nil, ErrStorageClosed
+		return nil, ErrClosed
 	}
 
 	var keys []string
@@ -207,17 +210,17 @@ func (m *MockStorage) List(ctx context.Context, prefix string) ([]string, error)
 
 func (m *MockStorage) Health(ctx context.Context) error {
 	if m.closed {
-		return ErrStorageClosed
+		return ErrClosed
 	}
 	return m.healthError
 }
 
-func (m *MockStorage) Stats(ctx context.Context) (*StorageStats, error) {
+func (m *MockStorage) Stats(ctx context.Context) (*Stats, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return nil, ErrStorageClosed
+		return nil, ErrClosed
 	}
 
 	totalSize := int64(0)
@@ -225,7 +228,7 @@ func (m *MockStorage) Stats(ctx context.Context) (*StorageStats, error) {
 		totalSize += int64(len(value))
 	}
 
-	return &StorageStats{
+	return &Stats{
 		TotalKeys: int64(len(m.data)),
 		TotalSize: totalSize,
 		Provider:  "mock",
@@ -635,9 +638,9 @@ func TestGetPluginNotFound(t *testing.T) {
 	}
 
 	// Check error type
-	if orpheusErr, ok := err.(*Error); ok {
-		if orpheusErr.ErrorCode() != ErrCodePluginError {
-			t.Errorf("Expected error code %s, got %s", ErrCodePluginError, orpheusErr.ErrorCode())
+	if orpheusErr, ok := err.(*errs.Error); ok {
+		if orpheusErr.ErrorCode() != errs.ErrCodePluginError {
+			t.Errorf("Expected error code %s, got %s", errs.ErrCodePluginError, orpheusErr.ErrorCode())
 		}
 	} else {
 		t.Error("Expected Orpheus error type")
@@ -672,9 +675,9 @@ func TestUnloadPluginNotLoaded(t *testing.T) {
 	}
 
 	// Check error type
-	if orpheusErr, ok := err.(*Error); ok {
-		if orpheusErr.ErrorCode() != ErrCodePluginError {
-			t.Errorf("Expected error code %s, got %s", ErrCodePluginError, orpheusErr.ErrorCode())
+	if orpheusErr, ok := err.(*errs.Error); ok {
+		if orpheusErr.ErrorCode() != errs.ErrCodePluginError {
+			t.Errorf("Expected error code %s, got %s", errs.ErrCodePluginError, orpheusErr.ErrorCode())
 		}
 	} else {
 		t.Error("Expected Orpheus error type")
@@ -1091,5 +1094,17 @@ func BenchmarkPluginDiscovery(b *testing.B) {
 		if err != nil {
 			b.Fatalf("Discovery failed: %v", err)
 		}
+	}
+}
+
+// NewPluginManager keeps the AllowedPaths it is given: App.ConfigureStorage
+// relies on it to extend the defaults with Config.AllowedPluginPaths.
+func TestNewPluginManagerKeepsAllowedPaths(t *testing.T) {
+	cfg := DefaultPluginSecurityConfig()
+	cfg.AllowedPaths = append(cfg.AllowedPaths, "/opt/myapp/plugins")
+	pm := NewPluginManager(nil, cfg)
+	got := pm.securityConfig.AllowedPaths
+	if len(got) != len(cfg.AllowedPaths) || got[len(got)-1] != "/opt/myapp/plugins" {
+		t.Errorf("AllowedPaths = %v, want %v", got, cfg.AllowedPaths)
 	}
 }

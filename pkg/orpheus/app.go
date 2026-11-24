@@ -153,11 +153,7 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	// defaults, so an application can load a plugin it ships in its own
 	// directory without the working directory ever being allowed implicitly.
 	if app.pluginManager == nil {
-		securityConfig := DefaultPluginSecurityConfig()
-		if len(config.AllowedPluginPaths) > 0 {
-			securityConfig.AllowedPaths = append(securityConfig.AllowedPaths, config.AllowedPluginPaths...)
-		}
-		app.pluginManager = NewPluginManager(app.logger, securityConfig)
+		app.pluginManager = NewPluginManager(app.logger, pluginSecurityConfig(config))
 	}
 
 	// Load the storage plugin
@@ -220,6 +216,16 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	}
 
 	return app
+}
+
+// pluginSecurityConfig returns the default plugin security configuration
+// with the directories config.AllowedPluginPaths opts into appended.
+func pluginSecurityConfig(config *StorageConfig) *PluginSecurityConfig {
+	securityConfig := DefaultPluginSecurityConfig()
+	if len(config.AllowedPluginPaths) > 0 {
+		securityConfig.AllowedPaths = append(securityConfig.AllowedPaths, config.AllowedPluginPaths...)
+	}
+	return securityConfig
 }
 
 // storageConfigureError reports a ConfigureStorage failure as the storage
