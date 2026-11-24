@@ -1,0 +1,230 @@
+const CompletionArgs pkg/orpheus.CompletionType = 2
+const CompletionCommands pkg/orpheus.CompletionType = 0
+const CompletionDefault pkg/orpheus.CompletionDirective = 0
+const CompletionFlags pkg/orpheus.CompletionType = 1
+const CompletionNoFiles pkg/orpheus.CompletionDirective = 2
+const CompletionNoSpace pkg/orpheus.CompletionDirective = 1
+const ErrCodeExecution github.com/agilira/go-errors.ErrorCode = "ORF1001"
+const ErrCodeInternal github.com/agilira/go-errors.ErrorCode = "ORF1003"
+const ErrCodeNotFound github.com/agilira/go-errors.ErrorCode = "ORF1002"
+const ErrCodePluginError github.com/agilira/go-errors.ErrorCode = "ORF2004"
+const ErrCodeStorageExecution github.com/agilira/go-errors.ErrorCode = "ORF2001"
+const ErrCodeStorageNotFound github.com/agilira/go-errors.ErrorCode = "ORF2002"
+const ErrCodeStorageUnavailable github.com/agilira/go-errors.ErrorCode = "ORF2003"
+const ErrCodeStorageValidation github.com/agilira/go-errors.ErrorCode = "ORF2000"
+const ErrCodeValidation github.com/agilira/go-errors.ErrorCode = "ORF1000"
+const StatusCodeError pkg/orpheus.StatusCode = 2
+const StatusCodeOK pkg/orpheus.StatusCode = 1
+const StatusCodeUnset pkg/orpheus.StatusCode = 0
+func AnalyzeFilePermissions(string, pkg/orpheus.SecurityConfig) (*pkg/orpheus.FilePermission, error)
+func BoolField(string, bool) pkg/orpheus.Field
+func CheckFileExecutable(string, pkg/orpheus.SecurityConfig) (bool, error)
+func CheckFileReadable(string, pkg/orpheus.SecurityConfig) (bool, error)
+func CheckFileWritable(string, pkg/orpheus.SecurityConfig) (bool, error)
+func ConfigValidationError(string, error) *pkg/orpheus.Error
+func DefaultPluginSecurityConfig() *pkg/orpheus.PluginSecurityConfig
+func DefaultSecurityConfig() pkg/orpheus.SecurityConfig
+func DefaultValidationConfig() pkg/orpheus.ValidationConfig
+func ErrorField(error) pkg/orpheus.Field
+func ExecutionError(string, string) *pkg/orpheus.Error
+func Float64Field(string, float64) pkg/orpheus.Field
+func IntField(string, int) pkg/orpheus.Field
+func InternalError(string) *pkg/orpheus.Error
+func IsStorageNotFound(error) bool
+func IsStorageUnavailable(error) bool
+func IsStorageValidationError(error) bool
+func New(string) *pkg/orpheus.App
+func NewCommand(string, string) *pkg/orpheus.Command
+func NewError(github.com/agilira/go-errors.ErrorCode, string, string) *pkg/orpheus.Error
+func NewHelpGenerator(*pkg/orpheus.App) *pkg/orpheus.HelpGenerator
+func NewInputValidator(pkg/orpheus.ValidationConfig) *pkg/orpheus.InputValidator
+func NewOrpheusError(github.com/agilira/go-errors.ErrorCode, string, string) *pkg/orpheus.Error
+func NewPluginManager(pkg/orpheus.Logger, *pkg/orpheus.PluginSecurityConfig) *pkg/orpheus.PluginManager
+func NewPrompterFrom(io.Reader, io.Writer, int) *pkg/orpheus.TerminalPrompter
+func NewTerminalPrompter() *pkg/orpheus.TerminalPrompter
+func NotFoundError(string, string) *pkg/orpheus.Error
+func PluginLoadError(string, error) *pkg/orpheus.Error
+func StorageDeleteError(string, error) *pkg/orpheus.Error
+func StorageGetError(string, error) *pkg/orpheus.Error
+func StorageListError(string, error) *pkg/orpheus.Error
+func StorageNotFoundError(string) *pkg/orpheus.Error
+func StorageSetError(string, error) *pkg/orpheus.Error
+func StorageUnavailableError(string, error) *pkg/orpheus.Error
+func StorageValidationError(string, string) *pkg/orpheus.Error
+func StringField(string, string) pkg/orpheus.Field
+func ValidateSecurePath(string, pkg/orpheus.SecurityConfig) *pkg/orpheus.PathSecurityResult
+func ValidationError(string, string) *pkg/orpheus.Error
+method (*App) AddCommand(*pkg/orpheus.Command) *pkg/orpheus.App
+method (*App) AddCompletionCommand() *pkg/orpheus.App
+method (*App) AddGlobalBoolFlag(string, string, bool, string) *pkg/orpheus.App
+method (*App) AddGlobalFlag(string, string, string, string) *pkg/orpheus.App
+method (*App) AddGlobalIntFlag(string, string, int, string) *pkg/orpheus.App
+method (*App) AuditLogger() pkg/orpheus.AuditLogger
+method (*App) Command(string, string, pkg/orpheus.CommandHandler) *pkg/orpheus.App
+method (*App) Complete([]string, int) *pkg/orpheus.CompletionResult
+method (*App) ConfigureStorage(*pkg/orpheus.StorageConfig) *pkg/orpheus.App
+method (*App) Description() string
+method (*App) GenerateCompletion(string) string
+method (*App) GenerateHelp() string
+method (*App) GetCommands() map[string]*pkg/orpheus.Command
+method (*App) GetHelpGenerator() *pkg/orpheus.HelpGenerator
+method (*App) Logger() pkg/orpheus.Logger
+method (*App) MetricsCollector() pkg/orpheus.MetricsCollector
+method (*App) Name() string
+method (*App) PluginManager() *pkg/orpheus.PluginManager
+method (*App) Run([]string) error
+method (*App) RunContext(context.Context, []string) error
+method (*App) SetAuditLogger(pkg/orpheus.AuditLogger) *pkg/orpheus.App
+method (*App) SetDefaultCommand(string) *pkg/orpheus.App
+method (*App) SetDescription(string) *pkg/orpheus.App
+method (*App) SetLogger(pkg/orpheus.Logger) *pkg/orpheus.App
+method (*App) SetMetricsCollector(pkg/orpheus.MetricsCollector) *pkg/orpheus.App
+method (*App) SetPrompter(pkg/orpheus.Prompter) *pkg/orpheus.App
+method (*App) SetStorage(pkg/orpheus.Storage) *pkg/orpheus.App
+method (*App) SetTracer(pkg/orpheus.Tracer) *pkg/orpheus.App
+method (*App) SetVersion(string) *pkg/orpheus.App
+method (*App) Storage() pkg/orpheus.Storage
+method (*App) StorageConfig() *pkg/orpheus.StorageConfig
+method (*App) StorageError() error
+method (*App) Tracer() pkg/orpheus.Tracer
+method (*App) Version() string
+method (*Command) AddBoolFlag(string, string, bool, string) *pkg/orpheus.Command
+method (*Command) AddExample(string) *pkg/orpheus.Command
+method (*Command) AddFlag(string, string, string, string) *pkg/orpheus.Command
+method (*Command) AddFloat64Flag(string, string, float64, string) *pkg/orpheus.Command
+method (*Command) AddIntFlag(string, string, int, string) *pkg/orpheus.Command
+method (*Command) AddStringSliceFlag(string, string, []string, string) *pkg/orpheus.Command
+method (*Command) AddSubcommand(*pkg/orpheus.Command) *pkg/orpheus.Command
+method (*Command) Description() string
+method (*Command) Execute(*pkg/orpheus.Context) error
+method (*Command) Flags() *github.com/agilira/flash-flags.FlagSet
+method (*Command) FullName() string
+method (*Command) GetSubcommand(string) *pkg/orpheus.Command
+method (*Command) GetSubcommands() map[string]*pkg/orpheus.Command
+method (*Command) HasSubcommands() bool
+method (*Command) Name() string
+method (*Command) Parent() *pkg/orpheus.Command
+method (*Command) SetCompletionHandler(pkg/orpheus.CompletionHandler) *pkg/orpheus.Command
+method (*Command) SetHandler(pkg/orpheus.CommandHandler) *pkg/orpheus.Command
+method (*Command) SetLongDescription(string) *pkg/orpheus.Command
+method (*Command) SetUsage(string) *pkg/orpheus.Command
+method (*Command) Subcommand(string, string, pkg/orpheus.CommandHandler) *pkg/orpheus.Command
+method (*Command) Usage() string
+method (*Context) ArgCount() int
+method (*Context) AuditLogger() pkg/orpheus.AuditLogger
+method (*Context) Context() context.Context
+method (*Context) FlagChanged(string) bool
+method (*Context) GetArg(int) string
+method (*Context) GetFlag(string) interface{}
+method (*Context) GetFlagBool(string) bool
+method (*Context) GetFlagFloat64(string) float64
+method (*Context) GetFlagInt(string) int
+method (*Context) GetFlagString(string) string
+method (*Context) GetFlagStringSlice(string) []string
+method (*Context) GetGlobalFlag(string) interface{}
+method (*Context) GetGlobalFlagBool(string) bool
+method (*Context) GetGlobalFlagInt(string) int
+method (*Context) GetGlobalFlagString(string) string
+method (*Context) GetPositional(int) string
+method (*Context) GlobalFlagChanged(string) bool
+method (*Context) Logger() pkg/orpheus.Logger
+method (*Context) MetricsCollector() pkg/orpheus.MetricsCollector
+method (*Context) Positional() []string
+method (*Context) PositionalCount() int
+method (*Context) Prompter() pkg/orpheus.Prompter
+method (*Context) RequirePrompter() (pkg/orpheus.Prompter, error)
+method (*Context) RequireStorage() (pkg/orpheus.Storage, error)
+method (*Context) SetStorage(pkg/orpheus.Storage)
+method (*Context) Storage() pkg/orpheus.Storage
+method (*Context) Tracer() pkg/orpheus.Tracer
+method (*Error) AsRetryable() *pkg/orpheus.Error
+method (*Error) Error() string
+method (*Error) ErrorCode() github.com/agilira/go-errors.ErrorCode
+method (*Error) ExitCode() int
+method (*Error) IsExecutionError() bool
+method (*Error) IsNotFoundError() bool
+method (*Error) IsRetryable() bool
+method (*Error) IsValidationError() bool
+method (*Error) Unwrap() error
+method (*Error) UserMessage() string
+method (*Error) WithContext(string, interface{}) *pkg/orpheus.Error
+method (*Error) WithSeverity(string) *pkg/orpheus.Error
+method (*Error) WithUserMessage(string) *pkg/orpheus.Error
+method (*FilePermission) String() string
+method (*HelpGenerator) GenerateAppHelp() string
+method (*HelpGenerator) GenerateCommandHelp(*pkg/orpheus.Command) string
+method (*InputValidator) ClearCache()
+method (*InputValidator) GetCacheStats() map[string]int
+method (*InputValidator) ValidateArgs([]string) error
+method (*InputValidator) ValidateDirectoryFlag(string) *pkg/orpheus.ValidatedInput
+method (*InputValidator) ValidateEnvironmentValue(string, string) *pkg/orpheus.ValidatedInput
+method (*InputValidator) ValidateFileFlag(string) *pkg/orpheus.ValidatedInput
+method (*InputValidator) ValidateFileOperation(string, string) *pkg/orpheus.ValidatedInput
+method (*InputValidator) ValidateInput(string) error
+method (*InputValidator) ValidateOutputFlag(string) *pkg/orpheus.ValidatedInput
+method (*InputValidator) ValidatePathFlag(string, string) *pkg/orpheus.ValidatedInput
+method (*InputValidator) ValidateStringFlag(string, string) *pkg/orpheus.ValidatedInput
+method (*PathSecurityResult) GetRiskLevel() int
+method (*PathSecurityResult) IsSecure() bool
+method (*PluginManager) DiscoverPlugins(context.Context) ([]string, error)
+method (*PluginManager) GetPlugin(string) (*pkg/orpheus.LoadedPlugin, error)
+method (*PluginManager) ListLoadedPlugins() map[string]*pkg/orpheus.LoadedPlugin
+method (*PluginManager) LoadPlugin(context.Context, string) (*pkg/orpheus.LoadedPlugin, error)
+method (*PluginManager) LoadPluginsFromConfig(context.Context, *pkg/orpheus.StorageConfig) (*pkg/orpheus.LoadedPlugin, error)
+method (*PluginManager) UnloadPlugin(context.Context, string) error
+method (*TerminalPrompter) Ask(string, string) (string, error)
+method (*TerminalPrompter) AskSecret(string) (string, error)
+method (*TerminalPrompter) Choose(string, []string) (int, error)
+method (*TerminalPrompter) Confirm(string, bool) (bool, error)
+method (*ValidatedInput) IsSecure() bool
+method (*ValidatedInput) String() string
+type App struct{}
+type AuditLogger interface{LogAccess(context.Context, string, string, bool, ...pkg/orpheus.Field); LogCommand(context.Context, string, []string, string, ...pkg/orpheus.Field); LogPerformance(context.Context, string, int64, ...pkg/orpheus.Field); LogSecurity(context.Context, string, string, ...pkg/orpheus.Field)}
+type Command struct{}
+type CommandHandler func(*pkg/orpheus.Context) error
+type CompletionDirective int
+type CompletionHandler func(*pkg/orpheus.CompletionRequest) *pkg/orpheus.CompletionResult
+type CompletionRequest struct{Type pkg/orpheus.CompletionType; CurrentWord string; Command string; Args []string; Position int}
+type CompletionResult struct{Suggestions []string; Directive pkg/orpheus.CompletionDirective}
+type CompletionType int
+type Context struct{App *pkg/orpheus.App; Command *pkg/orpheus.Command; Args []string; Flags *github.com/agilira/flash-flags.FlagSet; GlobalFlags *github.com/agilira/flash-flags.FlagSet}
+type Counter interface{Add(context.Context, float64, ...string); Inc(context.Context, ...string)}
+type Error struct{Command string}
+type ErrorOption interface{<unexported methods>}
+type Field struct{Key string; Value interface{}}
+type FilePermission struct{Path string; Mode io/fs.FileMode; IsReadable bool; IsWritable bool; IsExecutable bool; IsReadOnly bool; IsDirectory bool; Size int64; ModTime int64; Owner string; Group string; SecurityRisk string; Recommendation string}
+type Gauge interface{Add(context.Context, float64, ...string); Dec(context.Context, ...string); Inc(context.Context, ...string); Set(context.Context, float64, ...string)}
+type HelpGenerator struct{}
+type Histogram interface{Observe(context.Context, float64, ...string)}
+type InputValidator struct{}
+type LoadedPlugin struct{Plugin pkg/orpheus.StoragePlugin; Path string; Hash string; LoadTime time.Time; Metadata map[string]interface{}}
+type Logger interface{Debug(context.Context, string, ...pkg/orpheus.Field); Error(context.Context, string, ...pkg/orpheus.Field); Info(context.Context, string, ...pkg/orpheus.Field); Trace(context.Context, string, ...pkg/orpheus.Field); Warn(context.Context, string, ...pkg/orpheus.Field); WithFields(...pkg/orpheus.Field) pkg/orpheus.Logger}
+type MetricsCollector interface{Counter(string, string, ...string) pkg/orpheus.Counter; Gauge(string, string, ...string) pkg/orpheus.Gauge; Histogram(string, string, []float64, ...string) pkg/orpheus.Histogram}
+type OrpheusError = pkg/orpheus.Error
+type PathSecurityResult struct{Path string; IsValid bool; NormalizedPath string; Errors []string; Warnings []string; Risk string}
+type PluginManager struct{}
+type PluginSecurityConfig struct{AllowUnsignedPlugins bool `json:"allow_unsigned_plugins" yaml:"allow_unsigned_plugins"`; ValidateChecksums bool `json:"validate_checksums" yaml:"validate_checksums"`; MaxPluginSize int64 `json:"max_plugin_size_bytes" yaml:"max_plugin_size_bytes"`; AllowedPaths []string `json:"allowed_paths,omitempty" yaml:"allowed_paths,omitempty"`; RequiredSymbols []string `json:"required_symbols,omitempty" yaml:"required_symbols,omitempty"`}
+type Prompter interface{Ask(string, string) (string, error); AskSecret(string) (string, error); Choose(string, []string) (int, error); Confirm(string, bool) (bool, error)}
+type SecurityConfig struct{EnablePathValidation bool; MaxPathLength int; MaxPathDepth int; AllowedPaths []string; DeniedPaths []string; EnableFilePermissionCheck bool}
+type Span interface{End(); RecordError(error, ...pkg/orpheus.ErrorOption); SetAttribute(string, interface{}); SetStatus(pkg/orpheus.StatusCode, string)}
+type SpanOption interface{<unexported methods>}
+type StatusCode int
+type Storage interface{Close() error; Delete(context.Context, string) error; Get(context.Context, string) ([]byte, error); Health(context.Context) error; List(context.Context, string) ([]string, error); Set(context.Context, string, []byte) error; Stats(context.Context) (*pkg/orpheus.StorageStats, error)}
+type StorageConfig struct{Provider string `json:"provider" yaml:"provider"`; PluginPath string `json:"plugin_path,omitempty" yaml:"plugin_path,omitempty"`; AllowedPluginPaths []string `json:"allowed_plugin_paths,omitempty" yaml:"allowed_plugin_paths,omitempty"`; AllowUnsignedPlugins bool `json:"allow_unsigned_plugins,omitempty" yaml:"allow_unsigned_plugins,omitempty"`; Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`; Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`; EnableMetrics bool `json:"enable_metrics,omitempty" yaml:"enable_metrics,omitempty"`; EnableTracing bool `json:"enable_tracing,omitempty" yaml:"enable_tracing,omitempty"`; EnableAudit bool `json:"enable_audit,omitempty" yaml:"enable_audit,omitempty"`}
+type StoragePlugin interface{DefaultConfig() map[string]interface{}; Description() string; Name() string; New(map[string]interface{}) (pkg/orpheus.Storage, error); Validate(map[string]interface{}) error; Version() string}
+type StorageStats struct{TotalKeys int64 `json:"total_keys"`; TotalSize int64 `json:"total_size_bytes"`; GetOperations int64 `json:"get_operations"`; SetOperations int64 `json:"set_operations"`; DeleteOperations int64 `json:"delete_operations"`; ListOperations int64 `json:"list_operations"`; GetErrors int64 `json:"get_errors"`; SetErrors int64 `json:"set_errors"`; DeleteErrors int64 `json:"delete_errors"`; ListErrors int64 `json:"list_errors"`; AvgGetLatency time.Duration `json:"avg_get_latency_ns"`; AvgSetLatency time.Duration `json:"avg_set_latency_ns"`; AvgDeleteLatency time.Duration `json:"avg_delete_latency_ns"`; AvgListLatency time.Duration `json:"avg_list_latency_ns"`; Provider string `json:"provider"`; Config map[string]interface{} `json:"config,omitempty"`; Uptime time.Duration `json:"uptime_ns"`}
+type TerminalPrompter struct{}
+type Tracer interface{SpanFromContext(context.Context) pkg/orpheus.Span; StartSpan(context.Context, string, ...pkg/orpheus.SpanOption) (context.Context, pkg/orpheus.Span)}
+type ValidatedInput struct{OriginalValue string; SanitizedValue string; IsValid bool; ValidationErrors []string; SecurityWarnings []string; FilePermissions *pkg/orpheus.FilePermission; RecommendedAction string}
+type ValidationConfig struct{SecurityConfig pkg/orpheus.SecurityConfig; ValidatePathArgs bool; ValidateFileArgs bool; NormalizePaths bool; ValidateEnvVars bool; TrustedEnvPrefixes []string; SanitizeInputs bool; MaxArgLength int; MaxTotalArgsSize int; EnableCaching bool; CacheSize int; LazyValidation bool}
+var ErrConfigInvalid error
+var ErrKeyEmpty error
+var ErrKeyInvalid error
+var ErrKeyNotFound error
+var ErrKeyTooLong error
+var ErrPluginInvalid error
+var ErrPluginNotFound error
+var ErrStorageClosed error
+var ErrStorageNotConfigured error
+var ErrStorageUnavailable error
+var ErrValueTooLarge error

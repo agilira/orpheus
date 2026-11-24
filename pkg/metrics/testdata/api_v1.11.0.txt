@@ -1,0 +1,17 @@
+const ReasonCardinality pkg/metrics.DropReason = "cardinality"
+const ReasonConflict pkg/metrics.DropReason = "conflict"
+const ReasonInvalidBucket pkg/metrics.DropReason = "invalid_buckets"
+const ReasonInvalidName pkg/metrics.DropReason = "invalid_name"
+const ReasonInvalidValue pkg/metrics.DropReason = "invalid_value"
+const ReasonLabelCount pkg/metrics.DropReason = "label_count"
+const ReasonValueTooLong pkg/metrics.DropReason = "value_too_long"
+const ReasonWriteFailed pkg/metrics.DropReason = "write_failed"
+func Listen(string) (net.Listener, error)
+func NewJSONL(io.Writer, pkg/metrics.Options) pkg/orpheus.MetricsCollector
+func NewPrometheus(pkg/metrics.Options) pkg/metrics.Prometheus
+func Serve(context.Context, net.Listener, net/http.Handler) error
+method (*DropError) Error() string
+type DropError struct{Metric string; Reason pkg/metrics.DropReason; Detail string}
+type DropReason string
+type Options struct{MaxMetrics int; MaxSeries int; MaxBytes int; OnError func(error)}
+type Prometheus interface{Counter(string, string, ...string) pkg/orpheus.Counter; Gauge(string, string, ...string) pkg/orpheus.Gauge; Histogram(string, string, []float64, ...string) pkg/orpheus.Histogram; ServeHTTP(net/http.ResponseWriter, *net/http.Request)}
