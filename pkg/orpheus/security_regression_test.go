@@ -112,17 +112,27 @@ func TestSecurityRegression_StringFlagKeepsSQLPatterns(t *testing.T) {
 	}
 }
 
+// forbiddenSystemDir returns an OS system directory denied by
+// DefaultSecurityConfig on the current platform.
+func forbiddenSystemDir() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Windows`
+	}
+	return "/etc"
+}
+
 // A symlink into a system directory must be judged by its target.
 func TestSecurityRegression_SymlinkIntoEtcRejected(t *testing.T) {
 	dir := t.TempDir()
 	link := filepath.Join(dir, "cfg")
-	if err := os.Symlink("/etc", link); err != nil {
+	sysDir := forbiddenSystemDir()
+	if err := os.Symlink(sysDir, link); err != nil {
 		t.Skip(err)
 	}
 	v := NewInputValidator(DefaultValidationConfig())
 	for _, p := range []string{filepath.Join(link, "passwd"), filepath.Join(link, "not-yet-created.conf")} {
 		if r := v.ValidatePathFlag("file", p); r.IsValid {
-			t.Errorf("%s (under a link to /etc) accepted: %s", p, r)
+			t.Errorf("%s (under a link to %s) accepted: %s", p, sysDir, r)
 		}
 	}
 }
@@ -191,6 +201,9 @@ func TestSecurityRegression_WritableIsCurrentUsers(t *testing.T) {
 
 // A symlink is described by its target, not by its own 0777 mode.
 func TestSecurityRegression_SymlinkPermissionsAreTargets(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
 	dir := t.TempDir()
 	target := filepath.Join(dir, "data.txt")
 	if err := os.WriteFile(target, []byte("x"), 0o600); err != nil {
@@ -225,11 +238,12 @@ func TestSecurityRegression_ColonAllowedOutsideWindows(t *testing.T) {
 func TestSecurityRegression_DanglingSymlinkJudgedByTarget(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out")
-	if err := os.Symlink("/etc/orpheus-regression-never-created", out); err != nil {
+	sysTarget := filepath.Join(forbiddenSystemDir(), "orpheus-regression-never-created")
+	if err := os.Symlink(sysTarget, out); err != nil {
 		t.Skip(err)
 	}
 	if r := ValidateSecurePath(out, DefaultSecurityConfig()); r.IsValid {
-		t.Errorf("dangling link into /etc accepted")
+		t.Errorf("dangling link into %s accepted", sysTarget)
 	}
 
 	safe := filepath.Join(dir, "safe")
@@ -258,11 +272,12 @@ func TestSecurityRegression_SymlinkLoopTerminates(t *testing.T) {
 func TestSecurityRegression_SymlinkTargetMatchesEntryDirectly(t *testing.T) {
 	dir := t.TempDir()
 	link := filepath.Join(dir, "etc")
-	if err := os.Symlink("/etc", link); err != nil {
+	sysDir := forbiddenSystemDir()
+	if err := os.Symlink(sysDir, link); err != nil {
 		t.Skip(err)
 	}
 	if r := ValidateSecurePath(link, DefaultSecurityConfig()); r.IsValid {
-		t.Errorf("link to /etc accepted")
+		t.Errorf("link to %s accepted", sysDir)
 	}
 
 	real := filepath.Join(dir, "real")
@@ -341,6 +356,9 @@ func containsSubstring(list []string, sub string) bool {
 // A relative link with a relative target must be judged by its absolute
 // target, not by the relative spelling EvalSymlinks returns.
 func TestSecurityRegression_RelativeSymlinkToEtcRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix /etc layout")
+	}
 	dir := t.TempDir()
 	up := strings.Repeat("../", strings.Count(dir, string(filepath.Separator))+1)
 	if err := os.Symlink(up+"etc/hostname", filepath.Join(dir, "lnk")); err != nil {

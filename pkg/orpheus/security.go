@@ -474,6 +474,9 @@ func linkRestart(dir, target, rest string) (string, string) {
 		vol := filepath.VolumeName(target)
 		return vol + string(filepath.Separator), target[len(vol):]
 	}
+	if len(target) > 0 && os.IsPathSeparator(target[0]) {
+		return filepath.VolumeName(dir) + string(filepath.Separator), target[1:]
+	}
 	return dir, target
 }
 

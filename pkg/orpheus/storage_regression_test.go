@@ -212,6 +212,15 @@ func TestStorageRegression_UnsignedPluginRefusedByDefault(t *testing.T) {
 	}
 }
 
+// unsetUserHome clears the environment variables os.UserHomeDir consults
+// on Unix, Windows and Plan 9.
+func unsetUserHome(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	t.Setenv("home", "")
+}
+
 // Without a home directory "~/.orpheus/plugins" used to become a directory
 // under the working directory, allowed implicitly.
 func TestStorageRegression_AllowListNeverUnderWorkingDir(t *testing.T) {
@@ -220,7 +229,7 @@ func TestStorageRegression_AllowListNeverUnderWorkingDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Chdir(cwd)
-	t.Setenv("HOME", "")
+	unsetUserHome(t)
 	evil := filepath.Join(cwd, "~", ".orpheus", "plugins", "evil.so")
 
 	if err := NewPluginManager(nil, nil).validatePluginPath(evil); err == nil {
@@ -228,8 +237,10 @@ func TestStorageRegression_AllowListNeverUnderWorkingDir(t *testing.T) {
 	}
 	// An allow-list emptied by expansion must allow nothing.
 	only := NewPluginManager(nil, &PluginSecurityConfig{AllowedPaths: []string{"~/.orpheus/plugins"}})
-	if err := only.validatePluginPath("/usr/lib/evil.so"); err == nil {
-		t.Fatal("allow-list of unexpandable entries accepted any path")
+	for _, p := range []string{"/usr/lib/evil.so", filepath.Join(cwd, "evil.so")} {
+		if err := only.validatePluginPath(p); err == nil {
+			t.Fatalf("allow-list of unexpandable entries accepted %s", p)
+		}
 	}
 }
 
@@ -412,7 +423,7 @@ func TestStorageRegression_LoadPluginHashError(t *testing.T) {
 // With every allowed entry dropped on expansion there is no path to walk,
 // and the cancellation used to be lost before any check ran.
 func TestStorageRegression_DiscoveryCancellationWithoutSearchPaths(t *testing.T) {
-	t.Setenv("HOME", "")
+	unsetUserHome(t)
 	pm := NewPluginManager(nil, &PluginSecurityConfig{AllowedPaths: []string{"~/.orpheus/plugins"}})
 	if len(pm.pluginPaths) != 0 {
 		t.Fatalf("expected no search paths, got %v", pm.pluginPaths)
