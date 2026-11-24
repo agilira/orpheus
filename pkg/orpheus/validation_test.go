@@ -405,14 +405,14 @@ func TestSuspiciousPatternDetection(t *testing.T) {
 		{
 			name:        "ScriptTag",
 			input:       "<script>alert('xss')</script>",
-			expectValid: false,
-			description: "Script tag injection should be detected",
+			expectValid: true,
+			description: "HTML is free text; escaping it is the job of the page that shows it",
 		},
 		{
 			name:        "SQLComments",
 			input:       "value -- DROP TABLE",
-			expectValid: false,
-			description: "SQL comment patterns should be detected",
+			expectValid: true,
+			description: "SQL keywords and comments are free text; parameterized queries keep them out of SQL",
 		},
 	}
 

@@ -24,9 +24,9 @@
 package orpheus
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 )
@@ -42,8 +42,10 @@ type ValidationConfig struct {
 	NormalizePaths   bool // Normalize paths before validation
 
 	// Environment variable validation
-	ValidateEnvVars    bool     // Validate environment variables used in defaults
-	TrustedEnvPrefixes []string // Prefixes of trusted environment variables
+	ValidateEnvVars bool // Validate environment variables used in defaults
+	// TrustedEnvPrefixes lists trusted environment variables: an entry is an
+	// exact name ("HOME"), or a prefix when it ends with "_" ("MYAPP_").
+	TrustedEnvPrefixes []string
 
 	// Input sanitization
 	SanitizeInputs   bool // Remove/escape dangerous characters
@@ -90,23 +92,14 @@ type InputValidator struct {
 	config  ValidationConfig
 	cache   map[string]*ValidatedInput
 	cacheMu sync.RWMutex
-
-	// Pre-compiled regex patterns for performance
-	suspiciousPatterns *regexp.Regexp
-	envVarPattern      *regexp.Regexp
 }
 
 // NewInputValidator creates a new CLI input validator with the specified configuration
 func NewInputValidator(config ValidationConfig) *InputValidator {
-	validator := &InputValidator{
+	return &InputValidator{
 		config: config,
 		cache:  make(map[string]*ValidatedInput),
 	}
-
-	// Pre-compile regex patterns for performance
-	validator.compilePatterns()
-
-	return validator
 }
 
 // ValidatePathFlag validates a path flag value with comprehensive security checks
@@ -133,7 +126,7 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 	}
 
 	// Step 1: Basic input validation
-	if !v.validateBasicInput(value, pathDangerousPatterns, result) {
+	if !v.validateBasicInput(value, result) {
 		return v.cacheAndReturn(key, result)
 	}
 
@@ -170,7 +163,7 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 // Used for non-path string flags that may still pose security risks through
 // command injection, environment variable injection, or other attack vectors.
 //
-// Performance (BenchmarkValidateStringFlag): ~1.8us and 4 allocations with
+// Performance (BenchmarkValidateStringFlag): ~500ns and 2 allocations with
 // sanitization enabled, which is the default.
 func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedInput {
 	key, cached := v.lookupCache(cacheKindString, flagName, value)
@@ -188,7 +181,7 @@ func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedIn
 	}
 
 	// Basic input validation
-	if !v.validateBasicInput(value, stringDangerousPatterns, result) {
+	if !v.validateBasicInput(value, result) {
 		return v.cacheAndReturn(key, result)
 	}
 
@@ -206,12 +199,35 @@ func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedIn
 	return v.cacheAndReturn(key, result)
 }
 
+// ValidateArgs checks the command line as a whole against the size limits:
+// each argument at most MaxArgLength bytes, all of them together at most
+// MaxTotalArgsSize bytes. It returns a validation error naming the first
+// limit exceeded, nil otherwise.
+//
+// Orpheus does not call it: an application that wants the limits calls it
+// before app.Run, typically with os.Args[1:].
+func (v *InputValidator) ValidateArgs(args []string) error {
+	total := 0
+	for i, arg := range args {
+		if len(arg) > v.config.MaxArgLength {
+			return ValidationError("args", fmt.Sprintf(
+				"argument %d is %d bytes, more than the %d allowed", i+1, len(arg), v.config.MaxArgLength))
+		}
+		total += len(arg)
+		if total > v.config.MaxTotalArgsSize {
+			return ValidationError("args", fmt.Sprintf(
+				"arguments exceed the %d bytes allowed", v.config.MaxTotalArgsSize))
+		}
+	}
+	return nil
+}
+
 // ValidateEnvironmentValue validates an environment variable value
 //
 // Used to validate environment variables that are used as defaults for CLI flags
 // or that influence application behavior. Helps prevent environment poisoning attacks.
 //
-// Performance (BenchmarkValidateEnvironmentValue): ~500ns and 2 allocations.
+// Performance (BenchmarkValidateEnvironmentValue): ~160ns and 1 allocation.
 func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *ValidatedInput {
 	result := &ValidatedInput{
 		OriginalValue:     value,
@@ -230,7 +246,7 @@ func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *Valida
 	}
 
 	// Validate the value itself
-	if !v.validateBasicInput(value, stringDangerousPatterns, result) {
+	if !v.validateBasicInput(value, result) {
 		return result
 	}
 
@@ -313,44 +329,24 @@ func (v *InputValidator) ValidateFileOperation(path, operation string) *Validate
 // INTERNAL VALIDATION METHODS
 // =============================================================================
 
-// dangerousPattern is a pattern rejected in input, with its upper-case form
-// precomputed for the case-insensitive match.
-type dangerousPattern struct {
-	text  string
-	upper string
-}
-
-func newPatterns(texts ...string) []dangerousPattern {
-	patterns := make([]dangerousPattern, len(texts))
-	for i, t := range texts {
-		patterns[i] = dangerousPattern{text: t, upper: strings.ToUpper(t)}
-	}
-	return patterns
-}
-
-// stringDangerousPatterns guards free-text flags and environment values,
-// which may reach a shell, a query or a web page.
-var stringDangerousPatterns = newPatterns(
-	"$(", "`", ";", "|", "&", "||", "&&",
-	"<script", "</script>", "javascript:",
-	"--", "/*", "*/", "DROP", "DELETE", "INSERT",
-)
-
-// pathDangerousPatterns guards path flags: only what runs a command if the
-// path is ever pasted into a shell (substitution, chaining, pipes).
-// WHY not the string list: SQL keywords, "--" and "&" are ordinary in file
-// names (Dropbox, deleted_items, report--v2, R&D) and rejected real paths.
-var pathDangerousPatterns = newPatterns("$(", "`", ";", "|", "&&")
+// shellPatterns are rejected in every kind of input: command substitution,
+// chaining and pipes, which run a command if the value ever reaches a shell.
+// WHY nothing more: SQL keywords, comment markers ("--", "/*") and a lone
+// "&" are ordinary in file names and free text ("insert the delete key --
+// R&D") and rejected legitimate input. Keeping values out of SQL, HTML and
+// shells is the job of parameterized queries and escaping, where the value
+// is used.
+var shellPatterns = [...]string{"$(", "`", ";", "|", "&&"}
 
 // validateBasicInput performs basic input validation common to all input
-// types: length, the given dangerous patterns, control characters.
-func (v *InputValidator) validateBasicInput(value string, patterns []dangerousPattern, result *ValidatedInput) bool {
+// types: length, shell patterns, control characters.
+func (v *InputValidator) validateBasicInput(value string, result *ValidatedInput) bool {
 	// Check length limits
 	if len(value) > v.config.MaxArgLength {
 		return rejectInput(result, "Input exceeds maximum length", "reject_oversized_input")
 	}
 
-	if pattern, found := findDangerousPattern(value, patterns); found {
+	if pattern, found := findShellPattern(value); found {
 		return rejectInput(result, "Input contains dangerous pattern: "+pattern, "reject_dangerous_input")
 	}
 
@@ -364,13 +360,11 @@ func (v *InputValidator) validateBasicInput(value string, patterns []dangerousPa
 	return true
 }
 
-// findDangerousPattern returns the first pattern contained in value,
-// ignoring case.
-func findDangerousPattern(value string, patterns []dangerousPattern) (string, bool) {
-	valueUpper := strings.ToUpper(value)
-	for _, p := range patterns {
-		if strings.Contains(valueUpper, p.upper) {
-			return p.text, true
+// findShellPattern returns the first shell pattern contained in value.
+func findShellPattern(value string) (string, bool) {
+	for _, p := range shellPatterns {
+		if strings.Contains(value, p) {
+			return p, true
 		}
 	}
 	return "", false
@@ -423,13 +417,35 @@ func (v *InputValidator) filePermissions(path string, info os.FileInfo) (*FilePe
 	return AnalyzeFilePermissions(path, v.config.SecurityConfig)
 }
 
-// containsSuspiciousPatterns checks for patterns that might indicate injection attempts
-func (v *InputValidator) containsSuspiciousPatterns(value string) bool {
-	if v.suspiciousPatterns == nil {
-		return false // Patterns not compiled, skip check
-	}
+// suspiciousChars are shell metacharacters that are not rejected outright:
+// they earn a warning on string flags and reject untrusted environment
+// values. "&" is not one: alone it is ordinary text, and "&&" is rejected.
+const suspiciousChars = ";|`$(){}[]<>"
 
-	return v.suspiciousPatterns.MatchString(value)
+// containsSuspiciousPatterns checks for patterns that might indicate
+// injection attempts: shell metacharacters, "../" or "..\\", and
+// percent-escapes.
+// WHY not a regexp: a byte scan answers the same question several times
+// faster and without allocating.
+func (v *InputValidator) containsSuspiciousPatterns(value string) bool {
+	return strings.ContainsAny(value, suspiciousChars) ||
+		strings.Contains(value, "../") || strings.Contains(value, `..\`) ||
+		containsPercentEscape(value)
+}
+
+// containsPercentEscape reports a "%" followed by two hex digits.
+func containsPercentEscape(value string) bool {
+	for i := strings.IndexByte(value, '%'); i >= 0 && i+2 < len(value); {
+		if _, ok := unhexPair(value[i+1], value[i+2]); ok {
+			return true
+		}
+		next := strings.IndexByte(value[i+1:], '%')
+		if next < 0 {
+			return false
+		}
+		i += next + 1
+	}
+	return false
 }
 
 // sanitizeString removes or escapes potentially dangerous characters
@@ -451,34 +467,18 @@ func (v *InputValidator) sanitizeString(value string) string {
 	return sanitized.String()
 }
 
-// isEnvironmentTrusted checks if an environment variable comes from a trusted source
+// isEnvironmentTrusted reports whether envName is trusted: equal to an
+// entry of TrustedEnvPrefixes, or starting with an entry that ends in "_".
+// WHY: a bare prefix match let "USER" trust USER_EVIL and USERNAME, and
+// "PATH" trust PATHEXT. An entry is a variable name unless it is written as
+// a namespace ("MYAPP_").
 func (v *InputValidator) isEnvironmentTrusted(envName string) bool {
-	for _, prefix := range v.config.TrustedEnvPrefixes {
-		if strings.HasPrefix(envName, prefix) {
+	for _, entry := range v.config.TrustedEnvPrefixes {
+		if envName == entry || (strings.HasSuffix(entry, "_") && strings.HasPrefix(envName, entry)) {
 			return true
 		}
 	}
 	return false
-}
-
-// compilePatterns pre-compiles regex patterns for performance
-func (v *InputValidator) compilePatterns() {
-	// Patterns for detecting potential injection attempts
-	suspiciousPattern := `[;&|` + "`" + `$(){}[\]<>]|\.\.\/|\.\.\\|%[0-9a-fA-F]{2}`
-
-	var err error
-	v.suspiciousPatterns, err = regexp.Compile(suspiciousPattern)
-	if err != nil {
-		// If compilation fails, disable pattern matching
-		v.suspiciousPatterns = nil
-	}
-
-	// Pattern for environment variable validation
-	envPattern := `^[A-Z_][A-Z0-9_]*$`
-	v.envVarPattern, err = regexp.Compile(envPattern)
-	if err != nil {
-		v.envVarPattern = nil
-	}
 }
 
 // Cache key kinds: one per validation method.

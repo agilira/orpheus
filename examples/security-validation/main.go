@@ -38,7 +38,7 @@ func main() {
 	// Input validation command - demonstrates string input security
 	validateCmd := orpheus.NewCommand("validate", "Validate user input with security controls").
 		AddFlag("input", "i", "", "Input string to validate (required)").
-		AddFlag("type", "t", "general", "Input type (general, path, command, sql)").
+		AddFlag("type", "t", "general", "Input type (general, path, command)").
 		AddBoolFlag("sanitize", "s", false, "Apply input sanitization").
 		AddBoolFlag("show-patterns", "p", false, "Show detected dangerous patterns").
 		SetHandler(handleValidate)
@@ -53,7 +53,7 @@ func main() {
 
 	// Security demo command - demonstrates various attack scenarios
 	demoCmd := orpheus.NewCommand("demo", "Demonstrate security controls against attack scenarios").
-		AddFlag("attack-type", "t", "", "Attack type (path-traversal, command-injection, sql-injection, xss, buffer-overflow)").
+		AddFlag("attack-type", "t", "", "Attack type (path-traversal, command-injection, buffer-overflow)").
 		AddBoolFlag("show-protection", "p", false, "Show protection mechanisms").
 		AddBoolFlag("interactive", "i", false, "Interactive attack demonstration").
 		SetHandler(handleDemo)
@@ -98,7 +98,7 @@ func handleValidate(ctx *orpheus.Context) error {
 		return orpheus.ValidationError("validate", "input parameter is required").
 			WithUserMessage("Please provide input string using the --input flag").
 			WithContext("usage", "security-validation validate --input 'your-input'").
-			WithContext("supported_types", []string{"general", "path", "command", "sql"})
+			WithContext("supported_types", []string{"general", "path", "command"})
 	}
 
 	fmt.Printf("🔍 Security Input Validation\n")
@@ -114,7 +114,7 @@ func handleValidate(ctx *orpheus.Context) error {
 	switch inputType {
 	case "path":
 		result = validator.ValidatePathFlag("user-input", input)
-	case "command", "sql", "general":
+	case "command", "general":
 		result = validator.ValidateStringFlag("user-input", input)
 	default:
 		result = validator.ValidateStringFlag("user-input", input)
@@ -136,12 +136,6 @@ func handleValidate(ctx *orpheus.Context) error {
 			}
 			if strings.Contains(input, "$(") || strings.Contains(input, "`") {
 				fmt.Printf("  - Command injection pattern detected\n")
-			}
-			if strings.Contains(input, "'") || strings.Contains(input, "--") {
-				fmt.Printf("  - SQL injection pattern detected\n")
-			}
-			if strings.Contains(input, "<script>") || strings.Contains(input, "javascript:") {
-				fmt.Printf("  - XSS pattern detected\n")
 			}
 		}
 
@@ -264,7 +258,7 @@ func handleDemo(ctx *orpheus.Context) error {
 			WithUserMessage("Please specify an attack type to demonstrate").
 			WithContext("usage", "security-validation demo --attack-type path-traversal").
 			WithContext("supported_types", []string{
-				"path-traversal", "command-injection", "sql-injection", "xss", "buffer-overflow",
+				"path-traversal", "command-injection", "buffer-overflow",
 			})
 	}
 
@@ -286,18 +280,6 @@ func handleDemo(ctx *orpheus.Context) error {
 			"`cat /etc/passwd`",
 			"file; rm -rf /",
 			"input && malicious_command",
-		},
-		"sql-injection": {
-			"'; DROP TABLE users; --",
-			"1' OR '1'='1",
-			"admin'/**/OR/**/1=1#",
-			"' UNION SELECT * FROM sensitive--",
-		},
-		"xss": {
-			"<script>alert('XSS')</script>",
-			"javascript:alert('XSS')",
-			"<img src=x onerror=alert('XSS')>",
-			"<svg onload=alert('XSS')>",
 		},
 		"buffer-overflow": {
 			strings.Repeat("A", 8192), // Large input

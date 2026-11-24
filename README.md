@@ -77,7 +77,8 @@ Orpheus implements defense-in-depth security with comprehensive validation again
 
 **Protected Vectors:**
 - Path traversal (case-insensitive, URL encoding, Windows device names)
-- Command/SQL/Script injection prevention
+- Shell command injection prevention (SQL and HTML stay free text: parameterized queries and escaping are the application's job)
+- Command-line size limits via `ValidateArgs`
 - Control character and null byte filtering
 - Cross-platform consistency (Windows, Linux, macOS)
 

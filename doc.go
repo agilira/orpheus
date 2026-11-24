@@ -40,7 +40,6 @@
 // Security Features:
 //   - Path traversal attack prevention (../../../etc/passwd protection)
 //   - Command injection blocking (shell metacharacter filtering)
-//   - SQL injection prevention with pattern detection
 //   - Environment variable validation and sanitization
 //   - File system security controls and permission analysis
 //   - Windows-specific attack prevention (ADS, device names)
@@ -105,15 +104,15 @@
 // Security Validation:
 //
 //	// Automatic path validation with security controls
-//	if err := validator.ValidatePathFlag("config.yml", "read"); err != nil {
+//	if r := validator.ValidatePathFlag("config", path); !r.IsValid {
 //		// Path traversal or malicious path detected
-//		return err
+//		return orpheus.ValidationError("cmd", strings.Join(r.ValidationErrors, "; "))
 //	}
 //
 //	// String input validation with injection prevention
-//	if err := validator.ValidateStringFlag(userInput); err != nil {
+//	if r := validator.ValidateStringFlag("name", userInput); !r.IsValid {
 //		// Command injection or malicious input detected
-//		return err
+//		return orpheus.ValidationError("cmd", strings.Join(r.ValidationErrors, "; "))
 //	}
 //
 // For more examples, advanced usage, and security guidelines, see:

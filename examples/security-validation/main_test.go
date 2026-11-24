@@ -26,7 +26,7 @@ func createTestApp() *orpheus.App {
 	// Input validation command
 	validateCmd := orpheus.NewCommand("validate", "Validate user input with security controls").
 		AddFlag("input", "i", "", "Input string to validate (required)").
-		AddFlag("type", "t", "general", "Input type (general, path, command, sql)").
+		AddFlag("type", "t", "general", "Input type (general, path, command)").
 		AddBoolFlag("sanitize", "s", false, "Apply input sanitization").
 		AddBoolFlag("show-patterns", "p", false, "Show detected dangerous patterns").
 		SetHandler(handleValidate)
@@ -41,7 +41,7 @@ func createTestApp() *orpheus.App {
 
 	// Demo command - matches main.go
 	demoCmd := orpheus.NewCommand("demo", "Demonstrate security controls against attack scenarios").
-		AddFlag("attack-type", "t", "", "Attack type (path-traversal, command-injection, sql-injection, xss, buffer-overflow)").
+		AddFlag("attack-type", "t", "", "Attack type (path-traversal, command-injection, buffer-overflow)").
 		AddBoolFlag("show-protection", "p", false, "Show protection mechanisms").
 		AddBoolFlag("interactive", "i", false, "Interactive attack demonstration").
 		SetHandler(handleDemo)
@@ -87,10 +87,10 @@ func TestSecurityValidationCommands(t *testing.T) {
 			description: "Command injection should be blocked",
 		},
 		{
-			name:        "validate_sql_injection",
-			args:        []string{"validate", "--input", "'; DROP TABLE users; --", "--type", "sql"},
+			name:        "validate_command_separator",
+			args:        []string{"validate", "--input", "'; DROP TABLE users; --", "--type", "general"},
 			expectError: true,
-			description: "SQL injection should be blocked",
+			description: "A shell command separator should be blocked",
 		},
 		{
 			name:        "validate_missing_input",

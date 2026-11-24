@@ -54,6 +54,13 @@ on POSIX platforms, SIGTERM cancellation through `ctx.Context()`. Use
 `RunContext` when a caller already owns the lifecycle, such as tests, embedded
 CLIs, parent processes, timeouts, or request-scoped observability.
 
+An `App` holds its parsed flags, so `Run` and `RunContext` must not be called
+concurrently on the same `App`, nor from inside one of its handlers. Calling
+them one after another is fine: each run starts from the flag defaults. To
+run commands in parallel, as a server executing CLI commands might, build one
+`App` per goroutine. Cobra has the same rule; giving every run its own copy of
+the flags would cost allocations on every dispatch.
+
 ## Command Methods
 
 ### Creation and Configuration
@@ -347,6 +354,43 @@ func main() {
             
             os.Exit(orpheusErr.ExitCode())
         }
+        log.Fatal(err)
+    }
+}
+```
+
+## Input Validation
+
+`InputValidator` checks values before a handler uses them; see
+[SECURITY.md](SECURITY.md) for what each check accepts and rejects.
+
+```go
+validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+
+result := validator.ValidatePathFlag("config", path)       // *ValidatedInput
+result  = validator.ValidateStringFlag("name", value)      // *ValidatedInput
+result  = validator.ValidateEnvironmentValue("HOME", v)    // *ValidatedInput
+result  = validator.ValidateFileOperation(path, "write")   // *ValidatedInput
+err    := validator.ValidateInput(value)                   // error, warnings included
+err     = validator.ValidateArgs(os.Args[1:])              // error (v1.11.0)
+```
+
+`ValidateArgs` enforces the command-line size limits of `ValidationConfig`:
+each argument at most `MaxArgLength` bytes (default 4096), all arguments
+together at most `MaxTotalArgsSize` bytes (default 64 KiB). Orpheus does not
+call it; call it before `Run`:
+
+```go
+func main() {
+    app := orpheus.New("mytool")
+    // ... commands ...
+
+    validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+    if err := validator.ValidateArgs(os.Args[1:]); err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(2)
+    }
+    if err := app.Run(os.Args[1:]); err != nil {
         log.Fatal(err)
     }
 }

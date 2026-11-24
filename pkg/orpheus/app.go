@@ -331,6 +331,11 @@ func (app *App) SetDefaultCommand(cmdName string) *App {
 // Run executes the application with the given arguments.
 // It installs Orpheus' default signal-aware context so command handlers can
 // observe Ctrl-C cancellation, plus SIGTERM on POSIX platforms, through ctx.Context().
+//
+// An App holds its parsed flags: Run and RunContext must not be called
+// concurrently on the same App, nor from one of its handlers. Sequential runs
+// are fine, each starting from the flag defaults. Build one App per goroutine
+// to run commands in parallel.
 func (app *App) Run(args []string) error {
 	ctx, stop := defaultRunContext()
 	defer stop()
@@ -338,6 +343,7 @@ func (app *App) Run(args []string) error {
 }
 
 // RunContext executes the application with the given arguments and parent context.
+// The concurrency rule of Run applies.
 func (app *App) RunContext(ctx context.Context, args []string) error {
 	if ctx == nil {
 		ctx = context.Background()

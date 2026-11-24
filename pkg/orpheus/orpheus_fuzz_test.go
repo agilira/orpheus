@@ -840,23 +840,9 @@ func FuzzValidateInput(f *testing.F) {
 			t.Errorf("CRITICAL: Command injection pattern not caught: %q", input)
 		}
 
-		// INVARIANT 2: SQL injection keywords must be rejected
-		sqlKeywords := []string{
-			"DROP", "DELETE", "INSERT", "--", "/*", "*/",
-		}
-
-		hasSQLPattern := false
-		inputUpper := strings.ToUpper(input)
-		for _, keyword := range sqlKeywords {
-			if strings.Contains(inputUpper, keyword) {
-				hasSQLPattern = true
-				break
-			}
-		}
-
-		if hasSQLPattern && err == nil {
-			t.Errorf("WARNING: SQL injection pattern not caught: %q", input)
-		}
+		// INVARIANT 2 (SQL keywords rejected) was removed in v1.11.0: SQL
+		// keywords and comment markers are ordinary in free text, and keeping
+		// values out of SQL is the job of parameterized queries.
 
 		// INVARIANT 3: Null bytes must be rejected
 		if strings.Contains(input, "\x00") && err == nil {

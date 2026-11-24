@@ -102,13 +102,82 @@ func TestSecurityRegression_PathFlagAcceptsOrdinaryNames(t *testing.T) {
 	}
 }
 
-// String flags keep the documented SQL and comment patterns.
-func TestSecurityRegression_StringFlagKeepsSQLPatterns(t *testing.T) {
+// Free text is free: SQL keywords, comment markers and "&" are ordinary in
+// a description. Parameterized queries are the application's job.
+func TestSecurityRegression_StringFlagAcceptsFreeText(t *testing.T) {
 	v := NewInputValidator(DefaultValidationConfig())
-	for _, s := range []string{"'; DROP TABLE users; --", "/* x */", "a & b"} {
+	for _, s := range []string{"insert the delete key -- R&D", "DROP shadows /* soft */", "Tom & Jerry"} {
+		r := v.ValidateStringFlag("description", s)
+		if !r.IsValid || len(r.SecurityWarnings) > 0 {
+			t.Errorf("free text %q: valid=%v errors=%v warnings=%v", s, r.IsValid, r.ValidationErrors, r.SecurityWarnings)
+		}
+		if err := v.ValidateInput(s); err != nil {
+			t.Errorf("ValidateInput(%q) = %v", s, err)
+		}
+	}
+}
+
+// Shell substitution and chaining, NUL, control characters and the length
+// limit are still rejected in string flags.
+func TestSecurityRegression_StringFlagKeepsShellAndControlLimits(t *testing.T) {
+	v := NewInputValidator(DefaultValidationConfig())
+	for _, s := range []string{"$(id)", "`id`", "a; rm", "a | nc", "a && b", "a\x00b", "a\x1bb", strings.Repeat("x", 4097)} {
 		if r := v.ValidateStringFlag("q", s); r.IsValid {
 			t.Errorf("string %q accepted", s)
 		}
+	}
+}
+
+// Environment values follow the string-flag rule.
+func TestSecurityRegression_EnvValueAcceptsFreeText(t *testing.T) {
+	v := NewInputValidator(DefaultValidationConfig())
+	if r := v.ValidateEnvironmentValue("ORPHEUS_DESCRIPTION", "insert the delete key -- R&D"); !r.IsValid {
+		t.Errorf("free text env value rejected: %v", r.ValidationErrors)
+	}
+	if r := v.ValidateEnvironmentValue("ORPHEUS_CMD", "$(id)"); r.IsValid {
+		t.Errorf("command substitution in env value accepted")
+	}
+}
+
+// A trusted entry is an exact name, or a prefix when it ends with "_".
+func TestSecurityRegression_TrustedEnvExactNameOrUnderscorePrefix(t *testing.T) {
+	v := NewInputValidator(DefaultValidationConfig())
+	trusted := func(name string) bool {
+		return len(v.ValidateEnvironmentValue(name, "x").SecurityWarnings) == 0
+	}
+	for _, name := range []string{"USER", "HOME", "PATH", "ORPHEUS_HOME", "ORPHEUS_"} {
+		if !trusted(name) {
+			t.Errorf("%s not trusted", name)
+		}
+	}
+	for _, name := range []string{"USER_EVIL", "USERNAME", "HOMEBREW_PREFIX", "PATHEXT", "ORPHEUS"} {
+		if trusted(name) {
+			t.Errorf("%s trusted", name)
+		}
+	}
+}
+
+// ValidateArgs enforces the per-argument and the total size limits.
+func TestSecurityRegression_ValidateArgsLimits(t *testing.T) {
+	cfg := DefaultValidationConfig()
+	cfg.MaxArgLength = 10
+	cfg.MaxTotalArgsSize = 25
+	v := NewInputValidator(cfg)
+
+	if err := v.ValidateArgs([]string{"deploy", "--env", "prod", "0123456789"}); err != nil {
+		t.Errorf("args within limits rejected: %v", err)
+	}
+	if err := v.ValidateArgs(nil); err != nil {
+		t.Errorf("no args rejected: %v", err)
+	}
+	if err := v.ValidateArgs([]string{"01234567890"}); err == nil {
+		t.Errorf("11-byte argument accepted with MaxArgLength=10")
+	}
+	if err := v.ValidateArgs([]string{"0123456789", "0123456789", "012345"}); err == nil {
+		t.Errorf("26 bytes accepted with MaxTotalArgsSize=25")
+	}
+	if err := v.ValidateArgs([]string{"0123456789", "0123456789", "01234"}); err != nil {
+		t.Errorf("exactly 25 bytes rejected: %v", err)
 	}
 }
 

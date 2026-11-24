@@ -44,9 +44,8 @@ Orpheus has undergone comprehensive security testing and implements professional
 
 Path flags reject only what would run a command if the path reached a shell:
 `$(`, backtick, `;`, `|` and `&&`, plus control characters and NUL. File names
-such as `Dropbox`, `deleted_items.txt`, `report--v2.pdf` or `R&D` are accepted;
-the SQL and comment patterns below apply to string flags and environment
-values, not to paths.
+such as `Dropbox`, `deleted_items.txt`, `report--v2.pdf` or `R&D` are accepted.
+String flags and environment values follow the same rule (see below).
 
 ### 2. Command Injection Prevention
 
@@ -62,28 +61,26 @@ values, not to paths.
 ```
 
 **Implementation**:
-- Shell metacharacter detection and blocking
-- Command substitution pattern matching
-- Input sanitization in `ValidateStringFlag()`
-- Comprehensive dangerous pattern library
+- The same five patterns are rejected in path flags, string flags and
+  environment values: `$(`, backtick, `;`, `|`, `&&`
+- Other shell metacharacters (`$ ( ) { } [ ] < >`), `../` and percent-escapes
+  add a warning to a string flag (`ValidateInput` reports warnings as errors)
+  and reject an untrusted environment value
+- NUL, control characters (tab, LF and CR excepted) and values longer than
+  `MaxArgLength` are rejected
 
-### 3. SQL Injection Protection
+### 3. SQL, HTML and Other Downstream Languages
 
-**Threat**: SQL injection attacks through CLI parameters
+Orpheus does not look for SQL or HTML in input. Words such as `DROP`,
+`DELETE` or `INSERT`, comment markers (`--`, `/* */`), a lone `&` and HTML
+tags are ordinary in descriptions, file names and messages ("insert the
+delete key -- R&D"), and rejecting them refused legitimate input while
+giving no real protection.
 
-```go
-// Examples of blocked SQL injections:
-"'; DROP TABLE users; --"
-"1' OR '1'='1"
-"UNION SELECT * FROM sensitive_table"
-"/* malicious comment */"
-```
-
-**Implementation** (string flags and environment values, not paths):
-- SQL keyword and pattern detection
-- Comment pattern blocking (`--`, `/*`, `*/`)
-- Quote and escape sequence validation
-- Database-safe input sanitization
+Keeping a value out of a query is the application's job, where the query is
+built: use parameterized queries (`db.Query("... WHERE name = ?", name)`),
+never string concatenation. Likewise, escape values for HTML where the page
+is rendered.
 
 ### 4. Environment Variable Security
 
@@ -95,9 +92,16 @@ values, not to paths.
 - `SHELL` manipulation (command injection prevention)
 - `HOME` directory traversal attempts
 
+**Trusted Variables** (`TrustedEnvPrefixes`): an entry is an exact variable
+name, or a prefix when it ends with `_`. The default
+`{"ORPHEUS_", "HOME", "PATH", "USER"}` trusts `ORPHEUS_HOME` and `USER`, but
+not `USER_EVIL`, `USERNAME` or `PATHEXT`. A value from an untrusted variable
+carries a warning, and is rejected if it holds a shell metacharacter, `../` or
+a percent-escape. Every value follows the string-flag rules above.
+
 **Sensitive Data Protection**:
 - Automatic detection of sensitive environment variables
-- Trusted prefix validation
+- Trusted name and namespace validation
 - Environment variable sanitization
 - Secure environment handling in `ValidateEnvironmentValue()`
 
@@ -152,7 +156,22 @@ values, not to paths.
 **Threat**: Buffer overflow attacks through oversized input
 
 **Length Limits**:
-- Maximum input length: 4096 characters
+- Maximum input length: 4096 bytes per value (`MaxArgLength`)
+- Maximum command line: 64 KiB for all arguments together
+  (`MaxTotalArgsSize`), checked by `ValidateArgs`, which an application calls
+  before `app.Run`:
+
+```go
+validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+if err := validator.ValidateArgs(os.Args[1:]); err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(2)
+}
+if err := app.Run(os.Args[1:]); err != nil {
+    log.Fatal(err)
+}
+```
+
 - Path length validation
 - Memory usage monitoring
 - Automatic truncation and rejection
@@ -219,8 +238,8 @@ go test -run=XXX -bench='Validate|Analyze' -benchtime=2s -count=3 ./pkg/orpheus/
 |---|---|---|
 | `ValidateSecurePath`, path rejected | ~350 ns | 2 |
 | `ValidatePathFlag`, cached | ~220 ns | 2 |
-| `ValidateStringFlag` | ~1.8 µs | 4 |
-| `ValidateEnvironmentValue` | ~500 ns | 2 |
+| `ValidateStringFlag` | ~500 ns | 2 |
+| `ValidateEnvironmentValue` | ~160 ns | 1 |
 
 Two things worth knowing. Rejecting a path is much cheaper than accepting
 one, because a violation returns at the layer that found
@@ -280,27 +299,33 @@ go test -race ./pkg/orpheus/...
 
 ### Default Security Configuration
 
+`DefaultValidationConfig()` returns:
+
 ```go
-config := &ValidationConfig{
-    MaxInputLength:        4096,
-    TrustedEnvPrefixes:   []string{"ORPHEUS_", "APP_"},
-    EnablePathValidation: true,
-    EnableInputSanitization: true,
-    CacheSize:           1000,
+orpheus.ValidationConfig{
+    SecurityConfig:     orpheus.DefaultSecurityConfig(),
+    ValidatePathArgs:   true,
+    ValidateFileArgs:   true,
+    NormalizePaths:     true,
+    ValidateEnvVars:    true,
+    TrustedEnvPrefixes: []string{"ORPHEUS_", "HOME", "PATH", "USER"},
+    SanitizeInputs:     true,
+    MaxArgLength:       4096,
+    MaxTotalArgsSize:   65536,
+    EnableCaching:      true,
+    CacheSize:          1000,
 }
 ```
 
 ### Custom Security Configuration
 
 ```go
-// Create custom validator with enhanced security
-validator := NewInputValidator(&ValidationConfig{
-    MaxInputLength:        2048,  // Stricter length limit
-    TrustedEnvPrefixes:   []string{"MYAPP_"},
-    EnablePathValidation: true,
-    EnableInputSanitization: true,
-    CacheSize:           500,
-})
+// Start from the defaults and tighten what the application needs
+config := orpheus.DefaultValidationConfig()
+config.MaxArgLength = 2048                          // stricter per-value limit
+config.TrustedEnvPrefixes = []string{"MYAPP_", "HOME"} // MYAPP_* and HOME only
+config.CacheSize = 500
+validator := orpheus.NewInputValidator(config)
 ```
 
 ## Security Best Practices
@@ -308,32 +333,32 @@ validator := NewInputValidator(&ValidationConfig{
 ### 1. Input Validation
 ```go
 // Always validate user input
-if err := validator.ValidateStringFlag(userInput); err != nil {
-    return fmt.Errorf("invalid input: %w", err)
+if result := validator.ValidateStringFlag("name", userInput); !result.IsValid {
+    return fmt.Errorf("invalid input: %s", strings.Join(result.ValidationErrors, "; "))
 }
 ```
 
 ### 2. Path Validation
 ```go
 // Validate file paths before operations
-if err := validator.ValidatePathFlag(filePath, "read"); err != nil {
-    return fmt.Errorf("unsafe path: %w", err)
+if result := validator.ValidatePathFlag("config", filePath); !result.IsValid {
+    return fmt.Errorf("unsafe path: %s", strings.Join(result.ValidationErrors, "; "))
 }
 ```
 
 ### 3. Environment Variable Handling
 ```go
 // Validate environment variables
-if err := validator.ValidateEnvironmentValue(envValue); err != nil {
-    return fmt.Errorf("unsafe environment variable: %w", err)
+if result := validator.ValidateEnvironmentValue("MYAPP_HOME", envValue); !result.IsValid {
+    return fmt.Errorf("unsafe environment variable: %s", strings.Join(result.ValidationErrors, "; "))
 }
 ```
 
 ### 4. File Operations
 ```go
 // Validate file operations
-if err := validator.ValidateFileOperation(path, "write"); err != nil {
-    return fmt.Errorf("unsafe file operation: %w", err)
+if result := validator.ValidateFileOperation(path, "write"); !result.IsValid {
+    return fmt.Errorf("unsafe file operation: %s", strings.Join(result.ValidationErrors, "; "))
 }
 ```
 ---

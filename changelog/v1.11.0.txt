@@ -1,0 +1,45 @@
+Orpheus v1.11.0 - Free Text Is Free
+===================================
+
+Release Date: 2026-11-24
+Type: Minor (new method, behaviour changes)
+
+ADDED
+-----
+- InputValidator.ValidateArgs(args []string) error enforces
+  MaxTotalArgsSize and the per-argument length limit. Both were
+  configurable and never checked: the validator is not wired to App, so
+  nothing applied them. Call it before Run:
+
+      if err := validator.ValidateArgs(os.Args[1:]); err != nil { ... }
+
+CHANGED
+-------
+- String flags and environment values no longer reject SQL keywords,
+  comment markers, "--" or "&": a description such as "insert the
+  delete key -- R&D" was refused. Guarding a query is the job of
+  parameterized queries in the application, not of a CLI. What is still
+  rejected: "$(", backtick, ";", "|", "&&", NUL, control characters and
+  over-long values. The check is a byte scan instead of regular
+  expressions: ValidateStringFlag takes ~500 ns and 2 allocations (was
+  ~1.6 us, 3), ValidateEnvironmentValue ~160 ns and 1 (was ~480 ns, 2).
+- TrustedEnvPrefixes: an entry is an exact variable name, and a prefix
+  only when it ends with "_". "USER" trusted USER_EVIL and USERNAME; it
+  now trusts USER. "ORPHEUS_" is still a prefix.
+- examples/security-validation: the sql-injection and xss demos and the
+  "sql" input type are removed; they showed checks the library does not
+  make.
+
+DOCUMENTED
+----------
+- Run and RunContext must not be called concurrently on the same App,
+  nor from one of its handlers: an App holds its parsed flags. Calls one
+  after another are fine. To run commands in parallel, build one App per
+  goroutine (docs/API.md, the Run doc comment).
+
+TESTS
+-----
+- security_regression_test.go: free text accepted, shell and control
+  limits kept, exact trusted names, ValidateArgs limits.
+- Two validation_test.go cases (script tag, SQL comment) now expect the
+  input to be valid; the fuzz invariant on SQL keywords is removed.

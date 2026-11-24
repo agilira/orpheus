@@ -8,7 +8,6 @@ This example demonstrates Orpheus security validation capabilities, including in
 - String input security validation
 - Path traversal attack prevention  
 - Command injection blocking
-- SQL injection detection
 - Buffer overflow protection
 
 ### Security Controls
@@ -36,9 +35,6 @@ security-validation validate --input "../../../etc/passwd" --type path
 
 # Test command injection protection
 security-validation validate --input '$(rm -rf /)' --type command
-
-# Test SQL injection protection  
-security-validation validate --input "'; DROP TABLE users; --" --type sql
 
 # Enable detailed pattern analysis
 security-validation validate --input "suspicious input" --show-patterns --verbose
@@ -94,12 +90,6 @@ security-validation demo --attack-type path-traversal
 # Show command injection blocking
 security-validation demo --attack-type command-injection --show-protection
 
-# SQL injection demonstration
-security-validation demo --attack-type sql-injection
-
-# XSS protection demo
-security-validation demo --attack-type xss
-
 # Buffer overflow protection
 security-validation demo --attack-type buffer-overflow
 
@@ -130,8 +120,6 @@ security-validation benchmark --detailed --iterations 2000
 ### Attack Prevention
 - **Path Traversal**: `../../../etc/passwd`, `%2e%2e%2f`, null bytes
 - **Command Injection**: `$(commands)`, backticks, shell metacharacters
-- **SQL Injection**: SQL keywords, comments, union attacks
-- **XSS**: Script tags, JavaScript URLs, event handlers
 - **Buffer Overflow**: Oversized input validation
 
 ### Security Analytics
