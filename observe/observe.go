@@ -1,10 +1,11 @@
-// observability.go: observability interfaces for audit logging, tracing, and metrics
+// Package observe defines the observability interfaces an Orpheus
+// application plugs in: Logger, AuditLogger, Tracer and MetricsCollector,
+// with the Field type they share.
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
-
-package orpheus
+package observe
 
 import "context"
 

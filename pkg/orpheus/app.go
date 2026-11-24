@@ -35,6 +35,7 @@ import (
 	"strings"
 
 	flashflags "github.com/agilira/flash-flags"
+	"github.com/agilira/orpheus/errs"
 )
 
 // App represents the main CLI application.
@@ -227,9 +228,11 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 // WHY: the cause used to be flattened into the message with %v, so
 // errors.Is and errors.As on StorageError could not reach it.
 func storageConfigureError(message string, cause error) *Error {
-	e := StorageValidationError("configure", fmt.Sprintf("%s: %v", message, cause))
-	e.goError.Cause = cause
-	return e
+	return errs.NewErrorWithCause(errs.ErrCodeStorageValidation, "storage",
+		fmt.Sprintf("configure validation failed: %s: %v", message, cause), cause).
+		WithContext("operation", "storage.configure").
+		WithSeverity("error").
+		WithUserMessage("Invalid storage operation parameters")
 }
 
 // Logger returns the configured logger.

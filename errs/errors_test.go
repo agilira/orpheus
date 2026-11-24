@@ -4,20 +4,20 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus_test
+package errs_test
 
 import (
 	"encoding/json"
 	"errors"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func TestOrpheusErrorCreation(t *testing.T) {
-	err := orpheus.NewOrpheusError(orpheus.ErrCodeValidation, "test", "test message")
+	err := errs.NewError(errs.ErrCodeValidation, "test", "test message")
 
-	if err.ErrorCode() != orpheus.ErrCodeValidation {
+	if err.ErrorCode() != errs.ErrCodeValidation {
 		t.Errorf("expected validation error code, got %s", err.ErrorCode())
 	}
 
@@ -31,7 +31,7 @@ func TestOrpheusErrorCreation(t *testing.T) {
 }
 
 func TestOrpheusErrorInterface(t *testing.T) {
-	err := orpheus.ValidationError("test", "validation failed")
+	err := errs.ValidationError("test", "validation failed")
 
 	// Test error interface
 	errorMsg := err.Error()
@@ -46,7 +46,7 @@ func TestOrpheusErrorInterface(t *testing.T) {
 }
 
 func TestValidationError(t *testing.T) {
-	err := orpheus.ValidationError("test", "invalid input")
+	err := errs.ValidationError("test", "invalid input")
 
 	if !err.IsValidationError() {
 		t.Error("expected validation error")
@@ -60,7 +60,7 @@ func TestValidationError(t *testing.T) {
 		t.Error("should not be not found error")
 	}
 
-	if err.ErrorCode() != orpheus.ErrCodeValidation {
+	if err.ErrorCode() != errs.ErrCodeValidation {
 		t.Errorf("expected validation code, got %s", err.ErrorCode())
 	}
 
@@ -72,7 +72,7 @@ func TestValidationError(t *testing.T) {
 }
 
 func TestExecutionError(t *testing.T) {
-	err := orpheus.ExecutionError("test", "execution failed")
+	err := errs.ExecutionError("test", "execution failed")
 
 	if !err.IsExecutionError() {
 		t.Error("expected execution error")
@@ -86,7 +86,7 @@ func TestExecutionError(t *testing.T) {
 		t.Error("should not be not found error")
 	}
 
-	if err.ErrorCode() != orpheus.ErrCodeExecution {
+	if err.ErrorCode() != errs.ErrCodeExecution {
 		t.Errorf("expected execution code, got %s", err.ErrorCode())
 	}
 
@@ -98,7 +98,7 @@ func TestExecutionError(t *testing.T) {
 }
 
 func TestNotFoundError(t *testing.T) {
-	err := orpheus.NotFoundError("test", "command not found")
+	err := errs.NotFoundError("test", "command not found")
 
 	if !err.IsNotFoundError() {
 		t.Error("expected not found error")
@@ -112,7 +112,7 @@ func TestNotFoundError(t *testing.T) {
 		t.Error("should not be execution error")
 	}
 
-	if err.ErrorCode() != orpheus.ErrCodeNotFound {
+	if err.ErrorCode() != errs.ErrCodeNotFound {
 		t.Errorf("expected not found code, got %s", err.ErrorCode())
 	}
 
@@ -124,9 +124,9 @@ func TestNotFoundError(t *testing.T) {
 }
 
 func TestInternalError(t *testing.T) {
-	err := orpheus.InternalError("internal failure")
+	err := errs.InternalError("internal failure")
 
-	if err.ErrorCode() != orpheus.ErrCodeInternal {
+	if err.ErrorCode() != errs.ErrCodeInternal {
 		t.Errorf("expected internal code, got %s", err.ErrorCode())
 	}
 
@@ -149,12 +149,12 @@ func TestErrorCodes(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorCode string
-		factory   func() *orpheus.OrpheusError
+		factory   func() *errs.Error
 	}{
-		{"validation", "ORF1000", func() *orpheus.OrpheusError { return orpheus.ValidationError("test", "msg") }},
-		{"execution", "ORF1001", func() *orpheus.OrpheusError { return orpheus.ExecutionError("test", "msg") }},
-		{"not_found", "ORF1002", func() *orpheus.OrpheusError { return orpheus.NotFoundError("test", "msg") }},
-		{"internal", "ORF1003", func() *orpheus.OrpheusError { return orpheus.InternalError("msg") }},
+		{"validation", "ORF1000", func() *errs.Error { return errs.ValidationError("test", "msg") }},
+		{"execution", "ORF1001", func() *errs.Error { return errs.ExecutionError("test", "msg") }},
+		{"not_found", "ORF1002", func() *errs.Error { return errs.NotFoundError("test", "msg") }},
+		{"internal", "ORF1003", func() *errs.Error { return errs.InternalError("msg") }},
 	}
 
 	for _, tt := range tests {
@@ -168,7 +168,7 @@ func TestErrorCodes(t *testing.T) {
 }
 
 func TestErrorWithEmptyCommand(t *testing.T) {
-	err := orpheus.ValidationError("", "no command specified")
+	err := errs.ValidationError("", "no command specified")
 
 	errorMsg := err.Error()
 	if errorMsg == "" {
@@ -177,7 +177,7 @@ func TestErrorWithEmptyCommand(t *testing.T) {
 }
 
 func TestEnhancedErrorFeatures(t *testing.T) {
-	err := orpheus.ValidationError("test", "validation failed").
+	err := errs.ValidationError("test", "validation failed").
 		WithUserMessage("Please check your input").
 		WithContext("field", "username").
 		WithContext("value", "invalid@user").
@@ -200,7 +200,7 @@ func TestEnhancedErrorFeatures(t *testing.T) {
 }
 
 func TestErrorUnwrap(t *testing.T) {
-	err := orpheus.ValidationError("test", "validation failed")
+	err := errs.ValidationError("test", "validation failed")
 
 	// Test unwrap returns the underlying go-errors
 	unwrapped := err.Unwrap()
@@ -215,7 +215,7 @@ func TestErrorUnwrap(t *testing.T) {
 }
 
 func TestErrorJSONSerialization(t *testing.T) {
-	err := orpheus.ValidationError("test", "validation failed").
+	err := errs.ValidationError("test", "validation failed").
 		WithUserMessage("User friendly message").
 		WithContext("field", "test")
 
@@ -236,27 +236,27 @@ func TestErrorJSONSerialization(t *testing.T) {
 func TestErrorExitCode(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *orpheus.Error
+		err      *errs.Error
 		expected int
 	}{
 		{
 			name:     "validation error",
-			err:      orpheus.ValidationError("test", "validation failed"),
+			err:      errs.ValidationError("test", "validation failed"),
 			expected: 1,
 		},
 		{
 			name:     "execution error",
-			err:      orpheus.ExecutionError("test", "execution failed"),
+			err:      errs.ExecutionError("test", "execution failed"),
 			expected: 1,
 		},
 		{
 			name:     "not found error",
-			err:      orpheus.NotFoundError("test", "not found"),
+			err:      errs.NotFoundError("test", "not found"),
 			expected: 1,
 		},
 		{
 			name:     "internal error",
-			err:      orpheus.InternalError("internal error"),
+			err:      errs.InternalError("internal error"),
 			expected: 2,
 		},
 	}

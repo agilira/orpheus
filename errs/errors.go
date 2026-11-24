@@ -1,10 +1,14 @@
-// errors.go: errors definitions using agilira/go-errors
+// Package errs defines the structured error type of Orpheus and its error
+// codes, built on github.com/agilira/go-errors.
+//
+// Every error a command, the framework or the storage layer returns is an
+// *Error carrying a code (ErrCodeValidation, ErrCodeStorageNotFound, ...),
+// a suggested exit code, a user message and context.
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
-
-package orpheus
+package errs
 
 import (
 	"fmt"
@@ -27,6 +31,24 @@ const (
 	ErrCodeInternal goerrors.ErrorCode = "ORF1003"
 )
 
+// Storage-specific error codes
+const (
+	// ErrCodeStorageValidation indicates invalid storage configuration or parameters
+	ErrCodeStorageValidation goerrors.ErrorCode = "ORF2000"
+
+	// ErrCodeStorageExecution indicates a storage operation failure
+	ErrCodeStorageExecution goerrors.ErrorCode = "ORF2001"
+
+	// ErrCodeStorageNotFound indicates a requested key was not found
+	ErrCodeStorageNotFound goerrors.ErrorCode = "ORF2002"
+
+	// ErrCodeStorageUnavailable indicates the storage backend is not available
+	ErrCodeStorageUnavailable goerrors.ErrorCode = "ORF2003"
+
+	// ErrCodePluginError indicates a plugin loading or execution error
+	ErrCodePluginError goerrors.ErrorCode = "ORF2004"
+)
+
 // Error represents an enhanced error with go-errors capabilities
 // This follows go-errors patterns while avoiding stuttering (orpheus.Error vs orpheus.OrpheusError)
 type Error struct {
@@ -44,6 +66,14 @@ func NewError(code goerrors.ErrorCode, command, message string) *Error {
 		goError: err,
 		Command: command,
 	}
+}
+
+// NewErrorWithCause is NewError with cause kept in the error chain, so that
+// errors.Is and errors.As on the result reach it.
+func NewErrorWithCause(code goerrors.ErrorCode, command, message string, cause error) *Error {
+	e := NewError(code, command, message)
+	e.goError.Cause = cause
+	return e
 }
 
 // Error implements the error interface with enhanced formatting
@@ -155,12 +185,4 @@ func InternalError(message string) *Error {
 	return NewError(ErrCodeInternal, "", message).
 		WithUserMessage("An internal error occurred").
 		WithSeverity("critical")
-}
-
-// OrpheusError is an alias for Error for backward compatibility
-type OrpheusError = Error
-
-// NewOrpheusError is an alias for NewError for backward compatibility
-func NewOrpheusError(code goerrors.ErrorCode, command, message string) *Error {
-	return NewError(code, command, message)
 }

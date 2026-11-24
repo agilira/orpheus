@@ -15,24 +15,7 @@ import (
 	"fmt"
 
 	goerrors "github.com/agilira/go-errors"
-)
-
-// Storage-specific error codes
-const (
-	// ErrCodeStorageValidation indicates invalid storage configuration or parameters
-	ErrCodeStorageValidation goerrors.ErrorCode = "ORF2000"
-
-	// ErrCodeStorageExecution indicates a storage operation failure
-	ErrCodeStorageExecution goerrors.ErrorCode = "ORF2001"
-
-	// ErrCodeStorageNotFound indicates a requested key was not found
-	ErrCodeStorageNotFound goerrors.ErrorCode = "ORF2002"
-
-	// ErrCodeStorageUnavailable indicates the storage backend is not available
-	ErrCodeStorageUnavailable goerrors.ErrorCode = "ORF2003"
-
-	// ErrCodePluginError indicates a plugin loading or execution error
-	ErrCodePluginError goerrors.ErrorCode = "ORF2004"
+	"github.com/agilira/orpheus/errs"
 )
 
 // Common storage errors - these are sentinel errors for easy comparison
@@ -77,9 +60,7 @@ var (
 // WHY: formatting the cause into the message alone hid it from errors.Is, so
 // a caller could no longer tell ErrStorageUnavailable or ErrKeyNotFound apart.
 func newStorageError(code goerrors.ErrorCode, message string, cause error) *Error {
-	e := NewError(code, "storage", message)
-	e.goError.Cause = cause
-	return e
+	return errs.NewErrorWithCause(code, "storage", message, cause)
 }
 
 // StorageGetError creates an error for failed Get operations
