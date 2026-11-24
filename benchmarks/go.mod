@@ -25,5 +25,3 @@ require (
 )
 
 replace github.com/agilira/orpheus => ../
-
-replace github.com/agilira/flash-flags => ../../flash-flags
