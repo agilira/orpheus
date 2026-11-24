@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func TestGenerateHelpDirectly(t *testing.T) {
@@ -49,7 +50,7 @@ func TestGenerateHelpDirectly(t *testing.T) {
 	err = app.Run([]string{"test", "--help"})
 	// This should generate a validation error for help request, which is expected
 	if err != nil {
-		orpheusErr, ok := err.(*orpheus.OrpheusError)
+		orpheusErr, ok := err.(*errs.Error)
 		if !ok || !orpheusErr.IsValidationError() {
 			t.Errorf("expected validation error for test --help, got %v", err)
 		}

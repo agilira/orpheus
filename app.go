@@ -1,32 +1,9 @@
-// Package orpheus provides an ultra-fast, powerful, lightweight CLI framework for Go applications.
-//
-// Orpheus is designed to be simple, performant, and feature-complete, offering:
-//   - Ultra-fast command parsing and execution
-//   - Comprehensive flag support via flash-flags integration
-//   - Automatic help generation and shell completion
-//   - Type-safe command handlers with context
-//   - Fluent API for easy application building
-//
-// Basic usage:
-//
-//	app := orpheus.New("myapp").
-//		SetDescription("My awesome CLI application").
-//		SetVersion("1.0.0")
-//
-//	app.Command("hello", "Say hello", func(ctx *orpheus.Context) error {
-//		name := ctx.GetFlagString("name")
-//		if name == "" {
-//			name = "World"
-//		}
-//		fmt.Printf("Hello, %s!\n", name)
-//		return nil
-//	}).AddFlag("name", "n", "", "Name to greet")
-//
-//	return app.Run(os.Args[1:])
+// app.go: the App type, its configuration and command dispatch
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
+
 package orpheus
 
 import (
@@ -36,6 +13,9 @@ import (
 
 	flashflags "github.com/agilira/flash-flags"
 	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/prompt"
+	"github.com/agilira/orpheus/storage"
 )
 
 // App represents the main CLI application.
@@ -48,15 +28,15 @@ type App struct {
 	globalDefaults   flagDefaults
 	globalParsed     bool
 	defaultCmd       string
-	logger           Logger
-	auditLogger      AuditLogger
-	tracer           Tracer
-	metricsCollector MetricsCollector
-	storage          Storage
-	storageConfig    *StorageConfig
+	logger           observe.Logger
+	auditLogger      observe.AuditLogger
+	tracer           observe.Tracer
+	metricsCollector observe.MetricsCollector
+	storage          storage.Storage
+	storageConfig    *storage.Config
 	storageErr       error
-	pluginManager    *PluginManager
-	prompter         Prompter
+	pluginManager    *storage.PluginManager
+	prompter         prompt.Prompter
 }
 
 // New creates a new Orpheus application.
@@ -83,32 +63,32 @@ func (app *App) SetVersion(version string) *App {
 }
 
 // SetLogger sets the logger for the application.
-func (app *App) SetLogger(logger Logger) *App {
+func (app *App) SetLogger(logger observe.Logger) *App {
 	app.logger = logger
 	return app
 }
 
 // SetAuditLogger sets the audit logger for the application.
-func (app *App) SetAuditLogger(auditLogger AuditLogger) *App {
+func (app *App) SetAuditLogger(auditLogger observe.AuditLogger) *App {
 	app.auditLogger = auditLogger
 	return app
 }
 
 // SetTracer sets the tracer for the application.
-func (app *App) SetTracer(tracer Tracer) *App {
+func (app *App) SetTracer(tracer observe.Tracer) *App {
 	app.tracer = tracer
 	return app
 }
 
 // SetMetricsCollector sets the metrics collector for the application.
-func (app *App) SetMetricsCollector(collector MetricsCollector) *App {
+func (app *App) SetMetricsCollector(collector observe.MetricsCollector) *App {
 	app.metricsCollector = collector
 	return app
 }
 
 // SetStorage sets the storage backend for the application.
 // This provides persistent key-value storage for CLI applications.
-func (app *App) SetStorage(storage Storage) *App {
+func (app *App) SetStorage(storage storage.Storage) *App {
 	app.storage = storage
 	return app
 }
@@ -117,7 +97,7 @@ func (app *App) SetStorage(storage Storage) *App {
 // When set, command handlers can use ctx.Prompter() to ask the user
 // questions, read secrets, display menus, and request confirmation.
 // Pass nil to disable interactive prompts (non-interactive mode).
-func (app *App) SetPrompter(prompter Prompter) *App {
+func (app *App) SetPrompter(prompter prompt.Prompter) *App {
 	app.prompter = prompter
 	return app
 }
@@ -134,7 +114,7 @@ func (app *App) SetPrompter(prompter Prompter) *App {
 // called SetLogger -- the default -- lost the reason entirely and was left with
 // a nil Storage and nothing to say why. A caller that requires storage should
 // check StorageError, or use ctx.RequireStorage inside a handler.
-func (app *App) ConfigureStorage(config *StorageConfig) *App {
+func (app *App) ConfigureStorage(config *storage.Config) *App {
 	app.storageConfig = config
 	app.storageErr = nil
 
@@ -144,7 +124,7 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 			ctx := context.Background()
 			app.logger.Warn(ctx, "Storage configuration is nil - skipping storage setup")
 		}
-		app.storageErr = StorageValidationError("configure", "storage configuration is nil")
+		app.storageErr = storage.ValidationError("configure", "storage configuration is nil")
 		return app
 	}
 
@@ -153,7 +133,7 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	// defaults, so an application can load a plugin it ships in its own
 	// directory without the working directory ever being allowed implicitly.
 	if app.pluginManager == nil {
-		app.pluginManager = NewPluginManager(app.logger, pluginSecurityConfig(config))
+		app.pluginManager = storage.NewPluginManager(app.logger, pluginSecurityConfig(config))
 	}
 
 	// Load the storage plugin
@@ -163,8 +143,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 		// Log the error but don't fail - storage is optional
 		if app.logger != nil {
 			app.logger.Error(ctx, "Failed to load storage plugin",
-				Field{Key: "provider", Value: config.Provider},
-				Field{Key: "error", Value: err.Error()})
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
 		}
 		app.storageErr = storageConfigureError(
 			fmt.Sprintf("failed to load the storage plugin for provider %q", config.Provider), err)
@@ -175,10 +155,10 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	if err := loadedPlugin.Plugin.Validate(config.Config); err != nil {
 		if app.logger != nil {
 			app.logger.Error(ctx, "Storage configuration validation failed",
-				Field{Key: "provider", Value: config.Provider},
-				Field{Key: "error", Value: err.Error()})
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
 		}
-		app.storageErr = ConfigValidationError(config.Provider, err)
+		app.storageErr = storage.ConfigValidationError(config.Provider, err)
 		return app
 	}
 
@@ -187,8 +167,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	if err != nil {
 		if app.logger != nil {
 			app.logger.Error(ctx, "Failed to create storage instance",
-				Field{Key: "provider", Value: config.Provider},
-				Field{Key: "error", Value: err.Error()})
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
 		}
 		app.storageErr = storageConfigureError(
 			fmt.Sprintf("failed to create the storage instance for provider %q", config.Provider), err)
@@ -199,8 +179,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	if err := storage.Health(ctx); err != nil {
 		if app.logger != nil {
 			app.logger.Warn(ctx, "Storage health check failed",
-				Field{Key: "provider", Value: config.Provider},
-				Field{Key: "error", Value: err.Error()})
+				observe.Field{Key: "provider", Value: config.Provider},
+				observe.Field{Key: "error", Value: err.Error()})
 		}
 		// Continue anyway - storage might be temporarily unavailable
 	}
@@ -210,9 +190,9 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 
 	if app.logger != nil {
 		app.logger.Info(ctx, "Storage configured successfully",
-			Field{Key: "provider", Value: config.Provider},
-			Field{Key: "plugin", Value: loadedPlugin.Plugin.Name()},
-			Field{Key: "version", Value: loadedPlugin.Plugin.Version()})
+			observe.Field{Key: "provider", Value: config.Provider},
+			observe.Field{Key: "plugin", Value: loadedPlugin.Plugin.Name()},
+			observe.Field{Key: "version", Value: loadedPlugin.Plugin.Version()})
 	}
 
 	return app
@@ -220,8 +200,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 
 // pluginSecurityConfig returns the default plugin security configuration
 // with the directories config.AllowedPluginPaths opts into appended.
-func pluginSecurityConfig(config *StorageConfig) *PluginSecurityConfig {
-	securityConfig := DefaultPluginSecurityConfig()
+func pluginSecurityConfig(config *storage.Config) *storage.PluginSecurityConfig {
+	securityConfig := storage.DefaultPluginSecurityConfig()
 	if len(config.AllowedPluginPaths) > 0 {
 		securityConfig.AllowedPaths = append(securityConfig.AllowedPaths, config.AllowedPluginPaths...)
 	}
@@ -233,7 +213,7 @@ func pluginSecurityConfig(config *StorageConfig) *PluginSecurityConfig {
 //
 // WHY: the cause used to be flattened into the message with %v, so
 // errors.Is and errors.As on StorageError could not reach it.
-func storageConfigureError(message string, cause error) *Error {
+func storageConfigureError(message string, cause error) *errs.Error {
 	return errs.NewErrorWithCause(errs.ErrCodeStorageValidation, "storage",
 		fmt.Sprintf("configure validation failed: %s: %v", message, cause), cause).
 		WithContext("operation", "storage.configure").
@@ -242,32 +222,32 @@ func storageConfigureError(message string, cause error) *Error {
 }
 
 // Logger returns the configured logger.
-func (app *App) Logger() Logger {
+func (app *App) Logger() observe.Logger {
 	return app.logger
 }
 
 // AuditLogger returns the configured audit logger.
-func (app *App) AuditLogger() AuditLogger {
+func (app *App) AuditLogger() observe.AuditLogger {
 	return app.auditLogger
 }
 
 // Tracer returns the configured tracer.
-func (app *App) Tracer() Tracer {
+func (app *App) Tracer() observe.Tracer {
 	return app.tracer
 }
 
 // MetricsCollector returns the configured metrics collector.
-func (app *App) MetricsCollector() MetricsCollector {
+func (app *App) MetricsCollector() observe.MetricsCollector {
 	return app.metricsCollector
 }
 
 // Storage returns the configured storage backend.
-func (app *App) Storage() Storage {
+func (app *App) Storage() storage.Storage {
 	return app.storage
 }
 
 // StorageConfig returns the current storage configuration.
-func (app *App) StorageConfig() *StorageConfig {
+func (app *App) StorageConfig() *storage.Config {
 	return app.storageConfig
 }
 
@@ -281,7 +261,7 @@ func (app *App) StorageError() error {
 }
 
 // PluginManager returns the plugin manager for advanced storage plugin operations.
-func (app *App) PluginManager() *PluginManager {
+func (app *App) PluginManager() *storage.PluginManager {
 	return app.pluginManager
 }
 
@@ -374,7 +354,7 @@ func (app *App) RunContext(ctx context.Context, args []string) error {
 		return app.runBuiltin(ctx, builtin)
 	}
 	if err := parseFresh(app.globalFlags, &app.globalParsed, globalArgs); err != nil {
-		return ValidationError("", "global flag parsing failed: "+err.Error())
+		return errs.ValidationError("", "global flag parsing failed: "+err.Error())
 	}
 
 	// Handle command execution
@@ -521,7 +501,7 @@ func (app *App) handleHelpCommand(ctx context.Context, cmdArgs []string) error {
 func (app *App) runCommand(parentCtx context.Context, cmdName string, args []string) error {
 	cmd, exists := app.commands[cmdName]
 	if !exists {
-		return NotFoundError(cmdName, "unknown command")
+		return errs.NotFoundError(cmdName, "unknown command")
 	}
 
 	// Create execution context
@@ -739,12 +719,12 @@ func (app *App) helpHandler(ctx *Context) error {
 func (app *App) showCommandHelp(path []string) error {
 	cmd, exists := app.commands[path[0]]
 	if !exists {
-		return NotFoundError(path[0], "unknown command")
+		return errs.NotFoundError(path[0], "unknown command")
 	}
 	for _, name := range path[1:] {
 		sub := cmd.GetSubcommand(name)
 		if sub == nil {
-			return NotFoundError(cmd.name, fmt.Sprintf("unknown subcommand '%s'", name))
+			return errs.NotFoundError(cmd.name, fmt.Sprintf("unknown subcommand '%s'", name))
 		}
 		cmd = sub
 	}

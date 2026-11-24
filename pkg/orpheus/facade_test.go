@@ -19,6 +19,7 @@ import (
 
 // mirrored are the packages whose API this facade re-exports.
 var mirrored = []string{
+	apicheck.Module,
 	apicheck.Module + "/errs",
 	apicheck.Module + "/observe",
 	apicheck.Module + "/storage",

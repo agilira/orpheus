@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/agilira/orpheus/storage"
 )
 
 func TestAppStorageConfiguration(t *testing.T) {
@@ -53,7 +55,7 @@ func TestAppStorageConfiguration(t *testing.T) {
 	}
 
 	// Test StorageConfig
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider: "mock",
 		Config: map[string]interface{}{
 			"test": true,
@@ -80,7 +82,7 @@ func TestAppStorageConfiguration(t *testing.T) {
 
 func TestAppStorageConfigurationChaining(t *testing.T) {
 	mockStorage := NewMockStorage()
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider: "test",
 		Config:   map[string]interface{}{},
 	}
@@ -154,7 +156,7 @@ func TestContextStorageAccess(t *testing.T) {
 	}
 
 	// Verify error type
-	if !IsStorageValidationError(err) {
+	if !storage.IsValidationError(err) {
 		t.Error("Expected storage validation error")
 	}
 }
@@ -163,7 +165,7 @@ func TestAppStorageConfigurationWithLogger(t *testing.T) {
 	logger := &MockLogger{}
 	app := New("loggedapp").SetLogger(logger)
 
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider: "mock",
 		Config: map[string]interface{}{
 			"valid": true,
@@ -188,7 +190,7 @@ func TestAppStorageConfigurationErrorHandling(t *testing.T) {
 	app := New("errorapp").SetLogger(logger)
 
 	// Test with invalid configuration (empty provider)
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider: "", // Invalid: empty provider
 		Config:   map[string]interface{}{},
 	}
@@ -216,7 +218,7 @@ func TestAppStorageMultipleConfigurations(t *testing.T) {
 	app := New("multiconfig")
 
 	// First configuration
-	config1 := &StorageConfig{
+	config1 := &storage.Config{
 		Provider: "provider1",
 		Config:   map[string]interface{}{"setting": "value1"},
 	}
@@ -228,7 +230,7 @@ func TestAppStorageMultipleConfigurations(t *testing.T) {
 	}
 
 	// Second configuration (should override)
-	config2 := &StorageConfig{
+	config2 := &storage.Config{
 		Provider: "provider2",
 		Config:   map[string]interface{}{"setting": "value2"},
 	}
@@ -246,7 +248,7 @@ func TestAppStorageMultipleConfigurations(t *testing.T) {
 }
 
 func TestStorageConfigDefaults(t *testing.T) {
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider: "test",
 		Config:   map[string]interface{}{},
 		// All other fields use default values
@@ -288,7 +290,7 @@ func TestStorageConfigDefaults(t *testing.T) {
 }
 
 func TestStorageConfigWithAllOptions(t *testing.T) {
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider:      "redis",
 		PluginPath:    "/opt/plugins/redis.so",
 		Config:        map[string]interface{}{"host": "localhost", "port": 6379},
@@ -400,7 +402,7 @@ func TestCommandExecutionWithStorage(t *testing.T) {
 // Benchmark App storage operations
 func BenchmarkAppStorageConfiguration(b *testing.B) {
 	mockStorage := NewMockStorage()
-	config := &StorageConfig{
+	config := &storage.Config{
 		Provider: "mock",
 		Config:   map[string]interface{}{},
 	}
@@ -457,7 +459,7 @@ func TestConfigureStorageAdvancedScenarios(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("replace").SetLogger(logger)
 
-		config1 := &StorageConfig{
+		config1 := &storage.Config{
 			Provider: "provider1",
 			Config:   map[string]interface{}{},
 		}
@@ -465,7 +467,7 @@ func TestConfigureStorageAdvancedScenarios(t *testing.T) {
 		app.ConfigureStorage(config1)
 		firstPM := app.PluginManager()
 
-		config2 := &StorageConfig{
+		config2 := &storage.Config{
 			Provider: "provider2",
 			Config:   map[string]interface{}{},
 		}
@@ -488,7 +490,7 @@ func TestConfigureStorageAdvancedScenarios(t *testing.T) {
 		// Test ConfigureStorage without a logger set (should not crash)
 		app := New("nologger") // No logger set
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider: "nologger_test",
 			Config:   map[string]interface{}{},
 		}
@@ -511,7 +513,7 @@ func TestConfigureStorageAdvancedScenarios(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("errorloading").SetLogger(logger)
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider:   "nonexistent",
 			PluginPath: "/nonexistent/path/plugin.so", // Invalid path
 			Config:     map[string]interface{}{},
@@ -541,7 +543,7 @@ func TestConfigureStorageAdvancedScenarios(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("validflow").SetLogger(logger)
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider:      "mock",
 			PluginPath:    "", // Empty path should work with mock
 			Config:        map[string]interface{}{"testkey": "testvalue"},
@@ -581,7 +583,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		app := New("validation_success").SetLogger(logger)
 
 		// Create a valid mock storage config that will succeed validation
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider: "mock",
 			Config: map[string]interface{}{
 				"valid_config": true,
@@ -608,7 +610,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("validation_fail").SetLogger(logger)
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider:   "invalid_provider",
 			PluginPath: "/nonexistent/invalid.so",
 			Config: map[string]interface{}{
@@ -635,7 +637,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("creation_fail").SetLogger(logger)
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider: "creation_fail_provider",
 			Config: map[string]interface{}{
 				"fail_creation": true,
@@ -660,7 +662,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("health_fail").SetLogger(logger)
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider: "health_fail_provider",
 			Config: map[string]interface{}{
 				"fail_health": true,
@@ -682,7 +684,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		app := New("existing_pm").SetLogger(logger)
 
 		// First configuration to create plugin manager
-		config1 := &StorageConfig{
+		config1 := &storage.Config{
 			Provider: "first",
 			Config:   map[string]interface{}{},
 		}
@@ -690,7 +692,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		existingPM := app.PluginManager()
 
 		// Second configuration should reuse existing plugin manager
-		config2 := &StorageConfig{
+		config2 := &storage.Config{
 			Provider: "second",
 			Config:   map[string]interface{}{},
 		}
@@ -712,7 +714,7 @@ func TestConfigureStorageCompleteCoverage(t *testing.T) {
 		logger := &MockLogger{}
 		app := New("complete_success").SetLogger(logger)
 
-		config := &StorageConfig{
+		config := &storage.Config{
 			Provider:   "complete_test",
 			PluginPath: "/test/path/complete.so",
 			Config: map[string]interface{}{

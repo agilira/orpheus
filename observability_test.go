@@ -9,6 +9,9 @@ package orpheus
 import (
 	"context"
 	"testing"
+
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/observe"
 )
 
 // TestObservabilityInterfaces verifies that observability interfaces work correctly
@@ -83,47 +86,47 @@ func BenchmarkContextWithoutObservability(b *testing.B) {
 // Mock implementations for testing
 type mockLogger struct{}
 
-func (m *mockLogger) Trace(ctx context.Context, msg string, fields ...Field) {}
-func (m *mockLogger) Debug(ctx context.Context, msg string, fields ...Field) {}
-func (m *mockLogger) Info(ctx context.Context, msg string, fields ...Field)  {}
-func (m *mockLogger) Warn(ctx context.Context, msg string, fields ...Field)  {}
-func (m *mockLogger) Error(ctx context.Context, msg string, fields ...Field) {}
-func (m *mockLogger) WithFields(fields ...Field) Logger                      { return m }
+func (m *mockLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {}
+func (m *mockLogger) Debug(ctx context.Context, msg string, fields ...observe.Field) {}
+func (m *mockLogger) Info(ctx context.Context, msg string, fields ...observe.Field)  {}
+func (m *mockLogger) Warn(ctx context.Context, msg string, fields ...observe.Field)  {}
+func (m *mockLogger) Error(ctx context.Context, msg string, fields ...observe.Field) {}
+func (m *mockLogger) WithFields(fields ...observe.Field) observe.Logger              { return m }
 
 type mockAuditLogger struct{}
 
-func (m *mockAuditLogger) LogCommand(ctx context.Context, command string, args []string, user string, fields ...Field) {
+func (m *mockAuditLogger) LogCommand(ctx context.Context, command string, args []string, user string, fields ...observe.Field) {
 }
-func (m *mockAuditLogger) LogAccess(ctx context.Context, resource string, action string, allowed bool, fields ...Field) {
+func (m *mockAuditLogger) LogAccess(ctx context.Context, resource string, action string, allowed bool, fields ...observe.Field) {
 }
-func (m *mockAuditLogger) LogSecurity(ctx context.Context, event string, severity string, fields ...Field) {
+func (m *mockAuditLogger) LogSecurity(ctx context.Context, event string, severity string, fields ...observe.Field) {
 }
-func (m *mockAuditLogger) LogPerformance(ctx context.Context, operation string, duration int64, fields ...Field) {
+func (m *mockAuditLogger) LogPerformance(ctx context.Context, operation string, duration int64, fields ...observe.Field) {
 }
 
 type mockTracer struct{}
 
-func (m *mockTracer) StartSpan(ctx context.Context, name string, opts ...SpanOption) (context.Context, Span) {
+func (m *mockTracer) StartSpan(ctx context.Context, name string, opts ...observe.SpanOption) (context.Context, observe.Span) {
 	return ctx, &mockSpan{}
 }
-func (m *mockTracer) SpanFromContext(ctx context.Context) Span { return &mockSpan{} }
+func (m *mockTracer) SpanFromContext(ctx context.Context) observe.Span { return &mockSpan{} }
 
 type mockSpan struct{}
 
-func (m *mockSpan) SetAttribute(key string, value interface{})    {}
-func (m *mockSpan) SetStatus(code StatusCode, description string) {}
-func (m *mockSpan) RecordError(err error, opts ...ErrorOption)    {}
-func (m *mockSpan) End()                                          {}
+func (m *mockSpan) SetAttribute(key string, value interface{})            {}
+func (m *mockSpan) SetStatus(code observe.StatusCode, description string) {}
+func (m *mockSpan) RecordError(err error, opts ...observe.ErrorOption)    {}
+func (m *mockSpan) End()                                                  {}
 
 type mockMetricsCollector struct{}
 
-func (m *mockMetricsCollector) Counter(name string, description string, labels ...string) Counter {
+func (m *mockMetricsCollector) Counter(name string, description string, labels ...string) observe.Counter {
 	return &mockCounter{}
 }
-func (m *mockMetricsCollector) Gauge(name string, description string, labels ...string) Gauge {
+func (m *mockMetricsCollector) Gauge(name string, description string, labels ...string) observe.Gauge {
 	return &mockGauge{}
 }
-func (m *mockMetricsCollector) Histogram(name string, description string, buckets []float64, labels ...string) Histogram {
+func (m *mockMetricsCollector) Histogram(name string, description string, buckets []float64, labels ...string) observe.Histogram {
 	return &mockHistogram{}
 }
 
@@ -147,34 +150,34 @@ func (m *mockHistogram) Observe(ctx context.Context, value float64, labels ...st
 func TestFieldCreationHelpers(t *testing.T) {
 	tests := []struct {
 		name     string
-		testFunc func() Field
+		testFunc func() observe.Field
 		expected interface{}
 	}{
 		{
 			name: "StringFieldCreation",
-			testFunc: func() Field {
-				return StringField("key", "value")
+			testFunc: func() observe.Field {
+				return observe.StringField("key", "value")
 			},
 			expected: "value",
 		},
 		{
 			name: "IntFieldCreation",
-			testFunc: func() Field {
-				return IntField("key", 42)
+			testFunc: func() observe.Field {
+				return observe.IntField("key", 42)
 			},
 			expected: 42,
 		},
 		{
 			name: "Float64FieldCreation",
-			testFunc: func() Field {
-				return Float64Field("key", 3.14)
+			testFunc: func() observe.Field {
+				return observe.Float64Field("key", 3.14)
 			},
 			expected: 3.14,
 		},
 		{
 			name: "BoolFieldCreation",
-			testFunc: func() Field {
-				return BoolField("key", true)
+			testFunc: func() observe.Field {
+				return observe.BoolField("key", true)
 			},
 			expected: true,
 		},
@@ -195,9 +198,9 @@ func TestFieldCreationHelpers(t *testing.T) {
 
 // TestErrorFieldCreation verifies error field creation with proper error handling
 func TestErrorFieldCreation(t *testing.T) {
-	testError := ValidationError("test", "test error message")
+	testError := errs.ValidationError("test", "test error message")
 
-	field := ErrorField(testError)
+	field := observe.ErrorField(testError)
 
 	if field.Key != "error" {
 		t.Errorf("Expected field key 'error', got '%s'", field.Key)
@@ -208,7 +211,7 @@ func TestErrorFieldCreation(t *testing.T) {
 	}
 
 	// Test with nil error - ErrorField should handle this gracefully
-	nilField := ErrorField(nil)
+	nilField := observe.ErrorField(nil)
 	if nilField.Key != "error" {
 		t.Errorf("Expected field key 'error' even with nil error, got '%s'", nilField.Key)
 	}

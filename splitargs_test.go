@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
 )
 
 // TestSplitGlobalArgs_NegativeNumbers verifies that negative numeric values

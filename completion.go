@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	flashflags "github.com/agilira/flash-flags"
+	"github.com/agilira/orpheus/errs"
 )
 
 // GenerateCompletion generates bash completion script for the application.
@@ -409,7 +410,7 @@ func (app *App) AddCompletionCommand() *App {
 		}
 
 		if !validShells[shell] {
-			return ValidationError("completion", fmt.Sprintf("unsupported shell: %s (supported: bash, zsh, fish)", shell))
+			return errs.ValidationError("completion", fmt.Sprintf("unsupported shell: %s (supported: bash, zsh, fish)", shell))
 		}
 
 		fmt.Print(app.GenerateCompletion(shell))

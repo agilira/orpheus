@@ -10,12 +10,14 @@ package orpheus
 import (
 	"strings"
 	"testing"
+
+	"github.com/agilira/orpheus/storage"
 )
 
 // A provider that cannot be loaded must leave a reason behind, with no
 // logger configured.
 func TestConfigureStorageRecordsLoadFailure(t *testing.T) {
-	app := New("myapp").ConfigureStorage(&StorageConfig{
+	app := New("myapp").ConfigureStorage(&storage.Config{
 		Provider: "no-such-provider",
 		Config:   map[string]interface{}{},
 	})

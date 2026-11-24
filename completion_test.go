@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
 )
 
 func TestCommandCompletion(t *testing.T) {

@@ -13,7 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func TestAppCreation(t *testing.T) {
@@ -240,7 +241,7 @@ func TestCommandNotFound(t *testing.T) {
 		t.Error("expected error for nonexistent command")
 	}
 
-	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	orpheusErr, ok := err.(*errs.Error)
 	if !ok {
 		t.Errorf("expected OrpheusError, got %T", err)
 	}
@@ -363,7 +364,7 @@ func validateHelpContent(t *testing.T, output string) {
 func TestErrorHandling(t *testing.T) {
 	app := orpheus.New("testapp")
 	app.Command("fail", "Failing command", func(ctx *orpheus.Context) error {
-		return orpheus.ExecutionError("fail", "something went wrong")
+		return errs.ExecutionError("fail", "something went wrong")
 	})
 
 	err := app.Run([]string{"fail"})
@@ -371,7 +372,7 @@ func TestErrorHandling(t *testing.T) {
 		t.Error("expected error from failing command")
 	}
 
-	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	orpheusErr, ok := err.(*errs.Error)
 	if !ok {
 		t.Errorf("expected OrpheusError, got %T", err)
 	}

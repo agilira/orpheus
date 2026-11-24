@@ -15,6 +15,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/storage"
 )
 
 // MockLogger implements Logger interface for testing
@@ -29,33 +32,33 @@ type LogEntry struct {
 	Fields  map[string]interface{}
 }
 
-func (m *MockLogger) Trace(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("TRACE", msg, fields)
 }
 
-func (m *MockLogger) Debug(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Debug(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("DEBUG", msg, fields)
 }
 
-func (m *MockLogger) Info(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Info(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("INFO", msg, fields)
 }
 
-func (m *MockLogger) Warn(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Warn(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("WARN", msg, fields)
 }
 
-func (m *MockLogger) Error(ctx context.Context, msg string, fields ...Field) {
+func (m *MockLogger) Error(ctx context.Context, msg string, fields ...observe.Field) {
 	m.addLog("ERROR", msg, fields)
 }
 
-func (m *MockLogger) WithFields(fields ...Field) Logger {
+func (m *MockLogger) WithFields(fields ...observe.Field) observe.Logger {
 	// For testing purposes, return the same logger
 	// In a real implementation, this would return a new logger with additional fields
 	return m
 }
 
-func (m *MockLogger) addLog(level, msg string, fields []Field) {
+func (m *MockLogger) addLog(level, msg string, fields []observe.Field) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -104,12 +107,12 @@ func (m *MockStorage) Get(ctx context.Context, key string) ([]byte, error) {
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return nil, ErrStorageClosed
+		return nil, storage.ErrClosed
 	}
 
 	value, exists := m.data[key]
 	if !exists {
-		return nil, ErrKeyNotFound
+		return nil, storage.ErrKeyNotFound
 	}
 
 	return value, nil
@@ -120,7 +123,7 @@ func (m *MockStorage) Set(ctx context.Context, key string, value []byte) error {
 	defer m.mu.Unlock()
 
 	if m.closed {
-		return ErrStorageClosed
+		return storage.ErrClosed
 	}
 
 	m.data[key] = value
@@ -132,7 +135,7 @@ func (m *MockStorage) Delete(ctx context.Context, key string) error {
 	defer m.mu.Unlock()
 
 	if m.closed {
-		return ErrStorageClosed
+		return storage.ErrClosed
 	}
 
 	delete(m.data, key)
@@ -144,7 +147,7 @@ func (m *MockStorage) List(ctx context.Context, prefix string) ([]string, error)
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return nil, ErrStorageClosed
+		return nil, storage.ErrClosed
 	}
 
 	var keys []string
@@ -159,17 +162,17 @@ func (m *MockStorage) List(ctx context.Context, prefix string) ([]string, error)
 
 func (m *MockStorage) Health(ctx context.Context) error {
 	if m.closed {
-		return ErrStorageClosed
+		return storage.ErrClosed
 	}
 	return m.healthError
 }
 
-func (m *MockStorage) Stats(ctx context.Context) (*StorageStats, error) {
+func (m *MockStorage) Stats(ctx context.Context) (*storage.Stats, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return nil, ErrStorageClosed
+		return nil, storage.ErrClosed
 	}
 
 	totalSize := int64(0)
@@ -177,7 +180,7 @@ func (m *MockStorage) Stats(ctx context.Context) (*StorageStats, error) {
 		totalSize += int64(len(value))
 	}
 
-	return &StorageStats{
+	return &storage.Stats{
 		TotalKeys: int64(len(m.data)),
 		TotalSize: totalSize,
 		Provider:  "mock",

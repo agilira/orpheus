@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func TestFlashFlagsIntegration(t *testing.T) {
@@ -24,22 +25,22 @@ func TestFlashFlagsIntegration(t *testing.T) {
 			debug := ctx.GetFlagBool("debug")
 
 			if host == "" {
-				return orpheus.ValidationError("server", "host is required")
+				return errs.ValidationError("server", "host is required")
 			}
 
 			if port < 1 || port > 65535 {
-				return orpheus.ValidationError("server", "port must be between 1 and 65535")
+				return errs.ValidationError("server", "port must be between 1 and 65535")
 			}
 
 			// Test that we got the expected values
 			if host != "localhost" {
-				return orpheus.ValidationError("server", "unexpected host value")
+				return errs.ValidationError("server", "unexpected host value")
 			}
 			if port != 8080 {
-				return orpheus.ValidationError("server", "unexpected port value")
+				return errs.ValidationError("server", "unexpected port value")
 			}
 			if !debug {
-				return orpheus.ValidationError("server", "expected debug to be true")
+				return errs.ValidationError("server", "expected debug to be true")
 			}
 
 			return nil

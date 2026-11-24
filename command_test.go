@@ -9,7 +9,8 @@ package orpheus_test
 import (
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func TestCommandCreation(t *testing.T) {
@@ -100,7 +101,7 @@ func TestCommandExecution(t *testing.T) {
 func TestCommandError(t *testing.T) {
 	cmd := orpheus.NewCommand("fail", "Failing command").
 		SetHandler(func(ctx *orpheus.Context) error {
-			return orpheus.ValidationError("fail", "test error")
+			return errs.ValidationError("fail", "test error")
 		})
 
 	ctx := &orpheus.Context{}
@@ -110,7 +111,7 @@ func TestCommandError(t *testing.T) {
 		t.Error("expected error from failing command")
 	}
 
-	orpheusErr, ok := err.(*orpheus.OrpheusError)
+	orpheusErr, ok := err.(*errs.Error)
 	if !ok {
 		t.Errorf("expected OrpheusError, got %T", err)
 	}

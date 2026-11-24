@@ -10,6 +10,10 @@ import (
 	"context"
 
 	flashflags "github.com/agilira/flash-flags"
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/prompt"
+	"github.com/agilira/orpheus/storage"
 )
 
 // Context represents the execution context for a command during execution.
@@ -36,11 +40,11 @@ type Context struct {
 
 	// Storage provides access to the configured storage backend (optional)
 	// Will be nil if storage is not configured for this application
-	storage Storage
+	storage storage.Storage
 
 	// prompter provides interactive terminal prompts (optional).
 	// Will be nil if no prompter is configured (non-interactive mode).
-	prompter Prompter
+	prompter prompt.Prompter
 }
 
 // Context returns the parent context for command execution.
@@ -221,7 +225,7 @@ func (ctx *Context) GlobalFlagChanged(name string) bool {
 }
 
 // Logger returns the configured logger, or nil if not set.
-func (ctx *Context) Logger() Logger {
+func (ctx *Context) Logger() observe.Logger {
 	if ctx.App != nil {
 		return ctx.App.logger
 	}
@@ -229,7 +233,7 @@ func (ctx *Context) Logger() Logger {
 }
 
 // AuditLogger returns the configured audit logger, or nil if not set.
-func (ctx *Context) AuditLogger() AuditLogger {
+func (ctx *Context) AuditLogger() observe.AuditLogger {
 	if ctx.App != nil {
 		return ctx.App.auditLogger
 	}
@@ -237,7 +241,7 @@ func (ctx *Context) AuditLogger() AuditLogger {
 }
 
 // Tracer returns the configured tracer, or nil if not set.
-func (ctx *Context) Tracer() Tracer {
+func (ctx *Context) Tracer() observe.Tracer {
 	if ctx.App != nil {
 		return ctx.App.tracer
 	}
@@ -245,7 +249,7 @@ func (ctx *Context) Tracer() Tracer {
 }
 
 // MetricsCollector returns the configured metrics collector, or nil if not set.
-func (ctx *Context) MetricsCollector() MetricsCollector {
+func (ctx *Context) MetricsCollector() observe.MetricsCollector {
 	if ctx.App != nil {
 		return ctx.App.metricsCollector
 	}
@@ -254,22 +258,22 @@ func (ctx *Context) MetricsCollector() MetricsCollector {
 
 // Storage returns the configured storage backend, or nil if not configured.
 // This provides zero-overhead access - if storage is not used, there's no performance impact.
-func (ctx *Context) Storage() Storage {
+func (ctx *Context) Storage() storage.Storage {
 	return ctx.storage
 }
 
 // RequireStorage returns the storage backend or an error if not configured.
 // Use this when storage is required for the operation to proceed.
-func (ctx *Context) RequireStorage() (Storage, error) {
+func (ctx *Context) RequireStorage() (storage.Storage, error) {
 	if ctx.storage == nil {
-		return nil, StorageValidationError("require", "storage not configured")
+		return nil, storage.ValidationError("require", "storage not configured")
 	}
 	return ctx.storage, nil
 }
 
 // SetStorage configures the storage backend for this context.
 // This is typically called during application initialization.
-func (ctx *Context) SetStorage(storage Storage) {
+func (ctx *Context) SetStorage(storage storage.Storage) {
 	ctx.storage = storage
 }
 
@@ -280,16 +284,16 @@ func (ctx *Context) SetStorage(storage Storage) {
 //	if p == nil {
 //	    return fmt.Errorf("interactive mode required")
 //	}
-func (ctx *Context) Prompter() Prompter {
+func (ctx *Context) Prompter() prompt.Prompter {
 	return ctx.prompter
 }
 
 // RequirePrompter returns the prompter or an error if not configured.
 // WHY: commands that need user input should fail clearly when running
 // in non-interactive mode (e.g., cron, CI, piped input without prompter).
-func (ctx *Context) RequirePrompter() (Prompter, error) {
+func (ctx *Context) RequirePrompter() (prompt.Prompter, error) {
 	if ctx.prompter == nil {
-		return nil, ValidationError("", "interactive prompts not available: no prompter configured")
+		return nil, errs.ValidationError("", "interactive prompts not available: no prompter configured")
 	}
 	return ctx.prompter, nil
 }

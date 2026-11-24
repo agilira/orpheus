@@ -11,7 +11,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/storage"
 )
 
 func TestContextArguments(t *testing.T) {
@@ -393,11 +394,11 @@ func (m *mockStorage) Health(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockStorage) Stats(ctx context.Context) (*orpheus.StorageStats, error) {
+func (m *mockStorage) Stats(ctx context.Context) (*storage.Stats, error) {
 	if m.closed {
 		return nil, fmt.Errorf("storage is closed")
 	}
-	return &orpheus.StorageStats{
+	return &storage.Stats{
 		TotalKeys: int64(len(m.data)),
 		Provider:  "mock",
 	}, nil

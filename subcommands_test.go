@@ -9,6 +9,8 @@ package orpheus
 import (
 	"strings"
 	"testing"
+
+	"github.com/agilira/orpheus/prompt"
 )
 
 func TestSubcommandCreation(t *testing.T) {
@@ -326,7 +328,7 @@ func TestSubcommandReturnsCreatedSubcommand(t *testing.T) {
 func TestSubcommand_PrompterPropagatesToHandler(t *testing.T) {
 	app := New("propagation")
 	// Custom prompter the test can recognise via type assertion.
-	prompter := NewPrompterFrom(strings.NewReader("ignored\n"), &testWriter{}, -1)
+	prompter := prompt.NewFrom(strings.NewReader("ignored\n"), &testWriter{}, -1)
 	app.SetPrompter(prompter)
 
 	parent := NewCommand("parent", "Parent command")

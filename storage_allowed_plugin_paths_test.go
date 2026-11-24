@@ -10,6 +10,8 @@ package orpheus
 import (
 	"slices"
 	"testing"
+
+	"github.com/agilira/orpheus/storage"
 )
 
 func TestConfigureStorage_AllowedPluginPathsExtendDefaults(t *testing.T) {
@@ -19,7 +21,7 @@ func TestConfigureStorage_AllowedPluginPathsExtendDefaults(t *testing.T) {
 	// The plugin path does not exist, so loading fails and storageErr is set --
 	// but the plugin manager is built with the merged security config before
 	// the load is attempted, which is what this test inspects.
-	app.ConfigureStorage(&StorageConfig{
+	app.ConfigureStorage(&storage.Config{
 		Provider:           "memory",
 		PluginPath:         "/nonexistent/memory.so",
 		AllowedPluginPaths: []string{custom},
@@ -31,11 +33,11 @@ func TestConfigureStorage_AllowedPluginPathsExtendDefaults(t *testing.T) {
 
 	// NewPluginManager keeps the AllowedPaths it is given: see
 	// TestNewPluginManagerKeepsAllowedPaths in package storage.
-	got := pluginSecurityConfig(&StorageConfig{AllowedPluginPaths: []string{custom}}).AllowedPaths
+	got := pluginSecurityConfig(&storage.Config{AllowedPluginPaths: []string{custom}}).AllowedPaths
 	if !slices.Contains(got, custom) {
 		t.Errorf("AllowedPluginPaths not honored: %q missing from %v", custom, got)
 	}
-	for _, def := range DefaultPluginSecurityConfig().AllowedPaths {
+	for _, def := range storage.DefaultPluginSecurityConfig().AllowedPaths {
 		if !slices.Contains(got, def) {
 			t.Errorf("default allowed path dropped: %q missing from %v", def, got)
 		}
@@ -44,7 +46,7 @@ func TestConfigureStorage_AllowedPluginPathsExtendDefaults(t *testing.T) {
 
 func TestConfigureStorage_NoAllowedPluginPathsKeepsDefaults(t *testing.T) {
 	app := New("app")
-	app.ConfigureStorage(&StorageConfig{
+	app.ConfigureStorage(&storage.Config{
 		Provider:   "memory",
 		PluginPath: "/nonexistent/memory.so",
 	})
@@ -53,8 +55,8 @@ func TestConfigureStorage_NoAllowedPluginPathsKeepsDefaults(t *testing.T) {
 		t.Fatal("ConfigureStorage did not create a plugin manager")
 	}
 
-	got := pluginSecurityConfig(&StorageConfig{}).AllowedPaths
-	want := DefaultPluginSecurityConfig().AllowedPaths
+	got := pluginSecurityConfig(&storage.Config{}).AllowedPaths
+	want := storage.DefaultPluginSecurityConfig().AllowedPaths
 	if len(got) != len(want) {
 		t.Fatalf("expected exactly the default allowed paths %v, got %v", want, got)
 	}

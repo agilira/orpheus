@@ -16,6 +16,9 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/storage"
 )
 
 // dispatchCapture runs fn with os.Stdout redirected and returns what it printed.
@@ -314,7 +317,7 @@ func TestDispatch_HelpCommandUnknownSubcommand(t *testing.T) {
 	remote.Subcommand("add", "Add a remote", func(*Context) error { return nil })
 	app.AddCommand(remote)
 	err := app.Run([]string{"help", "remote", "bogus"})
-	if e, ok := err.(*Error); !ok || !e.IsNotFoundError() {
+	if e, ok := err.(*errs.Error); !ok || !e.IsNotFoundError() {
 		t.Fatalf("err = %v, want a not-found error", err)
 	}
 }
@@ -429,9 +432,9 @@ func TestDispatch_HelpAfterDoubleDashValue(t *testing.T) {
 
 // The reason a storage plugin failed to load stays in the error chain.
 func TestDispatch_StorageErrorKeepsCause(t *testing.T) {
-	app := New("app").ConfigureStorage(&StorageConfig{Provider: "no-such-provider"})
+	app := New("app").ConfigureStorage(&storage.Config{Provider: "no-such-provider"})
 	for err := app.StorageError(); err != nil; err = errors.Unwrap(err) {
-		if e, ok := err.(*Error); ok && e.ErrorCode() == ErrCodePluginError {
+		if e, ok := err.(*errs.Error); ok && e.ErrorCode() == errs.ErrCodePluginError {
 			return
 		}
 	}

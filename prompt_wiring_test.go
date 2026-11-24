@@ -13,14 +13,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/prompt"
 )
 
 // testPrompter creates a Prompter backed by the given input string.
 // fd=-1 disables terminal raw mode (AskSecret reads in plain text).
-func testPrompter(input string) (*orpheus.TerminalPrompter, *bytes.Buffer) {
+func testPrompter(input string) (*prompt.Terminal, *bytes.Buffer) {
 	out := &bytes.Buffer{}
-	p := orpheus.NewPrompterFrom(strings.NewReader(input), out, -1)
+	p := prompt.NewFrom(strings.NewReader(input), out, -1)
 	return p, out
 }
 
@@ -28,7 +29,7 @@ func testPrompter(input string) (*orpheus.TerminalPrompter, *bytes.Buffer) {
 
 func TestContext_PrompterNilByDefault(t *testing.T) {
 	app := orpheus.New("test")
-	var captured orpheus.Prompter
+	var captured prompt.Prompter
 	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
 		captured = ctx.Prompter()
 		return nil
@@ -44,7 +45,7 @@ func TestContext_PrompterNilByDefault(t *testing.T) {
 func TestContext_PrompterWiredFromApp(t *testing.T) {
 	p, _ := testPrompter("")
 	app := orpheus.New("test").SetPrompter(p)
-	var captured orpheus.Prompter
+	var captured prompt.Prompter
 	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
 		captured = ctx.Prompter()
 		return nil
@@ -78,7 +79,7 @@ func TestContext_RequirePrompter_WhenNil(t *testing.T) {
 func TestContext_RequirePrompter_WhenSet(t *testing.T) {
 	p, _ := testPrompter("")
 	app := orpheus.New("test").SetPrompter(p)
-	var got orpheus.Prompter
+	var got prompt.Prompter
 	var reqErr error
 	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
 		got, reqErr = ctx.RequirePrompter()

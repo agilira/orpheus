@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	flashflags "github.com/agilira/flash-flags"
+	"github.com/agilira/orpheus/errs"
 )
 
 // CommandHandler is the function signature for command handlers.
@@ -327,14 +328,14 @@ func (c *Command) checkUnknownSubcommand(args []string) error {
 	}
 	// The error names the parent command; the message names only the
 	// subcommand, since Error() already prints the command.
-	return NotFoundError(c.name, fmt.Sprintf("unknown subcommand '%s'", args[0]))
+	return errs.NotFoundError(c.name, fmt.Sprintf("unknown subcommand '%s'", args[0]))
 }
 
 // validateHandler checks if the command has a valid handler
 func (c *Command) validateHandler() error {
 	// If no handler is defined and no subcommands, error
 	if c.handler == nil && !c.HasSubcommands() {
-		return ExecutionError(c.name, "no handler defined for command")
+		return errs.ExecutionError(c.name, "no handler defined for command")
 	}
 
 	return nil
@@ -344,7 +345,7 @@ func (c *Command) validateHandler() error {
 func (c *Command) parseAndExecute(ctx *Context, args []string) error {
 	// Parse flags for this command
 	if err := parseFresh(c.flags, &c.parsed, args); err != nil {
-		return ValidationError(c.name, "flag parsing failed: "+err.Error())
+		return errs.ValidationError(c.name, "flag parsing failed: "+err.Error())
 	}
 
 	// Update context with parsed flags
