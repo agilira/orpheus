@@ -6,7 +6,7 @@ Orpheus has undergone comprehensive security testing and implements professional
 
 ## Security Posture Summary
 
-**465 Security Test Cases** - All passing
+**506 Security Test Cases** - All passing
 **Costs measured, not estimated** - see [Performance Impact](#performance-impact)
 
 ## Security Controls Implemented
@@ -258,7 +258,7 @@ holding the original and sanitized strings.
 
 ### Red Team Testing Results
 
-**Test Coverage**: 465 security test cases (`go test -v -run 'Security|Valid|Path|Sanitiz|Injection|Traversal|Prompt' . ./errs ./observe ./storage ./security ./prompt | grep -c -- '--- PASS'`)
+**Test Coverage**: 506 security test cases (`go test -v -run 'Security|Valid|Path|Sanitiz|Injection|Traversal|Prompt' . ./errs ./observe ./storage ./security ./prompt | grep -c -- '--- PASS'`)
 - Path traversal attacks: 8 test scenarios
 - File permission validation: 4 test scenarios  
 - Malicious input handling: 11 attack vectors
