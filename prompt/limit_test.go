@@ -4,7 +4,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package prompt
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-// askWithStdin runs Ask against a real NewTerminalPrompter whose stdin is the
+// askWithStdin runs Ask against a real NewTerminal whose stdin is the
 // given input, and reports what it returned.
 func askWithStdin(t *testing.T, input string) (string, error) {
 	t.Helper()
@@ -35,7 +35,7 @@ func askWithStdin(t *testing.T, input string) (string, error) {
 		_ = w.Close()
 	}()
 
-	p := NewTerminalPrompter()
+	p := NewTerminal()
 	p.writer = io.Discard
 	return p.Ask("Name", "")
 }
@@ -46,7 +46,7 @@ func TestTerminalPrompterEnforcesLineLimit(t *testing.T) {
 
 	got, err := askWithStdin(t, long+"\n")
 	if err == nil {
-		t.Fatalf("Ask accepted a %d-byte line; the limit is %d and applies only to NewPrompterFrom (got %d bytes back)",
+		t.Fatalf("Ask accepted a %d-byte line; the limit is %d and applies only to NewFrom (got %d bytes back)",
 			len(long), maxInputLine, len(got))
 	}
 }
@@ -65,7 +65,7 @@ func TestTerminalPrompterAcceptsOrdinaryInput(t *testing.T) {
 // The injectable constructor enforces the same limit, as it already did.
 func TestPrompterFromEnforcesLineLimit(t *testing.T) {
 	long := strings.Repeat("A", maxInputLine+1)
-	p := NewPrompterFrom(strings.NewReader(long+"\n"), &bytes.Buffer{}, -1)
+	p := NewFrom(strings.NewReader(long+"\n"), &bytes.Buffer{}, -1)
 
 	if _, err := p.Ask("Name", ""); err == nil {
 		t.Fatal("Ask accepted a line beyond the limit")

@@ -1,28 +1,28 @@
 // prompt_test.go: comprehensive tests for the interactive prompt system.
 //
-// WHY: every public method of TerminalPrompter must be exercised with
-// deterministic input. Tests use NewPrompterFrom with strings.NewReader
+// WHY: every public method of Terminal must be exercised with
+// deterministic input. Tests use NewFrom with strings.NewReader
 // and bytes.Buffer to avoid any real terminal dependency.
 //
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus_test
+package prompt_test
 
 import (
 	"bytes"
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/prompt"
 )
 
 // testPrompter creates a Prompter backed by the given input string.
 // fd=-1 disables terminal raw mode (AskSecret reads in plain text).
-func testPrompter(input string) (*orpheus.TerminalPrompter, *bytes.Buffer) {
+func testPrompter(input string) (*prompt.Terminal, *bytes.Buffer) {
 	out := &bytes.Buffer{}
-	p := orpheus.NewPrompterFrom(strings.NewReader(input), out, -1)
+	p := prompt.NewFrom(strings.NewReader(input), out, -1)
 	return p, out
 }
 
@@ -333,84 +333,13 @@ func TestConfirm_EOFReturnsDefault(t *testing.T) {
 	}
 }
 
-// --- Wiring tests: Context + App ---
-
-func TestContext_PrompterNilByDefault(t *testing.T) {
-	app := orpheus.New("test")
-	var captured orpheus.Prompter
-	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
-		captured = ctx.Prompter()
-		return nil
-	})
-	if err := app.Run([]string{"cmd"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if captured != nil {
-		t.Error("prompter should be nil by default")
-	}
-}
-
-func TestContext_PrompterWiredFromApp(t *testing.T) {
-	p, _ := testPrompter("")
-	app := orpheus.New("test").SetPrompter(p)
-	var captured orpheus.Prompter
-	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
-		captured = ctx.Prompter()
-		return nil
-	})
-	if err := app.Run([]string{"cmd"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if captured == nil {
-		t.Fatal("prompter should not be nil when set on App")
-	}
-	if captured != p {
-		t.Error("prompter should be the same instance set on App")
-	}
-}
-
-func TestContext_RequirePrompter_WhenNil(t *testing.T) {
-	app := orpheus.New("test")
-	var reqErr error
-	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
-		_, reqErr = ctx.RequirePrompter()
-		return nil
-	})
-	if err := app.Run([]string{"cmd"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqErr == nil {
-		t.Fatal("RequirePrompter should return error when no prompter is set")
-	}
-}
-
-func TestContext_RequirePrompter_WhenSet(t *testing.T) {
-	p, _ := testPrompter("")
-	app := orpheus.New("test").SetPrompter(p)
-	var got orpheus.Prompter
-	var reqErr error
-	app.Command("cmd", "test", func(ctx *orpheus.Context) error {
-		got, reqErr = ctx.RequirePrompter()
-		return nil
-	})
-	if err := app.Run([]string{"cmd"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reqErr != nil {
-		t.Fatalf("unexpected error from RequirePrompter: %v", reqErr)
-	}
-	if got != p {
-		t.Error("RequirePrompter should return the configured prompter")
-	}
-}
-
-// --- NewTerminalPrompter constructor ---
+// --- NewTerminal constructor ---
 
 func TestNewTerminalPrompter_NotNil(t *testing.T) {
 	// WHY: smoke test that the production constructor does not panic.
-	p := orpheus.NewTerminalPrompter()
+	p := prompt.NewTerminal()
 	if p == nil {
-		t.Fatal("NewTerminalPrompter returned nil")
+		t.Fatal("NewTerminal returned nil")
 	}
 }
 
@@ -477,6 +406,6 @@ func TestMixedPrompts_AskThenChooseThenConfirm(t *testing.T) {
 // --- Interface compliance ---
 
 func TestTerminalPrompter_ImplementsPrompter(t *testing.T) {
-	// WHY: compile-time guarantee that TerminalPrompter satisfies Prompter.
-	var _ orpheus.Prompter = (*orpheus.TerminalPrompter)(nil)
+	// WHY: compile-time guarantee that Terminal satisfies Prompter.
+	var _ prompt.Prompter = (*prompt.Terminal)(nil)
 }

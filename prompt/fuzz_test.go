@@ -18,20 +18,20 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus_test
+package prompt_test
 
 import (
 	"bytes"
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/prompt"
 )
 
 // fuzzPrompter creates a prompter from raw fuzz input.
-func fuzzPrompter(data []byte) (*orpheus.TerminalPrompter, *bytes.Buffer) {
+func fuzzPrompter(data []byte) (*prompt.Terminal, *bytes.Buffer) {
 	out := &bytes.Buffer{}
-	p := orpheus.NewPrompterFrom(bytes.NewReader(data), out, -1)
+	p := prompt.NewFrom(bytes.NewReader(data), out, -1)
 	return p, out
 }
 

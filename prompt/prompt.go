@@ -1,9 +1,10 @@
-// prompt.go: interactive terminal prompts for CLI applications.
+// Package prompt provides interactive terminal prompts for CLI
+// applications: the Prompter interface and Terminal, its implementation.
 //
 // WHY: CLI applications often need to ask users for input during setup,
 // onboarding, or interactive workflows. This module provides a testable,
 // injectable interface for terminal interaction. Production code uses
-// TerminalPrompter (real stdin/stdout); tests inject a mock.
+// Terminal (real stdin/stdout); tests inject a mock.
 //
 // DESIGN: Prompter is an interface so handlers never depend on a concrete
 // terminal. The same handler can run in a unit test with predetermined
@@ -13,8 +14,7 @@
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
-
-package orpheus
+package prompt
 
 import (
 	"bufio"
@@ -52,7 +52,7 @@ type Prompter interface {
 	Confirm(prompt string, defaultYes bool) (bool, error)
 }
 
-// TerminalPrompter implements Prompter using real terminal I/O.
+// Terminal implements Prompter using real terminal I/O.
 // It reads from an io.Reader and writes to an io.Writer, making it
 // testable even though it targets real terminals in production.
 //
@@ -61,7 +61,7 @@ type Prompter interface {
 // The only exception is AskSecret, which needs a file descriptor for
 // terminal raw mode. When fd < 0, AskSecret falls back to plain text
 // reading (useful in tests and non-TTY environments like CI pipes).
-type TerminalPrompter struct {
+type Terminal struct {
 	reader *bufio.Scanner
 	writer io.Writer
 	fd     int // file descriptor for AskSecret (-1 = fallback to plain read)
@@ -76,35 +76,35 @@ type TerminalPrompter struct {
 // ever read.
 const maxInputLine = 4096
 
-// NewTerminalPrompter creates a Prompter backed by real stdin/stdout.
-// This is the production constructor. Tests should use NewPrompterFrom.
-func NewTerminalPrompter() *TerminalPrompter {
+// NewTerminal creates a Prompter backed by real stdin/stdout.
+// This is the production constructor. Tests should use NewFrom.
+func NewTerminal() *Terminal {
 	return newPrompter(os.Stdin, os.Stdout, int(os.Stdin.Fd()))
 }
 
-// NewPrompterFrom creates a Prompter backed by the given reader and writer.
+// NewFrom creates a Prompter backed by the given reader and writer.
 // fd is the file descriptor for AskSecret; pass -1 to disable terminal
 // raw mode (AskSecret will read in plain text, suitable for tests).
 //
 // WHY this constructor exists: unit tests inject a buffer here, so every
 // method can be exercised without a real terminal.
-func NewPrompterFrom(r io.Reader, w io.Writer, fd int) *TerminalPrompter {
+func NewFrom(r io.Reader, w io.Writer, fd int) *Terminal {
 	return newPrompter(r, w, fd)
 }
 
-// newPrompter builds a TerminalPrompter with the line limit applied.
+// newPrompter builds a Terminal with the line limit applied.
 //
 // WHY both constructors go through here: the Buffer call that enforces
-// maxInputLine used to live in NewPrompterFrom alone, so the defence the
+// maxInputLine used to live in NewFrom alone, so the defence the
 // maxLine field documents held for injected readers -- that is, in tests --
 // and not for os.Stdin, which is the only reader that ever carries untrusted
 // input. Production fell back to bufio.Scanner's own 64 KiB default. One
 // construction path means the limit cannot apply to one caller and not the
 // other.
-func newPrompter(r io.Reader, w io.Writer, fd int) *TerminalPrompter {
+func newPrompter(r io.Reader, w io.Writer, fd int) *Terminal {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, maxInputLine), maxInputLine)
-	return &TerminalPrompter{
+	return &Terminal{
 		reader: scanner,
 		writer: w,
 		fd:     fd,
@@ -112,7 +112,7 @@ func newPrompter(r io.Reader, w io.Writer, fd int) *TerminalPrompter {
 }
 
 // Ask displays a prompt and reads a single line of text.
-func (p *TerminalPrompter) Ask(prompt, defaultVal string) (string, error) {
+func (p *Terminal) Ask(prompt, defaultVal string) (string, error) {
 	if defaultVal != "" {
 		if _, err := fmt.Fprintf(p.writer, "%s [%s]: ", prompt, defaultVal); err != nil {
 			return "", fmt.Errorf("prompt write failed: %w", err)
@@ -141,7 +141,7 @@ func (p *TerminalPrompter) Ask(prompt, defaultVal string) (string, error) {
 }
 
 // AskSecret displays a prompt and reads input without echoing.
-func (p *TerminalPrompter) AskSecret(prompt string) (string, error) {
+func (p *Terminal) AskSecret(prompt string) (string, error) {
 	if _, err := fmt.Fprintf(p.writer, "%s: ", prompt); err != nil {
 		return "", fmt.Errorf("prompt write failed: %w", err)
 	}
@@ -182,7 +182,7 @@ func (p *TerminalPrompter) AskSecret(prompt string) (string, error) {
 
 // writeMenu renders a numbered option list with a trailing choice prompt.
 // WHY: extracted to keep Choose below cyclomatic complexity 10.
-func (p *TerminalPrompter) writeMenu(prompt string, options []string) error {
+func (p *Terminal) writeMenu(prompt string, options []string) error {
 	if _, err := fmt.Fprintln(p.writer, prompt); err != nil {
 		return fmt.Errorf("prompt write failed: %w", err)
 	}
@@ -198,7 +198,7 @@ func (p *TerminalPrompter) writeMenu(prompt string, options []string) error {
 }
 
 // Choose displays a numbered menu and returns the selected index (0-based).
-func (p *TerminalPrompter) Choose(prompt string, options []string) (int, error) {
+func (p *Terminal) Choose(prompt string, options []string) (int, error) {
 	if len(options) == 0 {
 		return 0, fmt.Errorf("choose requires at least one option")
 	}
@@ -230,7 +230,7 @@ func (p *TerminalPrompter) Choose(prompt string, options []string) (int, error) 
 }
 
 // Confirm displays a yes/no question and returns the boolean answer.
-func (p *TerminalPrompter) Confirm(prompt string, defaultYes bool) (bool, error) {
+func (p *Terminal) Confirm(prompt string, defaultYes bool) (bool, error) {
 	hint := "[y/N]"
 	if defaultYes {
 		hint = "[Y/n]"

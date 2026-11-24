@@ -29,20 +29,20 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus_test
+package prompt_test
 
 import (
 	"bytes"
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/prompt"
 )
 
 // secPrompter creates a prompter for security tests.
-func secPrompter(input string) (*orpheus.TerminalPrompter, *bytes.Buffer) {
+func secPrompter(input string) (*prompt.Terminal, *bytes.Buffer) {
 	out := &bytes.Buffer{}
-	p := orpheus.NewPrompterFrom(strings.NewReader(input), out, -1)
+	p := prompt.NewFrom(strings.NewReader(input), out, -1)
 	return p, out
 }
 
