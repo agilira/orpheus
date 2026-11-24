@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/metrics"
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/metrics"
+	"github.com/agilira/orpheus/observe"
 )
 
-var _ orpheus.MetricsCollector = metrics.NewJSONL(&syncBuffer{}, metrics.Options{})
+var _ observe.MetricsCollector = metrics.NewJSONL(&syncBuffer{}, metrics.Options{})
 
 type syncBuffer struct {
 	mu sync.Mutex
@@ -126,16 +126,16 @@ func TestJSONLHostileLabelValueStaysInItsLine(t *testing.T) {
 func TestJSONLDrops(t *testing.T) {
 	cases := []struct {
 		name   string
-		sample func(c orpheus.MetricsCollector)
+		sample func(c observe.MetricsCollector)
 		reason metrics.DropReason
 	}{
-		{"invalid name", func(c orpheus.MetricsCollector) { c.Counter("a b", "").Inc(ctx) }, metrics.ReasonInvalidName},
-		{"conflict", func(c orpheus.MetricsCollector) { c.Counter("x", ""); c.Gauge("x", "").Set(ctx, 1) }, metrics.ReasonConflict},
-		{"label count", func(c orpheus.MetricsCollector) { c.Gauge("g", "", "a").Set(ctx, 1) }, metrics.ReasonLabelCount},
-		{"NaN", func(c orpheus.MetricsCollector) { c.Gauge("g", "").Set(ctx, math.NaN()) }, metrics.ReasonInvalidValue},
-		{"Inf gauge", func(c orpheus.MetricsCollector) { c.Gauge("g", "").Set(ctx, math.Inf(-1)) }, metrics.ReasonInvalidValue},
-		{"Inf observation", func(c orpheus.MetricsCollector) { c.Histogram("h", "", nil).Observe(ctx, math.Inf(1)) }, metrics.ReasonInvalidValue},
-		{"negative counter", func(c orpheus.MetricsCollector) { c.Counter("c", "").Add(ctx, -1) }, metrics.ReasonInvalidValue},
+		{"invalid name", func(c observe.MetricsCollector) { c.Counter("a b", "").Inc(ctx) }, metrics.ReasonInvalidName},
+		{"conflict", func(c observe.MetricsCollector) { c.Counter("x", ""); c.Gauge("x", "").Set(ctx, 1) }, metrics.ReasonConflict},
+		{"label count", func(c observe.MetricsCollector) { c.Gauge("g", "", "a").Set(ctx, 1) }, metrics.ReasonLabelCount},
+		{"NaN", func(c observe.MetricsCollector) { c.Gauge("g", "").Set(ctx, math.NaN()) }, metrics.ReasonInvalidValue},
+		{"Inf gauge", func(c observe.MetricsCollector) { c.Gauge("g", "").Set(ctx, math.Inf(-1)) }, metrics.ReasonInvalidValue},
+		{"Inf observation", func(c observe.MetricsCollector) { c.Histogram("h", "", nil).Observe(ctx, math.Inf(1)) }, metrics.ReasonInvalidValue},
+		{"negative counter", func(c observe.MetricsCollector) { c.Counter("c", "").Add(ctx, -1) }, metrics.ReasonInvalidValue},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

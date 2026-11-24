@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/term"
+	"github.com/agilira/orpheus/term"
 )
 
 var sgrPattern = regexp.MustCompile("\x1b\\[[0-9;]*m")

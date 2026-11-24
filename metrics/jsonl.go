@@ -1,4 +1,4 @@
-// jsonl.go: an orpheus.MetricsCollector that writes one JSON object per
+// jsonl.go: an observe.MetricsCollector that writes one JSON object per
 // sample to an io.Writer.
 //
 // WHY: not everyone runs Prometheus. A JSON Lines stream is a history that
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/observe"
 )
 
 var opNames = [...]string{opCounterAdd: "add", opGaugeAdd: "add", opGaugeSet: "set", opObserve: "observe"}
@@ -43,19 +43,19 @@ type jsonRecord struct {
 
 // NewJSONL returns a collector writing to w. Options.MaxSeries and
 // MaxBytes do not apply: nothing is retained per series.
-func NewJSONL(w io.Writer, opts Options) orpheus.MetricsCollector {
+func NewJSONL(w io.Writer, opts Options) observe.MetricsCollector {
 	return &jsonl{reg: newRegistry(opts), w: w}
 }
 
-func (j *jsonl) Counter(name, help string, labels ...string) orpheus.Counter {
+func (j *jsonl) Counter(name, help string, labels ...string) observe.Counter {
 	return counter{j, j.reg.register(name, help, counterKind, nil, labels)}
 }
 
-func (j *jsonl) Gauge(name, help string, labels ...string) orpheus.Gauge {
+func (j *jsonl) Gauge(name, help string, labels ...string) observe.Gauge {
 	return gauge{j, j.reg.register(name, help, gaugeKind, nil, labels)}
 }
 
-func (j *jsonl) Histogram(name, help string, buckets []float64, labels ...string) orpheus.Histogram {
+func (j *jsonl) Histogram(name, help string, buckets []float64, labels ...string) observe.Histogram {
 	return histogram{j, j.reg.register(name, help, histogramKind, buckets, labels)}
 }
 

@@ -1,6 +1,6 @@
 // prometheus_test.go: tests for the in-memory Prometheus collector.
 //
-// WHY: the collector implements orpheus.MetricsCollector, whose methods
+// WHY: the collector implements observe.MetricsCollector, whose methods
 // cannot return errors, and is fed values that often come from outside. The
 // tests pin what happens to every bad input (dropped, counted, reported,
 // never a panic and never a different series), the memory bound under a
@@ -24,14 +24,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/metrics"
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/metrics"
+	"github.com/agilira/orpheus/observe"
 )
 
 var ctx = context.Background()
 
 // Compile-time proof that the collector satisfies the Orpheus interface.
-var _ orpheus.MetricsCollector = metrics.NewPrometheus(metrics.Options{})
+var _ observe.MetricsCollector = metrics.NewPrometheus(metrics.Options{})
 
 type errorLog struct {
 	mu   sync.Mutex

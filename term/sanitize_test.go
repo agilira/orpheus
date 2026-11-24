@@ -16,7 +16,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/agilira/orpheus/pkg/term"
+	"github.com/agilira/orpheus/term"
 )
 
 func TestSanitizeKeepsPrintableText(t *testing.T) {

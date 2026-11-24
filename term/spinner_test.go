@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/term"
+	"github.com/agilira/orpheus/term"
 )
 
 type syncBuffer struct {

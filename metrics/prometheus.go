@@ -1,4 +1,4 @@
-// prometheus.go: an in-memory orpheus.MetricsCollector served in the
+// prometheus.go: an in-memory observe.MetricsCollector served in the
 // Prometheus text format.
 //
 // WHY: Orpheus defines MetricsCollector but no implementation, and the
@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/observe"
 )
 
 const (
@@ -53,7 +53,7 @@ type Options struct {
 
 // Prometheus is a MetricsCollector that serves its metrics over HTTP.
 type Prometheus interface {
-	orpheus.MetricsCollector
+	observe.MetricsCollector
 	http.Handler
 }
 
@@ -81,15 +81,15 @@ func positiveOr(v, def int) int {
 	return v
 }
 
-func (r *registry) Counter(name, help string, labels ...string) orpheus.Counter {
+func (r *registry) Counter(name, help string, labels ...string) observe.Counter {
 	return counter{r, r.register(name, help, counterKind, nil, labels)}
 }
 
-func (r *registry) Gauge(name, help string, labels ...string) orpheus.Gauge {
+func (r *registry) Gauge(name, help string, labels ...string) observe.Gauge {
 	return gauge{r, r.register(name, help, gaugeKind, nil, labels)}
 }
 
-func (r *registry) Histogram(name, help string, buckets []float64, labels ...string) orpheus.Histogram {
+func (r *registry) Histogram(name, help string, buckets []float64, labels ...string) observe.Histogram {
 	return histogram{r, r.register(name, help, histogramKind, buckets, labels)}
 }
 

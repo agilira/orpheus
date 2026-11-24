@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/term"
+	"github.com/agilira/orpheus/term"
 )
 
 var colorCaps = term.Caps{Color: true, Animate: true}

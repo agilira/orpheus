@@ -1,5 +1,5 @@
 // Package metrics provides reference implementations of
-// orpheus.MetricsCollector that depend only on the standard library:
+// observe.MetricsCollector that depend only on the standard library:
 //
 //   - NewPrometheus keeps metrics in memory and serves them in the
 //     Prometheus text format; Listen and Serve expose it with safe defaults.
