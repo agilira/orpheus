@@ -5,7 +5,7 @@
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/agilira/orpheus/actions/workflows/codeql.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/codeql.yml)
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-90.1%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-91.7%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
@@ -94,7 +94,7 @@ make fuzz-long     # Extended fuzzing (5min)
 ### Installation
 
 ```bash
-go get github.com/agilira/orpheus@v1.6.1   # Latest stable release
+go get github.com/agilira/orpheus@v1.12.0   # Latest stable release
 # or simply
 go get github.com/agilira/orpheus          # Always latest
 ```

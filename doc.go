@@ -10,7 +10,7 @@
 //     dispatch (see ./benchmarks)
 //   - Zero external dependencies
 //   - Enterprise-grade security with comprehensive input validation
-//   - Red Team tested security controls (465 test cases)
+//   - Red Team tested security controls (506 test cases)
 //   - Built-in protection against path traversal, injection attacks, and malicious input
 //   - Comprehensive file permission analysis and system security
 //   - Thread-safe concurrent operations with race condition protection

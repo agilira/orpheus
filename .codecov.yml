@@ -15,5 +15,6 @@ comment:
 
 ignore:
   - "**/*_test.go"
+  - "internal/apicheck/**"
   - "examples/**"
   - "benchmarks/**"

@@ -310,7 +310,8 @@ func (u *Universe) Diff(path, golden string, update bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return lineDiff(strings.Split(strings.TrimSuffix(string(want), "\n"), "\n"), lines), nil
+	text := strings.ReplaceAll(string(want), "\r\n", "\n")
+	return lineDiff(strings.Split(strings.TrimSuffix(text, "\n"), "\n"), lines), nil
 }
 
 func lineDiff(want, got []string) string {
