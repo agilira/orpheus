@@ -52,6 +52,8 @@ type Universe struct {
 func Load(extra ...string) (*Universe, error) {
 	paths := append(append([]string{}, Facades...), extra...)
 	args := append([]string{"list", "-export", "-deps", "-f", "{{.ImportPath}}\t{{.Export}}"}, paths...)
+	// #nosec G204 -- the command is the go tool; its arguments are fixed
+	// flags and the import paths the facade tests pass in, never user input.
 	cmd := exec.Command("go", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
