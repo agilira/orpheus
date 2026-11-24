@@ -130,6 +130,12 @@ type StorageConfig struct {
 	// it empty keeps the defaults unchanged.
 	AllowedPluginPaths []string `json:"allowed_plugin_paths,omitempty" yaml:"allowed_plugin_paths,omitempty"`
 
+	// AllowUnsignedPlugins opts in to loading a plugin without a signature.
+	// Signature verification is not available, so with false (the default)
+	// ConfigureStorage refuses every plugin. It adds to, and never removes,
+	// the PluginManager's own AllowUnsignedPlugins setting.
+	AllowUnsignedPlugins bool `json:"allow_unsigned_plugins,omitempty" yaml:"allow_unsigned_plugins,omitempty"`
+
 	// Config contains provider-specific configuration options
 	Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`
 

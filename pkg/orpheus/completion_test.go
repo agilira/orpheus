@@ -124,7 +124,7 @@ func TestZshCompletionGeneration(t *testing.T) {
 		t.Error("zsh script should contain completion function")
 	}
 
-	if !strings.Contains(script, "start:'Start the service'") {
+	if !strings.Contains(script, "'start:Start the service'") {
 		t.Error("zsh script should contain command descriptions")
 	}
 }

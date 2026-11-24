@@ -124,6 +124,13 @@ type StorageConfig struct {
     // PluginPath is the path to the provider plugin (.so file)
     // If empty, auto-discovery is used
     PluginPath string `json:"plugin_path,omitempty" yaml:"plugin_path,omitempty"`
+
+    // AllowedPluginPaths adds directories to the secure default locations
+    AllowedPluginPaths []string `json:"allowed_plugin_paths,omitempty" yaml:"allowed_plugin_paths,omitempty"`
+
+    // AllowUnsignedPlugins opts in to loading plugins without a signature.
+    // Signature verification is not available, so without it no plugin loads.
+    AllowUnsignedPlugins bool `json:"allow_unsigned_plugins,omitempty" yaml:"allow_unsigned_plugins,omitempty"`
     
     // Config contains provider-specific configuration
     Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`
@@ -436,8 +443,8 @@ app.SetAuditLogger(myAuditLogger).ConfigureStorage(&orpheus.StorageConfig{
 ```go
 // Configure plugin security
 securityConfig := &orpheus.PluginSecurityConfig{
-    AllowUnsignedPlugins: false,           // Require signed plugins
-    ValidateChecksums:    true,            // Verify plugin integrity  
+    AllowUnsignedPlugins: false,           // Refuse every plugin (see below)
+    ValidateChecksums:    true,            // Record the SHA-256 in LoadedPlugin.Hash
     MaxPluginSize:        50 << 20,        // 50MB max plugin size
     AllowedPaths: []string{                // Restrict plugin locations
         "/usr/local/lib/orpheus/plugins",
@@ -451,6 +458,19 @@ securityConfig := &orpheus.PluginSecurityConfig{
 // Create plugin manager with security config
 pluginManager := orpheus.NewPluginManager(logger, securityConfig)
 ```
+
+### Unsigned Plugins
+
+Orpheus does not verify plugin signatures. With `AllowUnsignedPlugins: false`,
+the default, `LoadPlugin` therefore refuses every plugin with an error saying
+that signature verification is not available. Loading a plugin is an explicit
+opt-in: set `AllowUnsignedPlugins: true` in `PluginSecurityConfig`, or in
+`StorageConfig` when storage is set up through `ConfigureStorage`. Only do so
+for plugins from directories you control.
+
+`ValidateChecksums` computes the SHA-256 of the plugin file and records it in
+`LoadedPlugin.Hash`; there is no expected checksum to compare it with, so the
+check of that hash is up to the application.
 
 ### Key Validation
 
@@ -683,7 +703,7 @@ func main() {
 ### Security Guidelines
 
 1. **Input Validation**: All keys and values are validated automatically
-2. **Plugin Security**: Use signed plugins in production
+2. **Plugin Security**: Load plugins only from directories you control; unsigned plugins need `AllowUnsignedPlugins: true`
 3. **Access Control**: Implement application-level access controls
 4. **Audit Logging**: Enable audit trails for sensitive operations
 5. **Network Security**: Use TLS for remote storage connections

@@ -45,6 +45,11 @@ func (h *HelpGenerator) addCommandUsage(sb *strings.Builder, cmd *Command) {
 	if cmd.HasSubcommands() {
 		usage = cmd.name + " <subcommand> [flags]"
 	}
+	// WHY the parent path: a subcommand's usage line read "app add [flags]",
+	// a command line that does not exist; it is "app remote add [flags]".
+	if cmd.parent != nil {
+		usage = cmd.parent.FullName() + " " + usage
+	}
 	sb.WriteString(fmt.Sprintf("Usage: %s %s\n\n", h.app.name, usage))
 }
 
@@ -141,8 +146,10 @@ func (h *HelpGenerator) GenerateAppHelp() string {
 		}
 		sort.Strings(names)
 
-		// Find longest command name for alignment
-		maxLen := 0
+		// Find longest command name for alignment. WHY it starts at the
+		// length of "help": the built-in is listed in the same column, and
+		// with only shorter names its padding went negative and panicked.
+		maxLen := len("help")
 		for _, name := range names {
 			if len(name) > maxLen {
 				maxLen = len(name)
@@ -186,7 +193,7 @@ func (h *HelpGenerator) generateGlobalFlagHelp() string {
 	// Custom global flags from flash-flags
 	if h.app.globalFlags != nil {
 		h.app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
-			sb.WriteString(h.formatFlagHelp(flag))
+			sb.WriteString(h.formatFlagHelp(flag, h.app.globalDefaults))
 		})
 	}
 
@@ -242,7 +249,7 @@ func (h *HelpGenerator) generateFlagHelp(cmd *Command) string {
 	// Command-specific flags from flash-flags
 	if cmd.Flags() != nil {
 		cmd.Flags().VisitAll(func(flag *flashflags.Flag) {
-			sb.WriteString(h.formatFlagHelp(flag))
+			sb.WriteString(h.formatFlagHelp(flag, cmd.defaults))
 		})
 	}
 
@@ -266,7 +273,9 @@ func (h *HelpGenerator) hasCommandFlags(cmd *Command) bool {
 }
 
 // formatFlagHelp formats a flash-flags Flag for help output.
-func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag) string {
+// The default shown is the one the flag was registered with, never its
+// current value: see flagDefaults.
+func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag, defaults flagDefaults) string {
 	var line strings.Builder
 
 	// Build flag name with short key.
@@ -300,9 +309,9 @@ func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag) string {
 
 	// Add default value for non-bool flags. An empty string or list is not shown:
 	// "(default: )" tells the reader nothing and reads like a rendering bug.
-	if flag.Type() != "bool" && !isEmptyDefault(flag.Value()) {
+	if def := defaults.of(flag); flag.Type() != "bool" && !isEmptyDefault(def) {
 		line.WriteString(" (default: ")
-		line.WriteString(fmt.Sprintf("%v", flag.Value()))
+		line.WriteString(fmt.Sprintf("%v", def))
 		line.WriteString(")")
 	}
 

@@ -848,7 +848,9 @@ func TestSecurity_WindowsSpecificAttacks(t *testing.T) {
 
 			if attack.shouldFail && result.IsValid {
 				// Only fail on Windows for Windows-specific attacks, log info on other platforms
-				isWindowsSpecific := strings.Contains(attack.name, "Device") || strings.Contains(attack.description, "Windows device")
+				// ADS exist only on NTFS; elsewhere ':' is an ordinary filename character.
+				isWindowsSpecific := strings.Contains(attack.name, "Device") || strings.Contains(attack.description, "Windows device") ||
+					attack.name == "AlternateDataStream"
 				if runtime.GOOS == "windows" || !isWindowsSpecific {
 					t.Errorf("SECURITY VULNERABILITY: %s - Path should have been rejected: %s",
 						attack.description, attack.path)

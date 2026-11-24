@@ -73,9 +73,18 @@ var (
 
 // Helper functions to create storage-specific Orpheus errors with proper context
 
+// newStorageError builds a storage *Error that keeps cause in its chain.
+// WHY: formatting the cause into the message alone hid it from errors.Is, so
+// a caller could no longer tell ErrStorageUnavailable or ErrKeyNotFound apart.
+func newStorageError(code goerrors.ErrorCode, message string, cause error) *Error {
+	e := NewError(code, "storage", message)
+	e.goError.Cause = cause
+	return e
+}
+
 // StorageGetError creates an error for failed Get operations
 func StorageGetError(key string, err error) *Error {
-	return NewError(ErrCodeStorageExecution, "storage", fmt.Sprintf("get operation failed for key '%s': %v", key, err)).
+	return newStorageError(ErrCodeStorageExecution, fmt.Sprintf("get operation failed for key '%s': %v", key, err), err).
 		WithContext("operation", "storage.Get").
 		WithContext("key", key).
 		WithSeverity("warning")
@@ -83,7 +92,7 @@ func StorageGetError(key string, err error) *Error {
 
 // StorageSetError creates an error for failed Set operations
 func StorageSetError(key string, err error) *Error {
-	return NewError(ErrCodeStorageExecution, "storage", fmt.Sprintf("set operation failed for key '%s': %v", key, err)).
+	return newStorageError(ErrCodeStorageExecution, fmt.Sprintf("set operation failed for key '%s': %v", key, err), err).
 		WithContext("operation", "storage.Set").
 		WithContext("key", key).
 		WithSeverity("error")
@@ -91,7 +100,7 @@ func StorageSetError(key string, err error) *Error {
 
 // StorageDeleteError creates an error for failed Delete operations
 func StorageDeleteError(key string, err error) *Error {
-	return NewError(ErrCodeStorageExecution, "storage", fmt.Sprintf("delete operation failed for key '%s': %v", key, err)).
+	return newStorageError(ErrCodeStorageExecution, fmt.Sprintf("delete operation failed for key '%s': %v", key, err), err).
 		WithContext("operation", "storage.Delete").
 		WithContext("key", key).
 		WithSeverity("warning")
@@ -99,7 +108,7 @@ func StorageDeleteError(key string, err error) *Error {
 
 // StorageListError creates an error for failed List operations
 func StorageListError(prefix string, err error) *Error {
-	return NewError(ErrCodeStorageExecution, "storage", fmt.Sprintf("list operation failed for prefix '%s': %v", prefix, err)).
+	return newStorageError(ErrCodeStorageExecution, fmt.Sprintf("list operation failed for prefix '%s': %v", prefix, err), err).
 		WithContext("operation", "storage.List").
 		WithContext("prefix", prefix).
 		WithSeverity("warning")
@@ -124,7 +133,7 @@ func StorageValidationError(operation, message string) *Error {
 
 // PluginLoadError creates an error for failed plugin loading
 func PluginLoadError(pluginPath string, err error) *Error {
-	return NewError(ErrCodePluginError, "storage", fmt.Sprintf("failed to load plugin from '%s': %v", pluginPath, err)).
+	return newStorageError(ErrCodePluginError, fmt.Sprintf("failed to load plugin from '%s': %v", pluginPath, err), err).
 		WithContext("operation", "storage.LoadPlugin").
 		WithContext("plugin_path", pluginPath).
 		WithSeverity("critical").
@@ -133,7 +142,7 @@ func PluginLoadError(pluginPath string, err error) *Error {
 
 // ConfigValidationError creates an error for invalid storage configuration
 func ConfigValidationError(provider string, err error) *Error {
-	return NewError(ErrCodeStorageValidation, "storage", fmt.Sprintf("configuration validation failed for provider '%s': %v", provider, err)).
+	return newStorageError(ErrCodeStorageValidation, fmt.Sprintf("configuration validation failed for provider '%s': %v", provider, err), err).
 		WithContext("operation", "storage.ValidateConfig").
 		WithContext("provider", provider).
 		WithSeverity("error").
@@ -142,7 +151,7 @@ func ConfigValidationError(provider string, err error) *Error {
 
 // StorageUnavailableError creates an error for unavailable storage backends
 func StorageUnavailableError(provider string, err error) *Error {
-	return NewError(ErrCodeStorageUnavailable, "storage", fmt.Sprintf("storage provider '%s' is unavailable: %v", provider, err)).
+	return newStorageError(ErrCodeStorageUnavailable, fmt.Sprintf("storage provider '%s' is unavailable: %v", provider, err), err).
 		WithContext("operation", "storage.Connect").
 		WithContext("provider", provider).
 		WithSeverity("critical").
@@ -152,44 +161,18 @@ func StorageUnavailableError(provider string, err error) *Error {
 
 // Utility functions for error checking
 
-// IsStorageNotFound checks if an error represents a "key not found" condition
+// IsStorageNotFound checks if an error represents a "key not found" condition.
+// The whole chain is inspected, so a wrapped storage error is recognised.
 func IsStorageNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Check if it's our structured error
-	if orpheusErr, ok := err.(*Error); ok {
-		return orpheusErr.ErrorCode() == ErrCodeStorageNotFound
-	}
-
-	// Check if it's a sentinel error
-	return errors.Is(err, ErrKeyNotFound)
+	return goerrors.HasCode(err, ErrCodeStorageNotFound) || errors.Is(err, ErrKeyNotFound)
 }
 
 // IsStorageValidationError checks if an error is a storage validation error
 func IsStorageValidationError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if orpheusErr, ok := err.(*Error); ok {
-		return orpheusErr.ErrorCode() == ErrCodeStorageValidation
-	}
-
-	return false
+	return goerrors.HasCode(err, ErrCodeStorageValidation)
 }
 
 // IsStorageUnavailable checks if the storage backend is unavailable
 func IsStorageUnavailable(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if orpheusErr, ok := err.(*Error); ok {
-		return orpheusErr.ErrorCode() == ErrCodeStorageUnavailable
-	}
-
-	// Check sentinel error
-	return errors.Is(err, ErrStorageUnavailable)
+	return goerrors.HasCode(err, ErrCodeStorageUnavailable) || errors.Is(err, ErrStorageUnavailable)
 }

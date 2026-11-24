@@ -73,6 +73,7 @@ package orpheus
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode"
@@ -542,7 +543,7 @@ func FuzzValidateSecurePath(f *testing.F) {
 			// implementation never asks -- on Linux it turned the relative path
 			// `\ETC/0`, a directory literally named `\ETC`, into `/etc/0` and
 			// reported a system-directory access that cannot happen. ToSlash is
-			// what isSystemPath itself uses, so the invariant is checked against
+			// what the system-path check itself uses, so the invariant is checked against
 			// the same path the check saw. The corpus keeps that input as a seed.
 			lowerPath := strings.ToLower(filepath.ToSlash(result.NormalizedPath))
 
@@ -606,8 +607,9 @@ func FuzzValidateSecurePath(f *testing.F) {
 		}
 
 		// INVARIANT 5: If path is valid, it must not contain Alternate Data Streams
-		// ADS can hide malicious content on Windows filesystems
-		if result.IsValid {
+		// ADS can hide malicious content on Windows filesystems; elsewhere ':'
+		// is an ordinary filename character, so the invariant is Windows-only.
+		if result.IsValid && runtime.GOOS == "windows" {
 			// Use the same logic as containsAlternateDataStream for consistency,
 			// which means its separator handling too -- see INVARIANT 3.
 			normalized := filepath.ToSlash(result.NormalizedPath)

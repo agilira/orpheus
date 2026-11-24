@@ -1,0 +1,116 @@
+Orpheus v1.10.0 - Each Command Answers for Itself
+=================================================
+
+Release Date: 2026-11-24
+Type: Minor (new field, behaviour changes)
+
+Fixes from a review of the core (dispatch, validation, storage)
+
+ADDED
+-----
+- StorageConfig.AllowUnsignedPlugins. Orpheus has no plugin signature
+  verification, and AllowUnsignedPlugins=false, the default, promised to
+  require signed plugins while loading any. Every plugin is now refused
+  unless the application opts in, with an error naming the field.
+  examples/storage opts in.
+
+FIXED - dispatch
+----------------
+- "app remote add -h" showed remote's help: a subcommand answers its own
+  -h. A command's own -h flag (AddFlag("host", "h", ...)) is its flag,
+  not help, and a flag value "-h" (grep --pattern -h) is a value.
+- --help and --version work anywhere among the global flags, not only
+  first: "app --verbose --help" failed with "help requested".
+- Combined short global flags (-vq deploy) took the command name as a
+  value. A cluster of boolean keys is boolean.
+- A second Run on the same App saw the first run's flags: values,
+  FlagChanged and GlobalFlagChanged. Each Run starts from the defaults,
+  with the config file loaded again (flash-flags FlagSet.Reset), the
+  default command's run with no arguments included.
+- Help showed a flag's current value as its default: after
+  "app --config secret.yaml help" it printed "(default: secret.yaml)".
+  The default is the one registered.
+- App help panicked when every command name was one character long.
+- A nested subcommand's usage line lacked its parent ("Usage: app add"),
+  and "app help remote add" showed remote's help. Both follow the full
+  path; an unknown subcommand in it is an error.
+- The zsh completion script was broken by its own quoting: descriptions
+  were split into words. It passes an array to _describe; "help" is not
+  offered as a help topic, as in the bash and fish scripts.
+- "-h" after a flag whose value is "--" (--pattern -- -h) is help.
+
+FIXED - validation and security
+-------------------------------
+- ValidateStringFlag and ValidatePathFlag shared one cache, so a value
+  checked as a string came back from ValidatePathFlag as a valid path
+  with no path checks (/etc/shadow). The cache key includes the check.
+- Symlinks were not resolved: a link into /etc passed the system-path
+  and denied checks. A path is judged where it leads, through every
+  link along it, a dangling link by its target, a relative target
+  against the real directory of the link.
+- A relative path was compared with the absolute system, allowed and
+  denied entries: run from /etc, "passwd" passed. A relative path, and a
+  relative entry, is made absolute against the working directory before
+  those checks; what the user typed is kept in the result.
+- AllowedPaths and DeniedPaths matched any prefix: AllowedPaths=[/srv/app]
+  accepted /srv/app-secrets, and the default denied /dev and /bin
+  refused /development and /binaries. They match on a path boundary.
+- The default denied /home/*/.ssh and /home/*/.gnupg never matched: the
+  * was literal. Entries with * match segment by segment.
+- A partly encoded traversal (%2e./secret) passed. Percent-encoding is
+  decoded before the traversal check.
+- Readable, writable and executable were guessed from the owner bits;
+  they are asked of the system for the current user (access(2)). A
+  symlink is described by its target, not as a 0777 file.
+- Path flags rejected ordinary names: Dropbox ("DROP"), deleted_items,
+  report--v2, R&D. Paths are checked for shell metacharacters and control
+  characters only; string flags and environment values keep the SQL and
+  comment patterns.
+- A colon in a file name was refused as an alternate data stream on every
+  system; the check runs on Windows only.
+
+FIXED - storage
+---------------
+- A plugin loaded twice ran its constructor again: the cache was looked
+  up by file name and filled by plugin name. It is keyed by the resolved
+  path, and a second file claiming a loaded name is refused.
+- Loading with ValidateChecksums=false panicked.
+- With HOME unset, ~/.orpheus/plugins became <working directory>/~/...,
+  putting the working directory on the default allow-list. The entry is
+  dropped.
+- Cancelling the context during plugin discovery was reported as "no
+  plugin found", or logged as a security limit; the cancellation is
+  returned, also when there is no directory to search.
+- Storage errors dropped their cause (errors.Is found nothing), and the
+  IsStorage* helpers did not see a wrapped error. Both follow the chain,
+  App.StorageError included.
+
+CHANGED
+-------
+- github.com/agilira/flash-flags v1.3.5. A dispatch is back to 3
+  allocations and 144 bytes: flash-flags allocated a map on every Parse,
+  one for the global flags and one for the command's, and no longer
+  does. The benchmark table in the README is measured again: about 10x
+  faster than Cobra and Kingpin, 60x faster than urfave/cli.
+- docs/SECURITY.md: what a path is checked for; docs/STORAGE.md: unsigned
+  plugins.
+
+KNOWN
+-----
+- The resolved form of an AllowedPaths or DeniedPaths entry that is a
+  symlink is remembered for the life of the process. If the link is
+  moved while the program runs, a path reaching the new target through
+  another alias is judged against the old one; the entry as written is
+  still matched, and an allowed entry errs towards refusing.
+- A TrustedEnvPrefixes entry is a prefix: "USER" also trusts USER_EVIL.
+- MaxTotalArgsSize is not enforced.
+
+TESTS
+-----
+- dispatch_regression_test.go, security_regression_test.go,
+  storage_regression_test.go, run with -race -count=10.
+- New and changed lines: 499 of 518 covered. The rest: two Windows-only
+  checks, a loop guard that cannot fire on Unix, and the plugin symbol
+  checks, which run only after a real plugin.Open (tested in a separate
+  host process, outside coverage).
+- Coverage: 87.2% to 90.1%.

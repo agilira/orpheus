@@ -257,6 +257,16 @@ complete -F _`)
 }
 
 // generateZshCompletion generates a zsh completion script.
+//
+// WHY an array: the script used to pass _describe a literal '( ... )' whose
+// entries were themselves single-quoted, so each entry's quote closed the
+// outer one and the descriptions were split into loose words. _describe takes
+// the NAME of an array of "name:description" specs; each spec is now one
+// single-quoted element of that array.
+//
+// Two arrays: commands for the first word, help included, and topics for the
+// word after help, which -- as in the bash and fish scripts -- does not offer
+// help itself, since `app help help` names no command.
 func (app *App) generateZshCompletion() string {
 	var sb strings.Builder
 
@@ -265,6 +275,21 @@ func (app *App) generateZshCompletion() string {
 _%s() {
     local context curcontext="$curcontext" state line
     typeset -A opt_args
+    local -a commands topics
+    topics=(
+`, app.name, app.name))
+
+	for _, cmd := range app.sortedCommands() {
+		sb.WriteString(zshDescribeSpec(cmd.Name(), cmd.Description()))
+	}
+
+	sb.WriteString(`    )
+    commands=(
+        "${topics[@]}"
+`)
+	sb.WriteString(zshDescribeSpec("help", "Show help for commands"))
+
+	sb.WriteString(`    )
 
     _arguments \
         '1: :->commands' \
@@ -272,28 +297,12 @@ _%s() {
 
     case $state in
         commands)
-            _describe 'commands' '(
-`, app.name, app.name))
-
-	// Add command descriptions for zsh
-	for _, cmd := range app.sortedCommands() {
-		sb.WriteString(fmt.Sprintf("                %s:'%s'\n", cmd.Name(), quotePOSIXSingle(cmd.Description())))
-	}
-	sb.WriteString("                help:'Show help for commands'\n")
-
-	sb.WriteString(`            )'
+            _describe 'commands' commands
             ;;
         args)
             case $words[2] in
                 help)
-                    _describe 'commands' '(
-`)
-
-	for _, cmd := range app.sortedCommands() {
-		sb.WriteString(fmt.Sprintf("                        %s:'%s'\n", cmd.Name(), quotePOSIXSingle(cmd.Description())))
-	}
-
-	sb.WriteString(`                    )'
+                    _describe 'commands' topics
                     ;;
                 *)
                     _arguments \
@@ -310,6 +319,14 @@ _`)
 	sb.WriteString(" \"$@\"\n")
 
 	return sb.String()
+}
+
+// zshDescribeSpec renders one element of the array _describe reads: the name
+// with its colons escaped, since the first unescaped colon ends it, then the
+// description, the whole single-quoted.
+func zshDescribeSpec(name, description string) string {
+	spec := strings.ReplaceAll(name, ":", `\:`) + ":" + description
+	return "        '" + quotePOSIXSingle(spec) + "'\n"
 }
 
 // generateFishCompletion generates a fish completion script.

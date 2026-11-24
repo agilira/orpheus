@@ -44,6 +44,8 @@ type App struct {
 	version          string
 	commands         map[string]*Command
 	globalFlags      *flashflags.FlagSet
+	globalDefaults   flagDefaults
+	globalParsed     bool
 	defaultCmd       string
 	logger           Logger
 	auditLogger      AuditLogger
@@ -167,8 +169,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 				Field{Key: "provider", Value: config.Provider},
 				Field{Key: "error", Value: err.Error()})
 		}
-		app.storageErr = StorageValidationError("configure",
-			fmt.Sprintf("failed to load the storage plugin for provider %q: %v", config.Provider, err))
+		app.storageErr = storageConfigureError(
+			fmt.Sprintf("failed to load the storage plugin for provider %q", config.Provider), err)
 		return app
 	}
 
@@ -191,8 +193,8 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 				Field{Key: "provider", Value: config.Provider},
 				Field{Key: "error", Value: err.Error()})
 		}
-		app.storageErr = StorageValidationError("configure",
-			fmt.Sprintf("failed to create the storage instance for provider %q: %v", config.Provider, err))
+		app.storageErr = storageConfigureError(
+			fmt.Sprintf("failed to create the storage instance for provider %q", config.Provider), err)
 		return app
 	}
 
@@ -217,6 +219,17 @@ func (app *App) ConfigureStorage(config *StorageConfig) *App {
 	}
 
 	return app
+}
+
+// storageConfigureError reports a ConfigureStorage failure as the storage
+// validation error it always was, keeping cause in the error chain.
+//
+// WHY: the cause used to be flattened into the message with %v, so
+// errors.Is and errors.As on StorageError could not reach it.
+func storageConfigureError(message string, cause error) *Error {
+	e := StorageValidationError("configure", fmt.Sprintf("%s: %v", message, cause))
+	e.goError.Cause = cause
+	return e
 }
 
 // Logger returns the configured logger.
@@ -270,6 +283,7 @@ func (app *App) AddGlobalFlag(name, shorthand, defaultValue, description string)
 	} else {
 		app.globalFlags.String(name, defaultValue, description)
 	}
+	app.globalDefaults.record(name, defaultValue)
 	return app
 }
 
@@ -280,6 +294,7 @@ func (app *App) AddGlobalBoolFlag(name, shorthand string, defaultValue bool, des
 	} else {
 		app.globalFlags.Bool(name, defaultValue, description)
 	}
+	app.globalDefaults.record(name, defaultValue)
 	return app
 }
 
@@ -290,6 +305,7 @@ func (app *App) AddGlobalIntFlag(name, shorthand string, defaultValue int, descr
 	} else {
 		app.globalFlags.Int(name, defaultValue, description)
 	}
+	app.globalDefaults.record(name, defaultValue)
 	return app
 }
 
@@ -327,19 +343,22 @@ func (app *App) RunContext(ctx context.Context, args []string) error {
 		ctx = context.Background()
 	}
 
-	// Handle empty args
+	// Handle empty args. WHY the reset: the default command reads the global
+	// flags like any other, and without it saw the values of the previous run.
 	if len(args) == 0 {
+		if app.globalParsed {
+			app.globalFlags.Reset()
+		}
 		return app.handleEmptyArgs(ctx)
 	}
 
-	// Handle built-in flags
-	if handled, err := app.handleBuiltinFlags(ctx, args); handled {
-		return err
+	// Parse global flags and get command. A built-in --help or --version
+	// anywhere among the global flags ends the run before anything is parsed.
+	globalArgs, cmdArgs, builtin := app.splitGlobalArgs(args)
+	if builtin != "" {
+		return app.runBuiltin(ctx, builtin)
 	}
-
-	// Parse global flags and get command
-	globalArgs, cmdArgs := app.splitGlobalArgs(args)
-	if err := app.globalFlags.Parse(globalArgs); err != nil {
+	if err := parseFresh(app.globalFlags, &app.globalParsed, globalArgs); err != nil {
 		return ValidationError("", "global flag parsing failed: "+err.Error())
 	}
 
@@ -355,7 +374,13 @@ func (app *App) handleEmptyArgs(ctx context.Context) error {
 	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 }
 
-// handleBuiltinFlags handles built-in flags like --help and --version.
+// builtinHelp and builtinVersion name the built-in flags splitGlobalArgs reports.
+const (
+	builtinHelp    = "help"
+	builtinVersion = "version"
+)
+
+// builtinFlag reports which built-in flag arg is, or "" when it is none.
 //
 // WHY it asks before acting: --help/-h and --version/-v are conveniences the
 // framework offers, not names it owns. An application that registers its own
@@ -363,21 +388,30 @@ func (app *App) handleEmptyArgs(ctx context.Context) error {
 // lose it silently here -- the built-in ran and the command never did. A
 // built-in therefore yields as soon as the application claims its long name or
 // its short key, and the argument goes to the parser like any other.
-func (app *App) handleBuiltinFlags(ctx context.Context, args []string) (handled bool, err error) {
-	firstArg := args[0]
-
-	// Check for global help flag
-	if app.builtinClaims(firstArg, "help", "h") {
-		return true, app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+//
+// The literal switch keeps the common case -- an ordinary flag -- to string
+// comparisons; the registered flags are consulted only for a built-in spelling.
+func (app *App) builtinFlag(arg string) string {
+	switch arg {
+	case "--help", "-h":
+		if app.builtinClaims(arg, builtinHelp, "h") {
+			return builtinHelp
+		}
+	case "--version", "-v":
+		if app.builtinClaims(arg, builtinVersion, "v") {
+			return builtinVersion
+		}
 	}
+	return ""
+}
 
-	// Check for version flag
-	if app.builtinClaims(firstArg, "version", "v") {
+// runBuiltin performs the built-in flag reported by splitGlobalArgs.
+func (app *App) runBuiltin(ctx context.Context, builtin string) error {
+	if builtin == builtinVersion {
 		app.printVersion()
-		return true, nil
+		return nil
 	}
-
-	return false, nil
+	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 }
 
 // builtinClaims reports whether arg is the built-in flag identified by longName
@@ -463,7 +497,7 @@ func (app *App) handleCommandExecution(ctx context.Context, cmdArgs []string) er
 // handleHelpCommand handles the built-in help command.
 func (app *App) handleHelpCommand(ctx context.Context, cmdArgs []string) error {
 	if len(cmdArgs) > 0 {
-		return app.showCommandHelp(cmdArgs[0])
+		return app.showCommandHelp(cmdArgs)
 	}
 	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
 }
@@ -489,8 +523,16 @@ func (app *App) runCommand(parentCtx context.Context, cmdName string, args []str
 	return cmd.Execute(cmdCtx)
 }
 
-// splitGlobalArgs separates global flags from command and command args.
-func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string) {
+// splitGlobalArgs separates global flags from command and command args, and
+// reports a built-in --help or --version written among the global flags.
+//
+// WHY the built-ins are looked for here and not only in args[0]: they used to
+// be recognized only as the first argument, so `app --verbose --help` reached
+// the flag parser, which printed its own help and failed the run, and
+// `app --verbose --version` failed as an unknown flag. Checking each global
+// flag token as it is walked costs one string comparison per token, and a
+// value consumed by a flag is skipped, so `--config -h` is still a value.
+func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string, builtin string) {
 	var i int
 	for i = 0; i < len(args); i++ {
 		arg := args[i]
@@ -508,6 +550,10 @@ func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string) {
 			break
 		}
 
+		if builtin = app.builtinFlag(arg); builtin != "" {
+			return nil, nil, builtin
+		}
+
 		// Process this flag
 		processed, skipNext := app.processSingleFlag(args, i)
 		globalArgs = append(globalArgs, processed...)
@@ -518,7 +564,7 @@ func (app *App) splitGlobalArgs(args []string) (globalArgs, cmdArgs []string) {
 
 	// Everything from the command onwards is command args
 	cmdArgs = args[i:]
-	return globalArgs, cmdArgs
+	return globalArgs, cmdArgs, ""
 }
 
 // processSingleFlag processes a single flag and returns the processed args and whether to skip next arg.
@@ -573,20 +619,29 @@ func (app *App) isValueGlobalFlag(arg string) bool {
 		return false
 	}
 
-	if len(arg) == 2 && arg[0] == '-' {
-		shortKey := string(arg[1])
-		if app.globalFlags != nil {
-			var isValue bool
-			app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
-				if flag.ShortKey() == shortKey && flag.Type() != "bool" {
-					isValue = true
-				}
-			})
-			return isValue
-		}
+	// A short flag or a cluster of them (-abc): only the last key of a
+	// cluster can take a value, as in flash-flags.
+	if len(arg) >= 2 && arg[0] == '-' && !strings.ContainsRune(arg, '=') {
+		found, isBool := app.globalShortKind(arg[len(arg)-1:])
+		return found && !isBool
 	}
 
 	return false
+}
+
+// globalShortKind reports whether a global flag is registered under shortKey
+// and, if so, whether it is boolean.
+func (app *App) globalShortKind(shortKey string) (found, isBool bool) {
+	if app.globalFlags == nil {
+		return false, false
+	}
+	app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
+		if flag.ShortKey() == shortKey {
+			found = true
+			isBool = flag.Type() == "bool"
+		}
+	})
+	return found, isBool
 }
 
 // isBooleanGlobalFlag checks if the given argument is a boolean global flag.
@@ -599,7 +654,26 @@ func (app *App) isBooleanGlobalFlag(arg string) bool {
 		return app.isShortBooleanFlag(arg)
 	}
 
+	if len(arg) > 2 && arg[0] == '-' {
+		return app.isBooleanShortCluster(arg)
+	}
+
 	return false
+}
+
+// isBooleanShortCluster reports whether arg is a cluster of boolean global
+// short flags, such as -xq.
+//
+// WHY: a cluster was not recognized as boolean, so the next argument -- the
+// command name -- was taken as its value and `app -xq deploy` never ran
+// deploy. A cluster whose last key takes a value is left to isValueGlobalFlag.
+func (app *App) isBooleanShortCluster(arg string) bool {
+	for i := 1; i < len(arg); i++ {
+		if found, isBool := app.globalShortKind(arg[i : i+1]); !found || !isBool {
+			return false
+		}
+	}
+	return true
 }
 
 // isLongBooleanFlag checks if a long flag (--flag) is boolean.
@@ -625,20 +699,10 @@ func (app *App) isLongBooleanFlag(arg string) bool {
 // registers its own -h for a host name, treating it as boolean would leave
 // its value behind to be parsed as the command.
 func (app *App) isShortBooleanFlag(arg string) bool {
-	shortKey := string(arg[1])
+	shortKey := arg[1:2]
 
-	// Dynamically check custom global flags using ShortKey() method
-	if app.globalFlags != nil {
-		var isBool, found bool
-		app.globalFlags.VisitAll(func(flag *flashflags.Flag) {
-			if flag.ShortKey() == shortKey {
-				found = true
-				isBool = flag.Type() == "bool"
-			}
-		})
-		if found {
-			return isBool
-		}
+	if found, isBool := app.globalShortKind(shortKey); found {
+		return isBool
 	}
 
 	// Built-in boolean short flags, available while unclaimed
@@ -652,11 +716,22 @@ func (app *App) helpHandler(ctx *Context) error {
 	return nil
 }
 
-// showCommandHelp shows help for a specific command.
-func (app *App) showCommandHelp(cmdName string) error {
-	cmd, exists := app.commands[cmdName]
+// showCommandHelp shows help for the command named by path, such as
+// ["remote", "add"].
+//
+// WHY the whole path: only the first name was read, so `app help remote add`
+// printed the help of remote and the help of add was unreachable this way.
+func (app *App) showCommandHelp(path []string) error {
+	cmd, exists := app.commands[path[0]]
 	if !exists {
-		return NotFoundError(cmdName, "unknown command")
+		return NotFoundError(path[0], "unknown command")
+	}
+	for _, name := range path[1:] {
+		sub := cmd.GetSubcommand(name)
+		if sub == nil {
+			return NotFoundError(cmd.name, fmt.Sprintf("unknown subcommand '%s'", name))
+		}
+		cmd = sub
 	}
 
 	generator := NewHelpGenerator(app)

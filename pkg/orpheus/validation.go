@@ -114,16 +114,13 @@ func NewInputValidator(config ValidationConfig) *InputValidator {
 // This is the primary method for validating file/directory paths provided via CLI flags.
 // It integrates path security validation, file permission analysis, and normalization.
 //
-// Performance (BenchmarkValidatePathFlag): ~140ns and 2 allocations for a
-// cached result, ~8.3us and 33 allocations for a new one, file system access
-// included. Caching is what makes this cheap -- it is on by default, and
-// turning it off costs roughly sixty times the per-call time.
+// Performance (BenchmarkValidatePathFlag): ~220ns and 2 allocations for a
+// cached result; a new one includes file system access. Caching is what makes
+// this cheap -- it is on by default.
 func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInput {
-	// Check cache first if enabled
-	if v.config.EnableCaching {
-		if cached := v.getCachedResult(flagName + ":" + value); cached != nil {
-			return cached
-		}
+	key, cached := v.lookupCache(cacheKindPath, flagName, value)
+	if cached != nil {
+		return cached
 	}
 
 	result := &ValidatedInput{
@@ -136,8 +133,8 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 	}
 
 	// Step 1: Basic input validation
-	if !v.validateBasicInput(value, result) {
-		return v.cacheAndReturn(flagName+":"+value, result)
+	if !v.validateBasicInput(value, pathDangerousPatterns, result) {
+		return v.cacheAndReturn(key, result)
 	}
 
 	// Step 2: Path normalization
@@ -152,7 +149,7 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 			result.IsValid = false
 			result.ValidationErrors = append(result.ValidationErrors, pathResult.Errors...)
 			result.RecommendedAction = "reject_dangerous_path"
-			return v.cacheAndReturn(flagName+":"+value, result)
+			return v.cacheAndReturn(key, result)
 		}
 
 		// Add security warnings if any
@@ -165,7 +162,7 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 		v.analyzeFilePermissions(result)
 	}
 
-	return v.cacheAndReturn(flagName+":"+value, result)
+	return v.cacheAndReturn(key, result)
 }
 
 // ValidateStringFlag validates a general string flag with security checks
@@ -173,14 +170,12 @@ func (v *InputValidator) ValidatePathFlag(flagName, value string) *ValidatedInpu
 // Used for non-path string flags that may still pose security risks through
 // command injection, environment variable injection, or other attack vectors.
 //
-// Performance (BenchmarkValidateStringFlag): ~1.8us and 7 allocations with
+// Performance (BenchmarkValidateStringFlag): ~1.8us and 4 allocations with
 // sanitization enabled, which is the default.
 func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedInput {
-	// Check cache first if enabled
-	if v.config.EnableCaching {
-		if cached := v.getCachedResult(flagName + ":" + value); cached != nil {
-			return cached
-		}
+	key, cached := v.lookupCache(cacheKindString, flagName, value)
+	if cached != nil {
+		return cached
 	}
 
 	result := &ValidatedInput{
@@ -193,8 +188,8 @@ func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedIn
 	}
 
 	// Basic input validation
-	if !v.validateBasicInput(value, result) {
-		return v.cacheAndReturn(flagName+":"+value, result)
+	if !v.validateBasicInput(value, stringDangerousPatterns, result) {
+		return v.cacheAndReturn(key, result)
 	}
 
 	// Check for suspicious patterns
@@ -208,7 +203,7 @@ func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedIn
 		result.SanitizedValue = v.sanitizeString(value)
 	}
 
-	return v.cacheAndReturn(flagName+":"+value, result)
+	return v.cacheAndReturn(key, result)
 }
 
 // ValidateEnvironmentValue validates an environment variable value
@@ -216,7 +211,7 @@ func (v *InputValidator) ValidateStringFlag(flagName, value string) *ValidatedIn
 // Used to validate environment variables that are used as defaults for CLI flags
 // or that influence application behavior. Helps prevent environment poisoning attacks.
 //
-// Performance (BenchmarkValidateEnvironmentValue): ~610ns and 5 allocations.
+// Performance (BenchmarkValidateEnvironmentValue): ~500ns and 2 allocations.
 func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *ValidatedInput {
 	result := &ValidatedInput{
 		OriginalValue:     value,
@@ -235,7 +230,7 @@ func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *Valida
 	}
 
 	// Validate the value itself
-	if !v.validateBasicInput(value, result) {
+	if !v.validateBasicInput(value, stringDangerousPatterns, result) {
 		return result
 	}
 
@@ -255,7 +250,7 @@ func (v *InputValidator) ValidateEnvironmentValue(envName, value string) *Valida
 // This method should be called before performing file operations like read, write, or execute
 // to ensure the operation is safe and the user has appropriate permissions.
 //
-// Performance (BenchmarkValidateFileOperation): ~8.6us and 33 allocations
+// Performance (BenchmarkValidateFileOperation): ~14us and 25 allocations
 // uncached, file system access included. It calls ValidatePathFlag first, so
 // with caching on -- the default -- a repeated path costs what that cache
 // lookup costs.
@@ -318,85 +313,114 @@ func (v *InputValidator) ValidateFileOperation(path, operation string) *Validate
 // INTERNAL VALIDATION METHODS
 // =============================================================================
 
-// validateBasicInput performs basic input validation common to all input types
-func (v *InputValidator) validateBasicInput(value string, result *ValidatedInput) bool {
+// dangerousPattern is a pattern rejected in input, with its upper-case form
+// precomputed for the case-insensitive match.
+type dangerousPattern struct {
+	text  string
+	upper string
+}
+
+func newPatterns(texts ...string) []dangerousPattern {
+	patterns := make([]dangerousPattern, len(texts))
+	for i, t := range texts {
+		patterns[i] = dangerousPattern{text: t, upper: strings.ToUpper(t)}
+	}
+	return patterns
+}
+
+// stringDangerousPatterns guards free-text flags and environment values,
+// which may reach a shell, a query or a web page.
+var stringDangerousPatterns = newPatterns(
+	"$(", "`", ";", "|", "&", "||", "&&",
+	"<script", "</script>", "javascript:",
+	"--", "/*", "*/", "DROP", "DELETE", "INSERT",
+)
+
+// pathDangerousPatterns guards path flags: only what runs a command if the
+// path is ever pasted into a shell (substitution, chaining, pipes).
+// WHY not the string list: SQL keywords, "--" and "&" are ordinary in file
+// names (Dropbox, deleted_items, report--v2, R&D) and rejected real paths.
+var pathDangerousPatterns = newPatterns("$(", "`", ";", "|", "&&")
+
+// validateBasicInput performs basic input validation common to all input
+// types: length, the given dangerous patterns, control characters.
+func (v *InputValidator) validateBasicInput(value string, patterns []dangerousPattern, result *ValidatedInput) bool {
 	// Check length limits
 	if len(value) > v.config.MaxArgLength {
-		result.IsValid = false
-		result.ValidationErrors = append(result.ValidationErrors,
-			"Input exceeds maximum length")
-		result.RecommendedAction = "reject_oversized_input"
-		return false
+		return rejectInput(result, "Input exceeds maximum length", "reject_oversized_input")
 	}
 
-	// Check for dangerous patterns and characters
-	dangerousPatterns := []string{
-		"$(", "`", ";", "|", "&", "||", "&&",
-		"<script", "</script>", "javascript:",
-		"--", "/*", "*/", "DROP", "DELETE", "INSERT",
-	}
-
-	valueUpper := strings.ToUpper(value)
-	for _, pattern := range dangerousPatterns {
-		if strings.Contains(valueUpper, strings.ToUpper(pattern)) {
-			result.IsValid = false
-			result.ValidationErrors = append(result.ValidationErrors,
-				"Input contains dangerous pattern: "+pattern)
-			result.RecommendedAction = "reject_dangerous_input"
-			return false
-		}
+	if pattern, found := findDangerousPattern(value, patterns); found {
+		return rejectInput(result, "Input contains dangerous pattern: "+pattern, "reject_dangerous_input")
 	}
 
 	// Check for null bytes and other control characters
-	for i, r := range value {
+	for _, r := range value {
 		if r < 32 && r != 9 && r != 10 && r != 13 { // Allow tab, LF, CR
-			result.IsValid = false
-			result.ValidationErrors = append(result.ValidationErrors,
-				"Input contains illegal control characters")
-			result.RecommendedAction = "reject_control_chars"
-			return false
-		}
-
-		// Check for null bytes specifically
-		if r == 0 {
-			result.IsValid = false
-			result.ValidationErrors = append(result.ValidationErrors,
-				"Input contains null bytes")
-			result.RecommendedAction = "reject_null_bytes"
-			return false
-		}
-
-		// Prevent excessively long inputs early
-		if i > v.config.MaxArgLength {
-			break
+			return rejectInput(result, "Input contains illegal control characters", "reject_control_chars")
 		}
 	}
 
 	return true
 }
 
+// findDangerousPattern returns the first pattern contained in value,
+// ignoring case.
+func findDangerousPattern(value string, patterns []dangerousPattern) (string, bool) {
+	valueUpper := strings.ToUpper(value)
+	for _, p := range patterns {
+		if strings.Contains(valueUpper, p.upper) {
+			return p.text, true
+		}
+	}
+	return "", false
+}
+
+// rejectInput marks result invalid with one error and action; it returns
+// false so callers can return it directly.
+func rejectInput(result *ValidatedInput, msg, action string) bool {
+	result.IsValid = false
+	result.ValidationErrors = append(result.ValidationErrors, msg)
+	result.RecommendedAction = action
+	return false
+}
+
 // analyzeFilePermissions adds file permission analysis to validation result
 func (v *InputValidator) analyzeFilePermissions(result *ValidatedInput) {
 	// Only analyze if file exists
-	if _, err := os.Stat(result.SanitizedValue); err == nil {
-		perm, err := AnalyzeFilePermissions(result.SanitizedValue, v.config.SecurityConfig)
-		if err != nil {
-			result.SecurityWarnings = append(result.SecurityWarnings,
-				"Could not analyze file permissions: "+err.Error())
-		} else {
-			result.FilePermissions = perm
-
-			// Add security warnings based on permission analysis
-			switch perm.SecurityRisk {
-			case "critical", "high":
-				result.SecurityWarnings = append(result.SecurityWarnings,
-					"File has high security risk: "+perm.SecurityRisk)
-			case "medium":
-				result.SecurityWarnings = append(result.SecurityWarnings,
-					"File has medium security risk")
-			}
-		}
+	info, err := os.Stat(result.SanitizedValue)
+	if err != nil {
+		return
 	}
+
+	perm, err := v.filePermissions(result.SanitizedValue, info)
+	if err != nil {
+		result.SecurityWarnings = append(result.SecurityWarnings,
+			"Could not analyze file permissions: "+err.Error())
+		return
+	}
+	result.FilePermissions = perm
+
+	// Add security warnings based on permission analysis
+	switch perm.SecurityRisk {
+	case "critical", "high":
+		result.SecurityWarnings = append(result.SecurityWarnings,
+			"File has high security risk: "+perm.SecurityRisk)
+	case "medium":
+		result.SecurityWarnings = append(result.SecurityWarnings,
+			"File has medium security risk")
+	}
+}
+
+// filePermissions analyzes a path that exists.
+// WHY: when ValidatePathArgs is on, the path has just passed
+// ValidateSecurePath with this same SecurityConfig; AnalyzeFilePermissions
+// would run it again, symlink resolution included, for the same answer.
+func (v *InputValidator) filePermissions(path string, info os.FileInfo) (*FilePermission, error) {
+	if v.config.ValidatePathArgs {
+		return analyzeFileInfo(path, info), nil
+	}
+	return AnalyzeFilePermissions(path, v.config.SecurityConfig)
 }
 
 // containsSuspiciousPatterns checks for patterns that might indicate injection attempts
@@ -455,6 +479,32 @@ func (v *InputValidator) compilePatterns() {
 	if err != nil {
 		v.envVarPattern = nil
 	}
+}
+
+// Cache key kinds: one per validation method.
+// WHY: ValidatePathFlag and ValidateStringFlag shared "flag:value" keys, so a
+// value validated as a string came back from the cache as a valid path,
+// with no path checks run.
+const (
+	cacheKindPath   = "p\x00"
+	cacheKindString = "s\x00"
+)
+
+// cacheKey builds the cache key for one validation. NUL separates the parts
+// because a flag name may contain ':' and a NUL in value is always rejected.
+func cacheKey(kind, flagName, value string) string {
+	return kind + flagName + "\x00" + value
+}
+
+// lookupCache returns the cache key and the cached result, if any.
+// WHY: with caching off the key is never built; concatenating it costs an
+// allocation the size of flag name plus value on every call.
+func (v *InputValidator) lookupCache(kind, flagName, value string) (string, *ValidatedInput) {
+	if !v.config.EnableCaching {
+		return "", nil
+	}
+	key := cacheKey(kind, flagName, value)
+	return key, v.getCachedResult(key)
 }
 
 // getCachedResult retrieves a cached validation result

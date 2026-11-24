@@ -39,6 +39,9 @@ func managerFor(dirs ...string) *PluginManager {
 	config := DefaultPluginSecurityConfig()
 	config.AllowedPaths = dirs
 	config.ValidateChecksums = false
+	// These tests are about which file is chosen, so they must reach
+	// plugin.Open; without the opt-in every plugin is refused earlier.
+	config.AllowUnsignedPlugins = true
 	return NewPluginManager(&MockLogger{}, config)
 }
 

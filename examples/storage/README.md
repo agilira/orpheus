@@ -95,8 +95,10 @@ For production use, configure strict security policies:
 
 ```go
 config := &orpheus.PluginSecurityConfig{
-    AllowUnsignedPlugins: false,    // Require signed plugins
-    ValidateChecksums:    true,     // Enable integrity checks
+    // Signature verification is not available: with false no plugin
+    // loads at all, so loading one is an explicit opt-in.
+    AllowUnsignedPlugins: true,
+    ValidateChecksums:    true,     // Record the SHA-256 in LoadedPlugin.Hash
     MaxPluginSize:        50 << 20, // 50MB max plugin size
     AllowedPaths: []string{
         "/opt/myapp/plugins",       // Restrict plugin locations

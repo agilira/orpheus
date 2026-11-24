@@ -5,8 +5,8 @@
 // with zero external dependencies, professional-grade security, and a focus on simplicity.
 //
 // Key Features:
-//   - Fast parsing and dispatch thanks to flash-flags: about 5x faster than
-//     cobra and kingpin, 37x faster than urfave/cli, at 3 allocations per
+//   - Fast parsing and dispatch thanks to flash-flags: about 10x faster than
+//     cobra and kingpin, 60x faster than urfave/cli, at 3 allocations per
 //     dispatch (see ./benchmarks)
 //   - Zero external dependencies
 //   - Enterprise-grade security with comprehensive input validation

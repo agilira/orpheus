@@ -44,7 +44,7 @@ func TestLoneDashReachesTheHandler(t *testing.T) {
 func TestLoneDashIsNotAGlobalFlag(t *testing.T) {
 	app := New("prog")
 	app.AddCommand(NewCommand("add", "Add").SetHandler(func(*Context) error { return nil }))
-	global, rest := app.splitGlobalArgs([]string{"-", "add"})
+	global, rest, _ := app.splitGlobalArgs([]string{"-", "add"})
 	if len(global) != 0 || strings.Join(rest, " ") != "- add" {
 		t.Fatalf("global %q, rest %q", global, rest)
 	}

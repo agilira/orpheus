@@ -36,6 +36,11 @@ type PluginManager struct {
 	// registry holds loaded plugins by name for fast lookup
 	registry map[string]*LoadedPlugin
 
+	// byPath indexes the same plugins by resolved file path.
+	// WHY: the file name says nothing about Name(), so only the resolved
+	// path tells that a file was already opened and its constructor run.
+	byPath map[string]*LoadedPlugin
+
 	// pluginPaths contains search paths for plugin discovery
 	pluginPaths []string
 
@@ -47,6 +52,11 @@ type PluginManager struct {
 
 	// securityConfig controls plugin loading security checks
 	securityConfig *PluginSecurityConfig
+
+	// restrictPaths is true when AllowedPaths was configured.
+	// WHY: entries can be dropped on expansion ("~" without a home); an
+	// allow-list emptied that way must allow nothing, not everything.
+	restrictPaths bool
 }
 
 // LoadedPlugin represents a successfully loaded and validated storage plugin
@@ -69,10 +79,14 @@ type LoadedPlugin struct {
 
 // PluginSecurityConfig controls security validation during plugin loading
 type PluginSecurityConfig struct {
-	// AllowUnsignedPlugins controls whether to load plugins without signatures
+	// AllowUnsignedPlugins controls whether to load plugins without signatures.
+	// Signature verification is not implemented, so with false (the default)
+	// every plugin is refused; set it to true to load plugins at all.
 	AllowUnsignedPlugins bool `json:"allow_unsigned_plugins" yaml:"allow_unsigned_plugins"`
 
-	// ValidateChecksums controls whether to verify plugin file integrity
+	// ValidateChecksums controls whether the SHA-256 of the plugin file is
+	// computed and recorded in LoadedPlugin.Hash. There is no expected
+	// checksum to compare it with, so it records integrity, it does not enforce it.
 	ValidateChecksums bool `json:"validate_checksums" yaml:"validate_checksums"`
 
 	// MaxPluginSize is the maximum allowed plugin file size in bytes
@@ -123,95 +137,121 @@ func NewPluginManager(logger Logger, securityConfig *PluginSecurityConfig) *Plug
 
 	return &PluginManager{
 		registry:       make(map[string]*LoadedPlugin),
+		byPath:         make(map[string]*LoadedPlugin),
 		pluginPaths:    expandPluginPaths(configCopy.AllowedPaths),
 		logger:         logger,
 		securityConfig: configCopy,
+		restrictPaths:  len(configCopy.AllowedPaths) > 0,
 	}
 }
 
 // LoadPlugin loads and validates a storage plugin from the specified path.
 // Performs comprehensive security checks and caches the loaded plugin.
+// A path that resolves to a plugin already loaded returns the cached record.
 func (pm *PluginManager) LoadPlugin(ctx context.Context, pluginPath string) (*LoadedPlugin, error) {
+	return pm.loadPlugin(ctx, pluginPath, pm.securityConfig.AllowUnsignedPlugins)
+}
+
+// errSignatureUnavailable explains why every plugin is refused by default.
+var errSignatureUnavailable = fmt.Errorf("plugin signature verification is not available; " +
+	"set AllowUnsignedPlugins to true to load unsigned plugins")
+
+func (pm *PluginManager) loadPlugin(ctx context.Context, pluginPath string, allowUnsigned bool) (*LoadedPlugin, error) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
 
-	// Validate plugin path security
 	if err := pm.validatePluginPath(pluginPath); err != nil {
 		return nil, PluginLoadError(pluginPath, err)
 	}
-
-	// Check if already loaded
-	pluginName := filepath.Base(pluginPath)
-	if existing, exists := pm.registry[pluginName]; exists {
-		pm.logDebug(ctx, "Plugin already loaded", "plugin", pluginName, "path", existing.Path)
-		return existing, nil
-	}
-
-	// Validate file security; from here on only the resolved path is used,
-	// so the file hashed and opened is the one that was checked.
+	// From here on only the resolved path is used, so the file hashed and
+	// opened is the one that was checked.
 	realPath, err := pm.resolvePluginFile(pluginPath)
 	if err != nil {
 		return nil, PluginLoadError(pluginPath, err)
 	}
-
-	// Calculate file hash for integrity
+	if existing, ok := pm.byPath[realPath]; ok {
+		pm.logDebug(ctx, "Plugin already loaded", "plugin", existing.Plugin.Name(), "path", existing.Path)
+		return existing, nil
+	}
+	// WHY: no signature check exists, so "unsigned not allowed" must mean
+	// nothing is loaded rather than everything.
+	if !allowUnsigned {
+		return nil, PluginLoadError(pluginPath, errSignatureUnavailable)
+	}
 	hash, err := pm.calculateFileHash(realPath)
 	if err != nil {
 		return nil, PluginLoadError(pluginPath, fmt.Errorf("failed to calculate file hash: %w", err))
 	}
-
-	// Load the plugin
-	p, err := plugin.Open(realPath)
+	storagePlugin, err := pm.openPlugin(realPath)
 	if err != nil {
-		return nil, PluginLoadError(pluginPath, fmt.Errorf("failed to open plugin: %w", err))
-	}
-
-	// Validate required symbols
-	if err := pm.validatePluginSymbols(p); err != nil {
 		return nil, PluginLoadError(pluginPath, err)
 	}
-
-	// Get the storage plugin constructor
-	symbol, err := p.Lookup("NewStoragePlugin")
+	loaded, err := pm.register(storagePlugin, pluginPath, realPath, hash)
 	if err != nil {
-		return nil, PluginLoadError(pluginPath, fmt.Errorf("NewStoragePlugin symbol not found: %w", err))
+		return nil, PluginLoadError(pluginPath, err)
 	}
-
-	// Validate the constructor signature
-	constructor, ok := symbol.(func() StoragePlugin)
-	if !ok {
-		return nil, PluginLoadError(pluginPath, fmt.Errorf("NewStoragePlugin has invalid signature"))
-	}
-
-	// Create the plugin instance
-	storagePlugin := constructor()
-	if storagePlugin == nil {
-		return nil, PluginLoadError(pluginPath, fmt.Errorf("NewStoragePlugin returned nil"))
-	}
-
-	// Create loaded plugin record
-	loadedPlugin := &LoadedPlugin{
-		Plugin:   storagePlugin,
-		Path:     pluginPath,
-		Hash:     hash,
-		LoadTime: time.Now(),
-		Metadata: map[string]interface{}{
-			"name":        storagePlugin.Name(),
-			"version":     storagePlugin.Version(),
-			"description": storagePlugin.Description(),
-		},
-	}
-
-	// Cache in registry
-	pm.registry[storagePlugin.Name()] = loadedPlugin
-
 	pm.logInfo(ctx, "Plugin loaded successfully",
 		"plugin", storagePlugin.Name(),
 		"version", storagePlugin.Version(),
 		"path", pluginPath,
-		"hash", hash[:12]+"...")
+		"hash", shortHash(hash))
+	return loaded, nil
+}
 
-	return loadedPlugin, nil
+// openPlugin opens the file, checks its symbols and runs its constructor.
+func (pm *PluginManager) openPlugin(realPath string) (StoragePlugin, error) {
+	p, err := plugin.Open(realPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open plugin: %w", err)
+	}
+	if err := pm.validatePluginSymbols(p); err != nil {
+		return nil, err
+	}
+	symbol, err := p.Lookup("NewStoragePlugin")
+	if err != nil {
+		return nil, fmt.Errorf("NewStoragePlugin symbol not found: %w", err)
+	}
+	constructor, ok := symbol.(func() StoragePlugin)
+	if !ok {
+		return nil, fmt.Errorf("NewStoragePlugin has invalid signature")
+	}
+	storagePlugin := constructor()
+	if storagePlugin == nil {
+		return nil, fmt.Errorf("NewStoragePlugin returned nil")
+	}
+	return storagePlugin, nil
+}
+
+// register records a new plugin under its name and resolved path. A second
+// file claiming a loaded name is refused: replacing the entry would leave
+// the first file's path pointing at a record no longer in the registry.
+func (pm *PluginManager) register(sp StoragePlugin, pluginPath, realPath, hash string) (*LoadedPlugin, error) {
+	name := sp.Name()
+	if existing, ok := pm.registry[name]; ok {
+		return nil, fmt.Errorf("plugin name %q already loaded from %s", name, existing.Path)
+	}
+	loaded := &LoadedPlugin{
+		Plugin:   sp,
+		Path:     pluginPath,
+		Hash:     hash,
+		LoadTime: time.Now(),
+		Metadata: map[string]interface{}{
+			"name":        name,
+			"version":     sp.Version(),
+			"description": sp.Description(),
+		},
+	}
+	pm.registry[name] = loaded
+	pm.byPath[realPath] = loaded
+	return loaded, nil
+}
+
+// shortHash abbreviates a hash for logs; it is empty when checksums are off.
+func shortHash(hash string) string {
+	if len(hash) <= 12 {
+		return hash
+	}
+	return hash[:12] + "..."
 }
 
 // GetPlugin retrieves a loaded plugin by name
@@ -232,10 +272,20 @@ func (pm *PluginManager) GetPlugin(name string) (*LoadedPlugin, error) {
 
 // DiscoverPlugins searches for plugins in configured paths and returns found plugin files
 func (pm *PluginManager) DiscoverPlugins(ctx context.Context) ([]string, error) {
+	// WHY: with no search path the loop below never runs, and a cancelled
+	// search would come back as "nothing found".
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var plugins []string
 
 	for _, searchPath := range pm.pluginPaths {
 		found, err := pm.discoverPluginsInPath(ctx, searchPath)
+		// WHY: a cancelled search finds nothing, which callers would
+		// otherwise report as "no plugin found".
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		if err != nil {
 			pm.logWarn(ctx, "Failed to discover plugins in path", "path", searchPath, "error", err)
 			continue
@@ -250,8 +300,9 @@ func (pm *PluginManager) DiscoverPlugins(ctx context.Context) ([]string, error) 
 // LoadPluginsFromConfig loads storage plugins based on storage configuration
 func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *StorageConfig) (*LoadedPlugin, error) {
 	// If specific plugin path is provided, use it directly
+	allowUnsigned := pm.securityConfig.AllowUnsignedPlugins || config.AllowUnsignedPlugins
 	if config.PluginPath != "" {
-		return pm.LoadPlugin(ctx, config.PluginPath)
+		return pm.loadPlugin(ctx, config.PluginPath, allowUnsigned)
 	}
 
 	// An empty name would match any plugin found on the search paths.
@@ -269,7 +320,7 @@ func (pm *PluginManager) LoadPluginsFromConfig(ctx context.Context, config *Stor
 	for _, pluginPath := range discovered {
 		// Exact match only: a substring would let "mem" load memory-evil.so.
 		if strings.TrimSuffix(filepath.Base(pluginPath), ".so") == config.Provider {
-			return pm.LoadPlugin(ctx, pluginPath)
+			return pm.loadPlugin(ctx, pluginPath, allowUnsigned)
 		}
 	}
 
@@ -308,6 +359,11 @@ func (pm *PluginManager) UnloadPlugin(ctx context.Context, name string) error {
 	}
 
 	delete(pm.registry, name)
+	for path, loaded := range pm.byPath {
+		if loaded == plugin {
+			delete(pm.byPath, path)
+		}
+	}
 
 	pm.logInfo(ctx, "Plugin unloaded", "plugin", name, "path", plugin.Path)
 	return nil
@@ -328,7 +384,7 @@ func (pm *PluginManager) validatePluginPath(pluginPath string) error {
 	}
 
 	// Validate against allowed paths if configured
-	if len(pm.pluginPaths) > 0 {
+	if pm.restrictPaths {
 		for _, allowedPath := range pm.pluginPaths {
 			if isWithinDir(allowedPath, pluginPath) {
 				return nil
@@ -362,7 +418,7 @@ func (pm *PluginManager) resolvePluginFile(pluginPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("plugin path cannot be resolved: %w", err)
 	}
-	if len(pm.pluginPaths) == 0 {
+	if !pm.restrictPaths {
 		return realPath, nil
 	}
 	for _, dir := range pm.pluginPaths {
@@ -485,12 +541,15 @@ func (pm *PluginManager) discoverPluginsInPath(ctx context.Context, searchPath s
 		return nil
 	})
 
+	// WHY: the caller's cancellation is not a security limit; it is
+	// returned as is so that callers can tell it from "nothing found".
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
 	if err != nil && !os.IsNotExist(err) {
 		// Check if it's one of our security-related errors
 		if strings.Contains(err.Error(), "timeout exceeded") ||
-			strings.Contains(err.Error(), "too many files") ||
-			err == context.DeadlineExceeded ||
-			err == context.Canceled {
+			strings.Contains(err.Error(), "too many files") {
 			pm.logWarn(ctx, "Plugin discovery terminated due to security limits",
 				"path", searchPath,
 				"error", err.Error(),
@@ -512,24 +571,30 @@ func (pm *PluginManager) discoverPluginsInPath(ctx context.Context, searchPath s
 
 func expandPluginPaths(paths []string) []string {
 	var expanded []string
-
 	for _, path := range paths {
-		// Handle ~ expansion
-		if strings.HasPrefix(path, "~/") {
-			if homeDir, err := os.UserHomeDir(); err == nil {
-				path = filepath.Join(homeDir, path[2:])
-			}
-		}
-
-		// Convert to absolute path
-		if absPath, err := filepath.Abs(path); err == nil {
-			expanded = append(expanded, absPath)
-		} else {
-			expanded = append(expanded, path)
+		if p, ok := expandPluginPath(path); ok {
+			expanded = append(expanded, p)
 		}
 	}
-
 	return expanded
+}
+
+// expandPluginPath expands "~/" and makes the path absolute. A "~" entry is
+// dropped when the home directory is unknown.
+// WHY: left as is, "~/.orpheus/plugins" is relative, and Abs would turn it
+// into a directory under the working directory, allowed implicitly.
+func expandPluginPath(path string) (string, bool) {
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil || home == "" {
+			return "", false
+		}
+		path = filepath.Join(home, strings.TrimPrefix(path, "~"))
+	}
+	if absPath, err := filepath.Abs(path); err == nil {
+		return absPath, true
+	}
+	return path, true
 }
 
 func (pm *PluginManager) logDebug(ctx context.Context, message string, args ...interface{}) {

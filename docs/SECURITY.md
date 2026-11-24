@@ -27,7 +27,26 @@ Orpheus has undergone comprehensive security testing and implements professional
 - Dangerous pattern detection in `containsSuspiciousPatterns()`
 - Path normalization and validation in `ValidatePathFlag()`
 - Cross-platform protection (Unix and Windows)
-- URL encoding attack prevention
+- URL encoding attack prevention: percent-escapes are decoded (up to three
+  layers, mixed forms such as `%2e.` included) before looking for `..`
+- Symlinks are resolved: the system-path, allowed and denied checks run again
+  on the path the link really leads to (or on its deepest existing parent,
+  for a file not created yet)
+- `AllowedPaths` and `DeniedPaths` match whole path segments: `/srv/app`
+  covers `/srv/app/x` but not `/srv/app-secrets`; `*` matches one segment
+  (`/home/*/.ssh`)
+- Relative paths are judged by where they point: they are made absolute
+  against the working directory before the system-path, allowed and denied
+  checks, so `passwd` typed in `/etc` is rejected like `/etc/passwd`.
+  Relative `AllowedPaths` and `DeniedPaths` entries are resolved against the
+  working directory at validation time too (`AllowedPaths: []string{"data"}`
+  means `data` under the directory the program runs in)
+
+Path flags reject only what would run a command if the path reached a shell:
+`$(`, backtick, `;`, `|` and `&&`, plus control characters and NUL. File names
+such as `Dropbox`, `deleted_items.txt`, `report--v2.pdf` or `R&D` are accepted;
+the SQL and comment patterns below apply to string flags and environment
+values, not to paths.
 
 ### 2. Command Injection Prevention
 
@@ -60,7 +79,7 @@ Orpheus has undergone comprehensive security testing and implements professional
 "/* malicious comment */"
 ```
 
-**Implementation**:
+**Implementation** (string flags and environment values, not paths):
 - SQL keyword and pattern detection
 - Comment pattern blocking (`--`, `/*`, `*/`)
 - Quote and escape sequence validation
@@ -87,6 +106,9 @@ Orpheus has undergone comprehensive security testing and implements professional
 **Threat**: Unauthorized file system access and manipulation
 
 **File Permission Analysis**:
+- Readable, writable and executable are answered for the current user by
+  `access(2)` on Unix (group and other bits, root, ACLs and read-only mounts
+  included); a symlink is described by its target
 - Executable file detection and analysis
 - Write permission security assessment
 - Read-only file validation
@@ -114,7 +136,8 @@ Orpheus has undergone comprehensive security testing and implements professional
 - `CON`, `PRN`, `AUX`, `NUL`
 - `COM1-9`, `LPT1-9`
 
-**Windows Alternate Data Streams (ADS) Protection**:
+**Windows Alternate Data Streams (ADS) Protection** (on Windows only; elsewhere
+`:` is an ordinary filename character):
 - Detection of `:` in filenames
 - ADS attack prevention
 - Windows path validation
@@ -194,22 +217,20 @@ go test -run=XXX -bench='Validate|Analyze' -benchtime=2s -count=3 ./pkg/orpheus/
 
 | Operation | Time | Allocations |
 |---|---|---|
-| `ValidateSecurePath`, path accepted | ~1.4 µs | 8 |
-| `ValidateSecurePath`, path rejected | ~160 ns | 2 |
-| `ValidatePathFlag`, cached | ~140 ns | 2 |
-| `ValidatePathFlag`, uncached | ~8.3 µs | 33 |
-| `ValidateStringFlag` | ~1.8 µs | 7 |
-| `ValidateEnvironmentValue` | ~610 ns | 5 |
-| `ValidateFileOperation`, uncached | ~8.6 µs | 33 |
-| `AnalyzeFilePermissions` | ~3.7 µs | 14 |
+| `ValidateSecurePath`, path rejected | ~350 ns | 2 |
+| `ValidatePathFlag`, cached | ~220 ns | 2 |
+| `ValidateStringFlag` | ~1.8 µs | 4 |
+| `ValidateEnvironmentValue` | ~500 ns | 2 |
 
-Two things worth reading off that table. Rejecting a path is roughly nine times
-cheaper than accepting one, because a violation returns at the layer that found
+Two things worth knowing. Rejecting a path is much cheaper than accepting
+one, because a violation returns at the layer that found
 it while a valid path is carried through every remaining check — an attack costs
 less to refuse than ordinary input costs to admit. And the path validators are
 dominated by file system access, so the result cache is what makes them cheap:
-it is enabled by default, and disabling it costs about sixty times the per-call
-time.
+it is enabled by default. An accepted path costs one `lstat` per path component, because symlinks
+are resolved before the path is judged, a relative path also reads the
+working directory once, and `AnalyzeFilePermissions` adds
+`access(2)` calls for the current user's real permissions.
 
 The cache holds `CacheSize` entries, 1000 by default, each a `ValidatedInput`
 holding the original and sanitized strings.

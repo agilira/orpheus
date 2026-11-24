@@ -52,7 +52,10 @@ func main() {
 		// The demo ships its plugin under ./plugins, which the secure defaults
 		// never allow implicitly, so the directory is opted in explicitly.
 		AllowedPluginPaths: []string{filepath.Dir(pluginPath)},
-		Config:             map[string]interface{}{},
+		// Orpheus cannot verify plugin signatures, so loading this unsigned
+		// demo plugin is an explicit opt-in.
+		AllowUnsignedPlugins: true,
+		Config:               map[string]interface{}{},
 	}
 
 	fmt.Printf("Configuring storage with plugin: %s\n", config.PluginPath)

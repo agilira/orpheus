@@ -117,7 +117,10 @@ func newStorageTestApp(logger *TestLogger, pluginPath string) *orpheus.App {
 		Provider:           "memory",
 		PluginPath:         pluginPath,
 		AllowedPluginPaths: []string{filepath.Dir(pluginPath)},
-		Config:             map[string]interface{}{},
+		// Orpheus cannot verify plugin signatures, so loading this unsigned
+		// demo plugin is an explicit opt-in.
+		AllowUnsignedPlugins: true,
+		Config:               map[string]interface{}{},
 	}
 	app.ConfigureStorage(config)
 

@@ -5,11 +5,11 @@
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/agilira/orpheus/actions/workflows/codeql.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/codeql.yml)
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-87.2%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-90.1%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Orpheus is a high-performance CLI framework designed to be super simple and **~5x faster** than Cobra and Kingpin (**37x** than urfave/cli), with `golang.org/x/term` as its only dependency outside the AGILira stack. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, secure, fast CLI apps similar to git.
+Orpheus is a high-performance CLI framework designed to be super simple and **~10x faster** than Cobra and Kingpin (**60x** than urfave/cli), with `golang.org/x/term` as its only dependency outside the AGILira stack. Built on [FlashFlags](https://github.com/agilira/flash-flags) & [go-errors](https://github.com/agilira/go-errors), Orpheus provides a simple interface to create modern, secure, fast CLI apps similar to git.
 
 ## Live Demo
 
@@ -50,16 +50,16 @@ Benchmark results comparing CLI framework performance:
 
 ```
 AMD Ryzen 5 7520U with Radeon Graphics
-BenchmarkOrpheus-8              5095986    701.8 ns/op      144 B/op     3 allocs/op
-BenchmarkStdFlag-8              4412460    811.7 ns/op      945 B/op    13 allocs/op
-BenchmarkKingpin-8              1000000   3417   ns/op     1988 B/op    40 allocs/op
-BenchmarkCobra-8                 879213   3808   ns/op     1752 B/op    29 allocs/op
-BenchmarkUrfaveCli-8             135944  26145   ns/op     8538 B/op   318 allocs/op
+BenchmarkOrpheus-8              2157322    609.2 ns/op      144 B/op     3 allocs/op
+BenchmarkStdFlag-8              1256107   1354   ns/op      945 B/op    13 allocs/op
+BenchmarkCobra-8                 307682   5826   ns/op     1680 B/op    24 allocs/op
+BenchmarkKingpin-8               170030   5957   ns/op     1988 B/op    40 allocs/op
+BenchmarkUrfaveCli-8              40959  38584   ns/op     8444 B/op   305 allocs/op
 
-BenchmarkOrpheusSignalSetup-8     58814  41082   ns/op      512 B/op    12 allocs/op
+BenchmarkOrpheusSignalSetup-8     28756  42041   ns/op      513 B/op    12 allocs/op
 ```
 
-**Scenario**: command parsing with 3 flags (string, bool, string) and handler execution — about 5x faster than Kingpin and Cobra, 37x faster than urfave/cli, at 3 allocations per dispatch.
+**Scenario**: command parsing with 3 flags (string, bool, string) and handler execution — about 10x faster than Kingpin and Cobra, 60x faster than urfave/cli, at 3 allocations per dispatch.
 
 `BenchmarkOrpheusSignalSetup` is measured separately and is not part of that comparison: it calls `Run`, which installs a signal-aware context, and registering OS signal handlers costs roughly 40µs. A CLI pays that once per process, and none of the other frameworks do it at all, so the comparison above uses `RunContext` — the same parse and dispatch without the setup.
 
