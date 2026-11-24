@@ -5,7 +5,6 @@
 [![CI/CD Pipeline](https://github.com/agilira/orpheus/actions/workflows/ci.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/agilira/orpheus/actions/workflows/codeql.yml/badge.svg)](https://github.com/agilira/orpheus/actions/workflows/codeql.yml)
 [![Security](https://img.shields.io/badge/security-gosec-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/agilira/orpheus?v=2)](https://goreportcard.com/report/github.com/agilira/orpheus)
 [![Coverage](https://img.shields.io/badge/coverage-87.2%25-brightgreen.svg)](https://github.com/agilira/orpheus/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11276/badge)](https://www.bestpractices.dev/projects/11276)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
@@ -16,15 +15,9 @@ Orpheus is a high-performance CLI framework designed to be super simple and **~5
 
 <div align="center">
 
-See Orpheus in action - building a Git-like CLI with subcommands in minutes:
+A Git-like CLI with nested subcommands, flags and errors that carry hints ([examples/gitlike](examples/gitlike)):
 
-<picture>
-  <source media="(max-width: 768px)" srcset="https://asciinema.org/a/ohd8JUmxPPyCcKBH.svg" width="100%">
-  <source media="(max-width: 1024px)" srcset="https://asciinema.org/a/ohd8JUmxPPyCcKBH.svg" width="90%">
-  <img src="https://asciinema.org/a/ohd8JUmxPPyCcKBH.svg" alt="Orpheus CLI Demo" style="max-width: 100%; height: auto;" width="800">
-</picture>
-
-*[Click to view interactive demo](https://asciinema.org/a/ohd8JUmxPPyCcKBH)*
+<img src="assets/demo.gif" alt="Orpheus demo: help, nested subcommands, flags, error messages with usage hints" width="100%">
 
 </div>
 
