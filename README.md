@@ -34,10 +34,10 @@ A Git-like CLI with nested subcommands, flags and errors that carry hints ([exam
 - **Type-safe Errors**: Structured error handling with exit codes
 - **Hot-swappable Commands**: Dynamic command registration and modification
 - **Production Observability**: Zero-overhead logging, audit trails, tracing, and metrics interfaces
-- **Metrics Backends**: Optional `pkg/metrics` with Prometheus and JSON Lines implementations of `MetricsCollector`, standard library only
-- **Terminal Output**: Optional `pkg/term` with TTY and `NO_COLOR` detection, colors, aligned tables and a delayed spinner; every printed string is sanitized against escape-sequence injection
+- **Metrics Backends**: Optional `metrics` package with Prometheus and JSON Lines implementations of `MetricsCollector`, standard library only
+- **Terminal Output**: Optional `term` package with TTY and `NO_COLOR` detection, colors, aligned tables and a delayed spinner; every printed string is sanitized against escape-sequence injection
 - **Interactive Prompts**: Built-in `Prompter` interface for user input (text, secrets, menus, confirmations) with terminal-safe masking
-- **Secure by Design**: [Red-team tested](./pkg/orpheus/security_test.go) and [fuzz tested](./pkg/orpheus/orpheus_fuzz_test.go)
+- **Secure by Design**: [Red-team tested](./security/security_test.go) and [fuzz tested](./security/fuzz_test.go)
 - **Security Validation**: Including input sanitization, path traversal protection, and various security controls
 
 ## Compatibility and Support
@@ -221,7 +221,8 @@ import (
     "log"
     "os"
 
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
+    "github.com/agilira/orpheus/storage"
 )
 
 func main() {
@@ -230,7 +231,7 @@ func main() {
         SetVersion("1.0.0")
     
     // Configure storage (supports SQLite, Redis, File, and custom providers)
-    config := &orpheus.StorageConfig{
+    config := &storage.Config{
         Provider: "sqlite",
         Config: map[string]interface{}{
             "path": "./myapp.db",
@@ -249,25 +250,25 @@ func main() {
 }
 
 func setCommand(ctx *orpheus.Context) error {
-    storage := ctx.Storage()
-    if storage == nil {
-        return orpheus.ErrStorageNotConfigured
+    store := ctx.Storage()
+    if store == nil {
+        return storage.ErrNotConfigured
     }
     
     key := ctx.GetArg(0)
     value := ctx.GetArg(1)
     
-    return storage.Set(ctx, key, []byte(value))
+    return store.Set(ctx, key, []byte(value))
 }
 
 func getCommand(ctx *orpheus.Context) error {
-    storage, err := ctx.RequireStorage()
+    store, err := ctx.RequireStorage()
     if err != nil {
         return err
     }
     
     key := ctx.GetArg(0)
-    value, err := storage.Get(ctx, key)
+    value, err := store.Get(ctx, key)
     if err != nil {
         return err
     }
@@ -294,7 +295,7 @@ Orpheus includes a built-in `Prompter` interface for interactive CLI workflows -
 app := orpheus.New("myapp").
     SetDescription("Interactive CLI").
     SetVersion("1.0.0").
-    SetPrompter(orpheus.NewTerminalPrompter())
+    SetPrompter(prompt.NewTerminal())
 
 app.Command("setup", "Run first-time setup", func(ctx *orpheus.Context) error {
     p, err := ctx.RequirePrompter()
@@ -357,8 +358,8 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
     // Structured logging
     if logger := ctx.Logger(); logger != nil {
         logger.Info(ctx.Context(), "Deployment started",
-            orpheus.StringField("environment", "production"),
-            orpheus.StringField("version", "v1.2.3"),
+            observe.StringField("environment", "production"),
+            observe.StringField("version", "v1.2.3"),
         )
     }
 
@@ -386,10 +387,10 @@ app.Command("deploy", "Deploy application", func(ctx *orpheus.Context) error {
 })
 ```
 
-Ready-made collectors live in the optional `pkg/metrics` package (standard library only):
+Ready-made collectors live in the optional `metrics` package (standard library only):
 
 ```go
-import "github.com/agilira/orpheus/pkg/metrics"
+import "github.com/agilira/orpheus/metrics"
 
 prom := metrics.NewPrometheus(metrics.Options{})
 app.SetMetricsCollector(prom)
@@ -422,6 +423,23 @@ Yet Orpheus understood something profound: true power lay not in complexity, but
 
 Like the mythological master whose music could open the gates of Hades itself, Orpheus, transforms the cacophony of human commands into pure, executable harmony, making the complex dance between intention and fulfillment beautifully simple.
 
+### Packages
+
+| Import path | Contents |
+|---|---|
+| `github.com/agilira/orpheus` | App, Command, Context, help, completion |
+| `github.com/agilira/orpheus/errs` | Error, the `ErrCode*` codes and their constructors |
+| `github.com/agilira/orpheus/observe` | Logger, AuditLogger, Tracer, MetricsCollector, Field |
+| `github.com/agilira/orpheus/storage` | Storage, Config, the plugin manager, storage errors |
+| `github.com/agilira/orpheus/security` | InputValidator, ValidateSecurePath, file permission checks |
+| `github.com/agilira/orpheus/prompt` | Prompter and its terminal implementation |
+| `github.com/agilira/orpheus/metrics` | Prometheus and JSON Lines collectors |
+| `github.com/agilira/orpheus/term` | Terminal capabilities, colors, tables, spinner |
+
+The v1.11.0 import paths `pkg/orpheus`, `pkg/metrics` and `pkg/term` keep
+the same API: their names are aliases of the types above, so code using
+them compiles unchanged and values pass freely between the two paths.
+
 ### Core Components
 
 - **App**: Main application container with command routing
@@ -436,10 +454,10 @@ Like the mythological master whose music could open the gates of Hades itself, O
 
 ```bash
 # Run all tests
-go test ./pkg/orpheus -v
+go test ./... -v
 
 # Run with coverage
-go test ./pkg/orpheus -v -cover
+go test ./... -cover
 ```
 
 ## Examples

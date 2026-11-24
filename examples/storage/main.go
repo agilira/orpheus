@@ -8,26 +8,28 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/storage"
 )
 
 type Logger struct{}
 
-func (l *Logger) Trace(ctx context.Context, msg string, fields ...orpheus.Field) {}
+func (l *Logger) Trace(ctx context.Context, msg string, fields ...observe.Field) {}
 
-func (l *Logger) Debug(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *Logger) Debug(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[DEBUG] %s\n", msg)
 }
 
-func (l *Logger) Info(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *Logger) Info(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[INFO] %s\n", msg)
 }
 
-func (l *Logger) Warn(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *Logger) Warn(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[WARN] %s\n", msg)
 }
 
-func (l *Logger) Error(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *Logger) Error(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[ERROR] %s", msg)
 	for _, field := range fields {
 		fmt.Printf(" %s=%v", field.Key, field.Value)
@@ -35,7 +37,7 @@ func (l *Logger) Error(ctx context.Context, msg string, fields ...orpheus.Field)
 	fmt.Println()
 }
 
-func (l *Logger) WithFields(fields ...orpheus.Field) orpheus.Logger { return l }
+func (l *Logger) WithFields(fields ...observe.Field) observe.Logger { return l }
 
 func main() {
 	app := orpheus.New("storage-demo").
@@ -46,7 +48,7 @@ func main() {
 	// Convert relative path to absolute path
 	pluginPath, _ := filepath.Abs("./plugins/memory.so")
 
-	config := &orpheus.StorageConfig{
+	config := &storage.Config{
 		Provider:   "memory",
 		PluginPath: pluginPath,
 		// The demo ships its plugin under ./plugins, which the secure defaults

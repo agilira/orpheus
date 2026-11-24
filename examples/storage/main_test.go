@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/storage"
 )
 
 // TestLogger captures log output for testing
@@ -17,23 +19,23 @@ type TestLogger struct {
 	logs []string
 }
 
-func (l *TestLogger) Trace(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *TestLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {
 	l.logs = append(l.logs, "[TRACE] "+msg)
 }
 
-func (l *TestLogger) Debug(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *TestLogger) Debug(ctx context.Context, msg string, fields ...observe.Field) {
 	l.logs = append(l.logs, "[DEBUG] "+msg)
 }
 
-func (l *TestLogger) Info(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *TestLogger) Info(ctx context.Context, msg string, fields ...observe.Field) {
 	l.logs = append(l.logs, "[INFO] "+msg)
 }
 
-func (l *TestLogger) Warn(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *TestLogger) Warn(ctx context.Context, msg string, fields ...observe.Field) {
 	l.logs = append(l.logs, "[WARN] "+msg)
 }
 
-func (l *TestLogger) Error(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *TestLogger) Error(ctx context.Context, msg string, fields ...observe.Field) {
 	msg_with_fields := "[ERROR] " + msg
 	for _, field := range fields {
 		msg_with_fields += " " + field.Key + "=" + field.Value.(string)
@@ -41,7 +43,7 @@ func (l *TestLogger) Error(ctx context.Context, msg string, fields ...orpheus.Fi
 	l.logs = append(l.logs, msg_with_fields)
 }
 
-func (l *TestLogger) WithFields(fields ...orpheus.Field) orpheus.Logger { return l }
+func (l *TestLogger) WithFields(fields ...observe.Field) observe.Logger { return l }
 
 func (l *TestLogger) GetLogs() []string { return l.logs }
 
@@ -113,7 +115,7 @@ func newStorageTestApp(logger *TestLogger, pluginPath string) *orpheus.App {
 		SetVersion("1.0.0").
 		SetLogger(logger)
 
-	config := &orpheus.StorageConfig{
+	config := &storage.Config{
 		Provider:           "memory",
 		PluginPath:         pluginPath,
 		AllowedPluginPaths: []string{filepath.Dir(pluginPath)},

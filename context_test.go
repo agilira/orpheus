@@ -338,7 +338,7 @@ func TestContextStorageOperations(t *testing.T) {
 	})
 }
 
-// mockStorage implements orpheus.Storage interface for testing
+// mockStorage implements storage.Storage interface for testing
 type mockStorage struct {
 	data   map[string][]byte
 	closed bool

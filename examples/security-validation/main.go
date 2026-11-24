@@ -22,7 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/security"
 )
 
 func main() {
@@ -71,7 +73,7 @@ func main() {
 	app.AddCommand(benchmarkCmd)
 
 	if err := app.Run(os.Args[1:]); err != nil {
-		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+		if orpheusErr, ok := err.(*errs.Error); ok {
 			fmt.Fprintf(os.Stderr, "Security Validation Error: %s\n", orpheusErr.UserMessage())
 
 			// Show security context in verbose mode
@@ -95,7 +97,7 @@ func handleValidate(ctx *orpheus.Context) error {
 	verbose := ctx.GetGlobalFlagBool("verbose")
 
 	if input == "" {
-		return orpheus.ValidationError("validate", "input parameter is required").
+		return errs.ValidationError("validate", "input parameter is required").
 			WithUserMessage("Please provide input string using the --input flag").
 			WithContext("usage", "security-validation validate --input 'your-input'").
 			WithContext("supported_types", []string{"general", "path", "command"})
@@ -107,10 +109,10 @@ func handleValidate(ctx *orpheus.Context) error {
 	fmt.Printf("Length: %d characters\n", len(input))
 
 	// Create validator with security configuration
-	validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+	validator := security.NewInputValidator(security.DefaultValidationConfig())
 
 	// Perform validation based on input type
-	var result *orpheus.ValidatedInput
+	var result *security.ValidatedInput
 	switch inputType {
 	case "path":
 		result = validator.ValidatePathFlag("user-input", input)
@@ -139,7 +141,7 @@ func handleValidate(ctx *orpheus.Context) error {
 			}
 		}
 
-		return orpheus.ValidationError("validate", "Input validation failed: "+result.ValidationErrors[0])
+		return errs.ValidationError("validate", "Input validation failed: "+result.ValidationErrors[0])
 	}
 
 	fmt.Printf("Input validation passed\n")
@@ -168,7 +170,7 @@ func handleScan(ctx *orpheus.Context) error {
 	verbose := ctx.GetGlobalFlagBool("verbose")
 
 	if path == "" {
-		return orpheus.ValidationError("scan", "path parameter is required").
+		return errs.ValidationError("scan", "path parameter is required").
 			WithUserMessage("Please specify a file path using the --path flag").
 			WithContext("usage", "security-validation scan --path /path/to/file").
 			WithContext("supported_operations", []string{"read", "write", "execute"})
@@ -178,7 +180,7 @@ func handleScan(ctx *orpheus.Context) error {
 	fmt.Printf("Target Path: %s\n", path)
 	fmt.Printf("Operation: %s\n", operation)
 
-	validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+	validator := security.NewInputValidator(security.DefaultValidationConfig())
 
 	// Validate path security
 	pathResult := validator.ValidatePathFlag("scan-path", path)
@@ -204,7 +206,7 @@ func handleScan(ctx *orpheus.Context) error {
 			}
 		}
 
-		return orpheus.ValidationError("scan", "Path validation failed")
+		return errs.ValidationError("scan", "Path validation failed")
 	}
 
 	fmt.Printf("Path security validation passed\n")
@@ -254,7 +256,7 @@ func handleDemo(ctx *orpheus.Context) error {
 	interactive := ctx.GetFlagBool("interactive")
 
 	if attackType == "" {
-		return orpheus.ValidationError("demo", "attack-type parameter is required").
+		return errs.ValidationError("demo", "attack-type parameter is required").
 			WithUserMessage("Please specify an attack type to demonstrate").
 			WithContext("usage", "security-validation demo --attack-type path-traversal").
 			WithContext("supported_types", []string{
@@ -265,7 +267,7 @@ func handleDemo(ctx *orpheus.Context) error {
 	fmt.Printf("Security Attack Demonstration\n")
 	fmt.Printf("Attack Type: %s\n", attackType)
 
-	validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+	validator := security.NewInputValidator(security.DefaultValidationConfig())
 
 	// Define attack payloads
 	attacks := map[string][]string{
@@ -290,7 +292,7 @@ func handleDemo(ctx *orpheus.Context) error {
 
 	payloads, exists := attacks[attackType]
 	if !exists {
-		return orpheus.ValidationError("demo", "unsupported attack type").
+		return errs.ValidationError("demo", "unsupported attack type").
 			WithUserMessage(fmt.Sprintf("Attack type '%s' is not supported", attackType))
 	}
 
@@ -300,7 +302,7 @@ func handleDemo(ctx *orpheus.Context) error {
 	for i, payload := range payloads {
 		fmt.Printf("Test %d: ", i+1)
 
-		var result *orpheus.ValidatedInput
+		var result *security.ValidatedInput
 		switch attackType {
 		case "path-traversal":
 			result = validator.ValidatePathFlag("demo-input", payload)
@@ -351,7 +353,7 @@ func handleBenchmark(ctx *orpheus.Context) error {
 	fmt.Printf("Iterations: %d\n", iterations)
 	fmt.Printf("Test Type: %s\n", testType)
 
-	validator := orpheus.NewInputValidator(orpheus.DefaultValidationConfig())
+	validator := security.NewInputValidator(security.DefaultValidationConfig())
 
 	// Test data
 	testPath := "config/app.yml"
@@ -402,7 +404,7 @@ func handleBenchmark(ctx *orpheus.Context) error {
 	fmt.Printf("Performance Summary:\n")
 	fmt.Printf("  - All security validations completed successfully\n")
 	fmt.Printf("  - Figures above are this machine's, for these inputs; run\n")
-	fmt.Printf("    `go test -bench=Validate ./pkg/orpheus/` for the full set\n")
+	fmt.Printf("    `go test -bench=Validate ./security/` for the full set\n")
 
 	return nil
 }

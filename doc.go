@@ -16,7 +16,7 @@
 //   - Thread-safe concurrent operations with race condition protection
 //   - Memory leak prevention and cache management
 //   - Security validation measured rather than estimated: see the Benchmark
-//     functions in pkg/orpheus/security_bench_test.go
+//     functions in security/bench_test.go
 //   - Simple, intuitive API for rapid development
 //   - Built-in auto-completion support
 //   - Memory-efficient command dispatch
@@ -74,45 +74,61 @@
 //	defer cancel()
 //	app.RunContext(runCtx, os.Args[1:])
 //
+// Packages:
+//
+// This package holds App, Command and Context. The rest of the framework
+// lives in packages under github.com/agilira/orpheus/:
+//   - errs: the Error type, the ErrCode* codes and their constructors
+//   - observe: Logger, AuditLogger, Tracer, MetricsCollector, Field
+//   - storage: the Storage interface, Config, the plugin manager
+//   - security: InputValidator, ValidateSecurePath, file permission checks
+//   - prompt: the Prompter interface and its terminal implementation
+//   - metrics, term: optional collectors and terminal output helpers
+//
+// The v1.11.0 import paths pkg/orpheus, pkg/metrics and pkg/term keep
+// working: their names are aliases of the same types.
+//
 // Storage Usage:
 //
-//	// Load storage plugin with security validation
-//	manager := orpheus.NewPluginManager("./plugins", orpheus.DefaultSecurityConfig())
-//	storage, err := manager.LoadStoragePlugin("memory.so", config)
+//	// Load the storage plugin with security validation
+//	app.ConfigureStorage(&storage.Config{Provider: "memory", PluginPath: "./plugins/memory.so"})
+//	if err := app.StorageError(); err != nil {
+//		return err
+//	}
+//
+//	// Inside a handler
+//	store, err := ctx.RequireStorage()
 //	if err != nil {
 //		return err
 //	}
-//	defer storage.Close()
-//
-//	// Perform secure storage operations
-//	ctx := context.Background()
-//	if err := storage.Set(ctx, "key", []byte("value")); err != nil {
+//	if err := store.Set(ctx.Context(), "key", []byte("value")); err != nil {
 //		return err
 //	}
-//
-//	data, err := storage.Get(ctx, "key")
+//	data, err := store.Get(ctx.Context(), "key")
 //	if err != nil {
 //		return err
 //	}
 //
 //	// List keys with prefix filtering
-//	keys, err := storage.List(ctx, "user:")
+//	keys, err := store.List(ctx.Context(), "user:")
 //	if err != nil {
 //		return err
 //	}
 //
 // Security Validation:
 //
-//	// Automatic path validation with security controls
+//	validator := security.NewInputValidator(security.DefaultValidationConfig())
+//
+//	// Path validation with security controls
 //	if r := validator.ValidatePathFlag("config", path); !r.IsValid {
 //		// Path traversal or malicious path detected
-//		return orpheus.ValidationError("cmd", strings.Join(r.ValidationErrors, "; "))
+//		return errs.ValidationError("cmd", strings.Join(r.ValidationErrors, "; "))
 //	}
 //
 //	// String input validation with injection prevention
 //	if r := validator.ValidateStringFlag("name", userInput); !r.IsValid {
 //		// Command injection or malicious input detected
-//		return orpheus.ValidationError("cmd", strings.Join(r.ValidationErrors, "; "))
+//		return errs.ValidationError("cmd", strings.Join(r.ValidationErrors, "; "))
 //	}
 //
 // For more examples, advanced usage, and security guidelines, see:

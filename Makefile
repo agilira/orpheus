@@ -121,15 +121,23 @@ bench: ## Run benchmarks
 
 fuzz: ## Run fuzz tests (30 seconds)
 	@echo "$(YELLOW)Running fuzz tests...$(NC)"
-	go test ./pkg/orpheus -fuzz=. -fuzztime=30s
+	@for pkg in $$(go list ./...); do \
+		for f in $$(go test -list '^Fuzz' $$pkg | grep '^Fuzz'); do \
+			go test $$pkg -run '^$$' -fuzz="^$$f$$" -fuzztime=30s || exit 1; \
+		done; \
+	done
 
 fuzz-long: ## Run extended fuzz tests (5 minutes)
 	@echo "$(YELLOW)Running extended fuzz tests...$(NC)"
-	go test ./pkg/orpheus -fuzz=. -fuzztime=5m
+	@for pkg in $$(go list ./...); do \
+		for f in $$(go test -list '^Fuzz' $$pkg | grep '^Fuzz'); do \
+			go test $$pkg -run '^$$' -fuzz="^$$f$$" -fuzztime=5m || exit 1; \
+		done; \
+	done
 
 fuzz-path: ## Run path validation fuzz test (30 seconds)
 	@echo "$(YELLOW)Running path validation fuzz test...$(NC)"
-	go test ./pkg/orpheus -fuzz=FuzzValidateSecurePath -fuzztime=30s
+	go test ./security -fuzz=FuzzValidateSecurePath -fuzztime=30s
 
 ci: ## Run CI checks (used in GitHub Actions)
 	@echo "$(BLUE)Running CI checks...$(NC)"

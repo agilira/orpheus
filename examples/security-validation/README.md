@@ -205,13 +205,13 @@ Input Validation Benchmark:
 Performance Summary:
   - All security validations completed successfully
   - Figures above are this machine's, for these inputs; run
-    `go test -bench=Validate ./pkg/orpheus/` for the full set
+    `go test -bench=Validate ./security/` for the full set
 ```
 
 The loop validates the same path every iteration, so all but the first call
 are served from the validation cache. That is what 0.17 µs measures. A path
 seen for the first time costs about 8 µs, because it reaches the file system;
-`BenchmarkValidatePathFlag` in `pkg/orpheus` reports both.
+`BenchmarkValidatePathFlag` in `security` reports both.
 
 ## Testing
 

@@ -9,7 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 // createTestApp creates a test app with the same configuration as main
@@ -164,7 +165,7 @@ func TestSecurityValidationCommands(t *testing.T) {
 
 			// Additional validation for security-specific errors
 			if err != nil {
-				if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+				if orpheusErr, ok := err.(*errs.Error); ok {
 					// Validate that security errors have appropriate error codes
 					if orpheusErr.IsValidationError() {
 						// Security validation errors should be validation errors
@@ -254,7 +255,7 @@ func TestSecurityValidationErrorHandling(t *testing.T) {
 			}
 
 			// Validate error type and content
-			if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+			if orpheusErr, ok := err.(*errs.Error); ok {
 				if !orpheusErr.IsValidationError() && !orpheusErr.IsNotFoundError() {
 					t.Errorf("Expected validation or not found error for '%s', got: %s", tt.name, orpheusErr.ErrorCode())
 				}

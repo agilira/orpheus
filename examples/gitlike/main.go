@@ -27,7 +27,8 @@ import (
 	"strings"
 
 	goerrors "github.com/agilira/go-errors"
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 // Data structures for persistence
@@ -145,7 +146,7 @@ func main() {
 	// Run the application with enhanced error handling
 	if err := app.Run(os.Args[1:]); err != nil {
 		printError(err)
-		if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+		if orpheusErr, ok := err.(*errs.Error); ok {
 			os.Exit(orpheusErr.ExitCode())
 		}
 		os.Exit(1)
@@ -165,7 +166,7 @@ func printError(err error) {
 		return
 	}
 	prefix := "gitlike"
-	var orpheusErr *orpheus.Error
+	var orpheusErr *errs.Error
 	if errors.As(err, &orpheusErr) && orpheusErr.Command != "" {
 		prefix += " " + orpheusErr.Command
 	}
@@ -316,7 +317,7 @@ func setupBranchCommand(app *orpheus.App) {
 // Remote command handlers
 func handleRemoteAdd(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 2 {
-		return orpheus.ValidationError("remote add", "requires name and URL: remote add <name> <url>").
+		return errs.ValidationError("remote add", "requires name and URL: remote add <name> <url>").
 			WithUserMessage("Please provide both remote name and URL").
 			WithContext("usage", "gitlike remote add <name> <url>").
 			WithContext("example", "gitlike remote add origin https://github.com/user/repo.git")
@@ -326,7 +327,7 @@ func handleRemoteAdd(ctx *orpheus.Context) error {
 	url := ctx.GetArg(1)
 
 	if _, exists := gitData.Remotes[name]; exists {
-		return orpheus.ValidationError("remote add", fmt.Sprintf("remote '%s' already exists", name)).
+		return errs.ValidationError("remote add", fmt.Sprintf("remote '%s' already exists", name)).
 			WithUserMessage(fmt.Sprintf("A remote named '%s' is already configured", name)).
 			WithContext("existing_url", gitData.Remotes[name]).
 			WithContext("attempted_url", url).
@@ -348,7 +349,7 @@ func handleRemoteAdd(ctx *orpheus.Context) error {
 
 	// Save changes with enhanced error handling
 	if err := saveConfig(); err != nil {
-		return orpheus.ExecutionError("remote add", fmt.Sprintf("failed to save configuration: %v", err)).
+		return errs.ExecutionError("remote add", fmt.Sprintf("failed to save configuration: %v", err)).
 			WithUserMessage("Unable to save the remote configuration to disk").
 			WithContext("remote_name", name).
 			WithContext("remote_url", url).
@@ -362,13 +363,13 @@ func handleRemoteAdd(ctx *orpheus.Context) error {
 
 func handleRemoteRemove(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 1 {
-		return orpheus.ValidationError("remote remove", "requires remote name: remote remove <name>")
+		return errs.ValidationError("remote remove", "requires remote name: remote remove <name>")
 	}
 
 	name := ctx.GetArg(0)
 
 	if _, exists := gitData.Remotes[name]; !exists {
-		return orpheus.ValidationError("remote remove", fmt.Sprintf("remote '%s' does not exist", name))
+		return errs.ValidationError("remote remove", fmt.Sprintf("remote '%s' does not exist", name))
 	}
 
 	delete(gitData.Remotes, name)
@@ -404,14 +405,14 @@ func handleRemoteList(ctx *orpheus.Context) error {
 
 func handleRemoteShow(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 1 {
-		return orpheus.ValidationError("remote show", "requires remote name: remote show <name>")
+		return errs.ValidationError("remote show", "requires remote name: remote show <name>")
 	}
 
 	name := ctx.GetArg(0)
 
 	url, exists := gitData.Remotes[name]
 	if !exists {
-		return orpheus.ValidationError("remote show", fmt.Sprintf("remote '%s' does not exist", name))
+		return errs.ValidationError("remote show", fmt.Sprintf("remote '%s' does not exist", name))
 	}
 
 	fmt.Printf("* remote %s\n", name)
@@ -428,7 +429,7 @@ func handleRemoteShow(ctx *orpheus.Context) error {
 // Config command handlers
 func handleConfigSet(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 2 {
-		return orpheus.ValidationError("config set", "requires key and value: config set <key> <value>")
+		return errs.ValidationError("config set", "requires key and value: config set <key> <value>")
 	}
 
 	key := ctx.GetArg(0)
@@ -457,14 +458,14 @@ func handleConfigSet(ctx *orpheus.Context) error {
 
 func handleConfigGet(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 1 {
-		return orpheus.ValidationError("config get", "requires configuration key: config get <key>")
+		return errs.ValidationError("config get", "requires configuration key: config get <key>")
 	}
 
 	key := ctx.GetArg(0)
 
 	value, exists := gitData.Config[key]
 	if !exists {
-		return orpheus.NotFoundError("config get", fmt.Sprintf("configuration key '%s' not found", key)).
+		return errs.NotFoundError("config get", fmt.Sprintf("configuration key '%s' not found", key)).
 			WithUserMessage(fmt.Sprintf("No configuration found for '%s'", key)).
 			WithContext("requested_key", key).
 			WithContext("total_config_keys", len(gitData.Config)).
@@ -496,13 +497,13 @@ func handleConfigList(ctx *orpheus.Context) error {
 
 func handleConfigUnset(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 1 {
-		return orpheus.ValidationError("config unset", "requires configuration key: config unset <key>")
+		return errs.ValidationError("config unset", "requires configuration key: config unset <key>")
 	}
 
 	key := ctx.GetArg(0)
 
 	if _, exists := gitData.Config[key]; !exists {
-		return orpheus.ValidationError("config unset", fmt.Sprintf("configuration key '%s' not found", key))
+		return errs.ValidationError("config unset", fmt.Sprintf("configuration key '%s' not found", key))
 	}
 
 	delete(gitData.Config, key)
@@ -576,14 +577,14 @@ func handleBranchList(ctx *orpheus.Context) error {
 
 func handleBranchCreate(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 1 {
-		return orpheus.ValidationError("branch create", "requires branch name: branch create <name>")
+		return errs.ValidationError("branch create", "requires branch name: branch create <name>")
 	}
 
 	name := ctx.GetArg(0)
 	from := ctx.GetFlagString("from")
 
 	if strings.Contains(name, " ") {
-		return orpheus.ValidationError("branch create", "branch name cannot contain spaces")
+		return errs.ValidationError("branch create", "branch name cannot contain spaces")
 	}
 
 	fmt.Printf("Created branch '%s' from '%s'\n", name, from)
@@ -592,14 +593,14 @@ func handleBranchCreate(ctx *orpheus.Context) error {
 
 func handleBranchDelete(ctx *orpheus.Context) error {
 	if ctx.ArgCount() < 1 {
-		return orpheus.ValidationError("branch delete", "requires branch name: branch delete <name>")
+		return errs.ValidationError("branch delete", "requires branch name: branch delete <name>")
 	}
 
 	name := ctx.GetArg(0)
 	force := ctx.GetFlagBool("force")
 
 	if name == "main" && !force {
-		return orpheus.ValidationError("branch delete", "cannot delete main branch without --force").
+		return errs.ValidationError("branch delete", "cannot delete main branch without --force").
 			WithUserMessage("Deleting the main branch is a dangerous operation").
 			WithContext("branch_name", name).
 			WithContext("is_main_branch", true).

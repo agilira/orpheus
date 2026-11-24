@@ -16,7 +16,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/errs"
 )
 
 func TestMemoryStorage_NewMemoryStorage(t *testing.T) {
@@ -162,7 +162,7 @@ func TestMemoryStorage_ErrorHandling(t *testing.T) {
 		}
 
 		// Verify it's an Orpheus error with appropriate error message
-		orpheusErr, ok := err.(*orpheus.OrpheusError)
+		orpheusErr, ok := err.(*errs.Error)
 		if !ok {
 			t.Error("Error should be an OrpheusError")
 		} else {
@@ -762,7 +762,7 @@ func TestNewStoragePlugin(t *testing.T) {
 		t.Error("NewStoragePlugin should not return nil")
 	}
 
-	// Plugin already implements orpheus.StoragePlugin (guaranteed by return type)
+	// Plugin already implements storage.Plugin (guaranteed by return type)
 
 	// Verify it's the correct type
 	memPlugin, ok := plugin.(*MemoryStoragePlugin)

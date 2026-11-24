@@ -11,7 +11,7 @@ convertCmd := orpheus.NewCommand("convert", "Convert a file").
     AddFlag("output", "o", "", "Output file path").
     SetHandler(func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 1 {
-            return orpheus.ValidationError("convert", "input file required").
+            return errs.ValidationError("convert", "input file required").
                 WithUserMessage("Please provide the input file path")
         }
         input := ctx.GetArg(0) // "input.txt", not "--output"
@@ -40,7 +40,7 @@ import (
     "os/signal"
     "syscall"
 
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
 )
 
 func main() {
@@ -113,7 +113,8 @@ import (
     "log"
     "os"
     
-    "github.com/agilira/orpheus/pkg/orpheus"
+    "github.com/agilira/orpheus"
+    "github.com/agilira/orpheus/errs"
 )
 
 func main() {
@@ -129,7 +130,7 @@ func main() {
     // Add subcommands using the native API
     remoteCmd.Subcommand("add", "Add a new remote", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 2 {
-            return orpheus.ValidationError("remote add", "requires name and URL").
+            return errs.ValidationError("remote add", "requires name and URL").
                 WithUserMessage("Please provide both remote name and URL").
                 WithContext("expected_args", []string{"name", "url"}).
                 WithContext("provided_args", ctx.ArgCount())
@@ -141,7 +142,7 @@ func main() {
 
     remoteCmd.Subcommand("remove", "Remove a remote", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 1 {
-            return orpheus.ValidationError("remote remove", "requires remote name").
+            return errs.ValidationError("remote remove", "requires remote name").
                 WithUserMessage("Please specify the name of the remote to remove")
         }
         name := ctx.GetArg(0)
@@ -158,7 +159,7 @@ func main() {
     // Config subcommands with persistence
     configCmd.Subcommand("set", "Set configuration value", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 2 {
-            return orpheus.ValidationError("config set", "requires key and value")
+            return errs.ValidationError("config set", "requires key and value")
         }
         key, value := ctx.GetArg(0), ctx.GetArg(1)
         // Save to config file
@@ -168,7 +169,7 @@ func main() {
 
     configCmd.Subcommand("get", "Get configuration value", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 1 {
-            return orpheus.ValidationError("config get", "requires key")
+            return errs.ValidationError("config get", "requires key")
         }
         key := ctx.GetArg(0)
         // Load from config file
@@ -192,7 +193,7 @@ func main() {
 
     branchCmd.Subcommand("create", "Create branch", func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 1 {
-            return orpheus.ValidationError("branch create", "requires branch name")
+            return errs.ValidationError("branch create", "requires branch name")
         }
         name := ctx.GetArg(0)
         fmt.Printf("Created branch '%s'\n", name)
@@ -211,7 +212,7 @@ func main() {
     // ./gitlike remote --help    (shows subcommands automatically)
     
     if err := app.Run(os.Args[1:]); err != nil {
-        if orpheusErr, ok := err.(*orpheus.OrpheusError); ok {
+        if orpheusErr, ok := err.(*errs.Error); ok {
             log.Printf("Error: %s", orpheusErr.UserMessage())
             if orpheusErr.IsRetryable() {
                 log.Printf("This operation can be retried")
@@ -259,7 +260,7 @@ func main() {
     // Remove with aliases
     removeHandler := func(ctx *orpheus.Context) error {
         if ctx.ArgCount() < 1 {
-            return orpheus.ValidationError("remote remove", "requires name")
+            return errs.ValidationError("remote remove", "requires name")
         }
         fmt.Printf("Removed remote: %s\n", ctx.GetArg(0))
         return nil

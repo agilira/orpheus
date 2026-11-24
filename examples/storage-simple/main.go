@@ -6,27 +6,29 @@ import (
 	"os"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/storage"
 )
 
 // SimpleLogger implements Logger interface for demo
 type SimpleLogger struct{}
 
-func (l *SimpleLogger) Trace(ctx context.Context, msg string, fields ...orpheus.Field) {}
+func (l *SimpleLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {}
 
-func (l *SimpleLogger) Debug(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Debug(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[DEBUG] %s\n", msg)
 }
 
-func (l *SimpleLogger) Info(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Info(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[INFO] %s\n", msg)
 }
 
-func (l *SimpleLogger) Warn(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Warn(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[WARN] %s\n", msg)
 }
 
-func (l *SimpleLogger) Error(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Error(ctx context.Context, msg string, fields ...observe.Field) {
 	fmt.Printf("[ERROR] %s", msg)
 	for _, field := range fields {
 		fmt.Printf(" %s=%v", field.Key, field.Value)
@@ -34,18 +36,18 @@ func (l *SimpleLogger) Error(ctx context.Context, msg string, fields ...orpheus.
 	fmt.Println()
 }
 
-func (l *SimpleLogger) WithFields(fields ...orpheus.Field) orpheus.Logger { return l }
+func (l *SimpleLogger) WithFields(fields ...observe.Field) observe.Logger { return l }
 
 // SimpleMemoryStorage provides a basic in-memory storage implementation
 type SimpleMemoryStorage struct {
 	data  map[string][]byte
-	stats *orpheus.StorageStats
+	stats *storage.Stats
 }
 
 func NewSimpleMemoryStorage() *SimpleMemoryStorage {
 	return &SimpleMemoryStorage{
 		data: make(map[string][]byte),
-		stats: &orpheus.StorageStats{
+		stats: &storage.Stats{
 			Provider: "simple-memory",
 		},
 	}
@@ -60,14 +62,14 @@ func (s *SimpleMemoryStorage) Get(ctx context.Context, key string) ([]byte, erro
 		return result, nil
 	}
 	s.stats.GetErrors++
-	return nil, orpheus.ErrKeyNotFound
+	return nil, storage.ErrKeyNotFound
 }
 
 func (s *SimpleMemoryStorage) Set(ctx context.Context, key string, value []byte) error {
 	s.stats.SetOperations++
 	if key == "" {
 		s.stats.SetErrors++
-		return orpheus.ErrKeyEmpty
+		return storage.ErrKeyEmpty
 	}
 
 	// Create a copy to prevent external modification
@@ -113,7 +115,7 @@ func (s *SimpleMemoryStorage) Health(ctx context.Context) error {
 	return nil // Always healthy for simple in-memory storage
 }
 
-func (s *SimpleMemoryStorage) Stats(ctx context.Context) (*orpheus.StorageStats, error) {
+func (s *SimpleMemoryStorage) Stats(ctx context.Context) (*storage.Stats, error) {
 	// Return a copy to prevent external modification
 	stats := *s.stats
 	return &stats, nil

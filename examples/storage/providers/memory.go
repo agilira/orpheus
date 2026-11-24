@@ -15,21 +15,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/errs"
+	"github.com/agilira/orpheus/storage"
 )
 
 // MemoryStorage provides in-memory key-value storage
 type MemoryStorage struct {
 	data  map[string][]byte
 	mutex sync.RWMutex
-	stats *orpheus.StorageStats
+	stats *storage.Stats
 }
 
 // NewMemoryStorage creates a new memory storage instance
-func NewMemoryStorage(config map[string]interface{}) (orpheus.Storage, error) {
+func NewMemoryStorage(config map[string]interface{}) (storage.Storage, error) {
 	return &MemoryStorage{
 		data: make(map[string][]byte),
-		stats: &orpheus.StorageStats{
+		stats: &storage.Stats{
 			TotalKeys: 0,
 			TotalSize: 0,
 		},
@@ -53,7 +54,7 @@ func (m *MemoryStorage) Get(ctx context.Context, key string) ([]byte, error) {
 		m.mutex.Lock()
 		m.stats.GetErrors++
 		m.mutex.Unlock()
-		return nil, orpheus.NewError("NOT_FOUND", "key", fmt.Sprintf("Key '%s' not found", key))
+		return nil, errs.NewError("NOT_FOUND", "key", fmt.Sprintf("Key '%s' not found", key))
 	}
 
 	// Create a copy to prevent external modification
@@ -149,19 +150,19 @@ func (m *MemoryStorage) Health(ctx context.Context) error {
 	defer m.mutex.RUnlock()
 
 	if m.data == nil {
-		return orpheus.NewError("HEALTH", "storage", "Memory storage data map is nil")
+		return errs.NewError("HEALTH", "storage", "Memory storage data map is nil")
 	}
 
 	return nil
 }
 
 // Stats returns operational statistics
-func (m *MemoryStorage) Stats(ctx context.Context) (*orpheus.StorageStats, error) {
+func (m *MemoryStorage) Stats(ctx context.Context) (*storage.Stats, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	// Return a copy to prevent external modification
-	return &orpheus.StorageStats{
+	return &storage.Stats{
 		TotalKeys:        m.stats.TotalKeys,
 		TotalSize:        m.stats.TotalSize,
 		GetOperations:    m.stats.GetOperations,
@@ -218,11 +219,11 @@ func (p *MemoryStoragePlugin) DefaultConfig() map[string]interface{} {
 }
 
 // New creates a new storage instance
-func (p *MemoryStoragePlugin) New(config map[string]interface{}) (orpheus.Storage, error) {
+func (p *MemoryStoragePlugin) New(config map[string]interface{}) (storage.Storage, error) {
 	return NewMemoryStorage(config)
 }
 
 // NewStoragePlugin creates a new memory storage plugin (required for plugin loading)
-func NewStoragePlugin() orpheus.StoragePlugin {
+func NewStoragePlugin() storage.Plugin {
 	return &MemoryStoragePlugin{}
 }

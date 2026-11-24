@@ -33,17 +33,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus/observe"
+	"github.com/agilira/orpheus/storage"
 )
 
 type nop struct{}
 
-func (nop) Trace(context.Context, string, ...orpheus.Field) {}
-func (nop) Debug(context.Context, string, ...orpheus.Field) {}
-func (nop) Info(context.Context, string, ...orpheus.Field)  {}
-func (nop) Warn(context.Context, string, ...orpheus.Field)  {}
-func (nop) Error(context.Context, string, ...orpheus.Field) {}
-func (l nop) WithFields(...orpheus.Field) orpheus.Logger    { return l }
+func (nop) Trace(context.Context, string, ...observe.Field) {}
+func (nop) Debug(context.Context, string, ...observe.Field) {}
+func (nop) Info(context.Context, string, ...observe.Field)  {}
+func (nop) Warn(context.Context, string, ...observe.Field)  {}
+func (nop) Error(context.Context, string, ...observe.Field) {}
+func (l nop) WithFields(...observe.Field) observe.Logger    { return l }
 
 func main() {
 	defer func() {
@@ -53,13 +54,13 @@ func main() {
 	}()
 	dir := os.Args[2]
 	path := filepath.Join(dir, "memory.so")
-	cfg := orpheus.DefaultPluginSecurityConfig()
+	cfg := storage.DefaultPluginSecurityConfig()
 	cfg.AllowedPaths = []string{dir}
 	cfg.AllowUnsignedPlugins = true
 	ctx := context.Background()
 	switch os.Args[1] {
 	case "twice":
-		pm := orpheus.NewPluginManager(nil, cfg)
+		pm := storage.NewPluginManager(nil, cfg)
 		a, err := pm.LoadPlugin(ctx, path)
 		if err != nil {
 			fmt.Println("ERR", err)
@@ -69,12 +70,12 @@ func main() {
 		fmt.Println("same:", a == b, "registry:", len(pm.ListLoadedPlugins()), "err:", err)
 	case "nochecksum":
 		cfg.ValidateChecksums = false
-		_, err := orpheus.NewPluginManager(nop{}, cfg).LoadPlugin(ctx, path)
+		_, err := storage.NewPluginManager(nop{}, cfg).LoadPlugin(ctx, path)
 		fmt.Println("err:", err)
 	case "config-optin":
 		cfg.AllowUnsignedPlugins = false
-		pm := orpheus.NewPluginManager(nil, cfg)
-		_, err := pm.LoadPluginsFromConfig(ctx, &orpheus.StorageConfig{
+		pm := storage.NewPluginManager(nil, cfg)
+		_, err := pm.LoadPluginsFromConfig(ctx, &storage.Config{
 			Provider: "memory", PluginPath: path, AllowUnsignedPlugins: true})
 		fmt.Println("err:", err)
 	}

@@ -11,7 +11,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/agilira/orpheus/pkg/orpheus"
+	"github.com/agilira/orpheus"
+	"github.com/agilira/orpheus/observe"
 )
 
 // SimpleLogger demonstrates a basic logger implementation
@@ -23,33 +24,33 @@ func NewSimpleLogger(prefix string) *SimpleLogger {
 	return &SimpleLogger{prefix: prefix}
 }
 
-func (l *SimpleLogger) Trace(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {
 	l.log("TRACE", msg, fields...)
 }
 
-func (l *SimpleLogger) Debug(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Debug(ctx context.Context, msg string, fields ...observe.Field) {
 	l.log("DEBUG", msg, fields...)
 }
 
-func (l *SimpleLogger) Info(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Info(ctx context.Context, msg string, fields ...observe.Field) {
 	l.log("INFO", msg, fields...)
 }
 
-func (l *SimpleLogger) Warn(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Warn(ctx context.Context, msg string, fields ...observe.Field) {
 	l.log("WARN", msg, fields...)
 }
 
-func (l *SimpleLogger) Error(ctx context.Context, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) Error(ctx context.Context, msg string, fields ...observe.Field) {
 	l.log("ERROR", msg, fields...)
 }
 
-func (l *SimpleLogger) WithFields(fields ...orpheus.Field) orpheus.Logger {
+func (l *SimpleLogger) WithFields(fields ...observe.Field) observe.Logger {
 	// For simplicity, return the same logger
 	// In a real implementation, you'd create a new logger with additional fields
 	return l
 }
 
-func (l *SimpleLogger) log(level, msg string, fields ...orpheus.Field) {
+func (l *SimpleLogger) log(level, msg string, fields ...observe.Field) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("[%s] %s %s: %s", timestamp, l.prefix, level, msg)
 
@@ -66,12 +67,12 @@ func NewSimpleAuditLogger() *SimpleAuditLogger {
 	return &SimpleAuditLogger{}
 }
 
-func (a *SimpleAuditLogger) LogCommand(ctx context.Context, command string, args []string, user string, fields ...orpheus.Field) {
+func (a *SimpleAuditLogger) LogCommand(ctx context.Context, command string, args []string, user string, fields ...observe.Field) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("[%s] AUDIT: user=%s command=%s args=%v\n", timestamp, user, command, args)
 }
 
-func (a *SimpleAuditLogger) LogAccess(ctx context.Context, resource string, action string, allowed bool, fields ...orpheus.Field) {
+func (a *SimpleAuditLogger) LogAccess(ctx context.Context, resource string, action string, allowed bool, fields ...observe.Field) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	status := "ALLOWED"
 	if !allowed {
@@ -80,12 +81,12 @@ func (a *SimpleAuditLogger) LogAccess(ctx context.Context, resource string, acti
 	fmt.Printf("[%s] ACCESS: resource=%s action=%s status=%s\n", timestamp, resource, action, status)
 }
 
-func (a *SimpleAuditLogger) LogSecurity(ctx context.Context, event string, severity string, fields ...orpheus.Field) {
+func (a *SimpleAuditLogger) LogSecurity(ctx context.Context, event string, severity string, fields ...observe.Field) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("[%s] SECURITY: event=%s severity=%s\n", timestamp, event, severity)
 }
 
-func (a *SimpleAuditLogger) LogPerformance(ctx context.Context, operation string, duration int64, fields ...orpheus.Field) {
+func (a *SimpleAuditLogger) LogPerformance(ctx context.Context, operation string, duration int64, fields ...observe.Field) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("[%s] PERFORMANCE: operation=%s duration=%dms\n", timestamp, operation, duration)
 }
@@ -110,8 +111,8 @@ func main() {
 			// Log command start
 			if logger := ctx.Logger(); logger != nil {
 				logger.Info(context.Background(), "Starting data processing",
-					orpheus.StringField("operation", "process"),
-					orpheus.StringField("user", "demo-user"),
+					observe.StringField("operation", "process"),
+					observe.StringField("user", "demo-user"),
 				)
 			}
 
@@ -130,8 +131,8 @@ func main() {
 			// Log progress
 			if logger := ctx.Logger(); logger != nil {
 				logger.Debug(context.Background(), "Processing file",
-					orpheus.StringField("filename", fileName),
-					orpheus.IntField("records", 100),
+					observe.StringField("filename", fileName),
+					observe.IntField("records", 100),
 				)
 			}
 
@@ -142,8 +143,8 @@ func main() {
 			duration := time.Since(start).Milliseconds()
 			if logger := ctx.Logger(); logger != nil {
 				logger.Info(context.Background(), "Processing completed successfully",
-					orpheus.StringField("filename", fileName),
-					orpheus.IntField("duration_ms", int(duration)),
+					observe.StringField("filename", fileName),
+					observe.IntField("duration_ms", int(duration)),
 				)
 			}
 
@@ -168,7 +169,7 @@ func main() {
 	if err := app.Run(os.Args[1:]); err != nil {
 		if logger := app.Logger(); logger != nil {
 			logger.Error(context.Background(), "Application error",
-				orpheus.ErrorField(err),
+				observe.ErrorField(err),
 			)
 		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
