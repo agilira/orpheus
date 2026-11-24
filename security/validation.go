@@ -21,7 +21,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package security
 
 import (
 	"fmt"
@@ -29,12 +29,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/agilira/orpheus/errs"
 )
 
 // ValidationConfig controls the behavior of CLI input validation
 type ValidationConfig struct {
 	// Security controls
-	SecurityConfig SecurityConfig
+	SecurityConfig Config
 
 	// Path validation options
 	ValidatePathArgs bool // Validate path arguments for security
@@ -61,7 +63,7 @@ type ValidationConfig struct {
 // DefaultValidationConfig returns a secure default validation configuration
 func DefaultValidationConfig() ValidationConfig {
 	return ValidationConfig{
-		SecurityConfig:     DefaultSecurityConfig(),
+		SecurityConfig:     DefaultConfig(),
 		ValidatePathArgs:   true,
 		ValidateFileArgs:   true,
 		NormalizePaths:     true,
@@ -210,12 +212,12 @@ func (v *InputValidator) ValidateArgs(args []string) error {
 	total := 0
 	for i, arg := range args {
 		if len(arg) > v.config.MaxArgLength {
-			return ValidationError("args", fmt.Sprintf(
+			return errs.ValidationError("args", fmt.Sprintf(
 				"argument %d is %d bytes, more than the %d allowed", i+1, len(arg), v.config.MaxArgLength))
 		}
 		total += len(arg)
 		if total > v.config.MaxTotalArgsSize {
-			return ValidationError("args", fmt.Sprintf(
+			return errs.ValidationError("args", fmt.Sprintf(
 				"arguments exceed the %d bytes allowed", v.config.MaxTotalArgsSize))
 		}
 	}
@@ -709,16 +711,16 @@ func (v *InputValidator) ValidateInput(input string) error {
 		}
 
 		if len(errorMessages) > 0 {
-			return ValidationError("input",
+			return errs.ValidationError("input",
 				"Input validation failed: "+strings.Join(errorMessages, "; "))
 		}
 
-		return ValidationError("input", "Input validation failed")
+		return errs.ValidationError("input", "Input validation failed")
 	}
 
 	// Additional check for security warnings even if technically "valid"
 	if len(result.SecurityWarnings) > 0 {
-		return ValidationError("input",
+		return errs.ValidationError("input",
 			"Security concerns detected: "+strings.Join(result.SecurityWarnings, "; "))
 	}
 

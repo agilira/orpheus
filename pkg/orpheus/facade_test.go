@@ -22,11 +22,14 @@ var mirrored = []string{
 	apicheck.Module + "/errs",
 	apicheck.Module + "/observe",
 	apicheck.Module + "/storage",
+	apicheck.Module + "/security",
 }
 
 // facadeNames maps an identifier of a mirrored package to its v1.11.0 name
 // when the two differ.
 var facadeNames = map[string]string{
+	"security.Config":           "SecurityConfig",
+	"security.DefaultConfig":    "DefaultSecurityConfig",
 	"storage.Config":            "StorageConfig",
 	"storage.Stats":             "StorageStats",
 	"storage.Plugin":            "StoragePlugin",

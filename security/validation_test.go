@@ -4,7 +4,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package security
 
 import (
 	"fmt"
@@ -475,7 +475,7 @@ func TestSanitization(t *testing.T) {
 
 // TestFilePermissionAnalysis tests AnalyzeFilePermissions directly
 func TestFilePermissionAnalysis(t *testing.T) {
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	tests := []struct {
 		name        string

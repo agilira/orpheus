@@ -1,4 +1,4 @@
-// security_access_unix.go: current-user access checks on Unix systems.
+// access_unix.go: current-user access checks on Unix systems.
 //
 // Copyright (c) 2026 AGILira - A. Giordano
 // Series: an AGILira library
@@ -6,7 +6,7 @@
 
 //go:build unix
 
-package orpheus
+package security
 
 import "syscall"
 

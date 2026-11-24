@@ -1,6 +1,6 @@
-// security.go: Security utilities for Orpheus CLI framework
-//
-// This module provides comprehensive security controls
+// Package security provides the input and path validation of Orpheus:
+// InputValidator for flags, arguments and environment values,
+// ValidateSecurePath and the file permission checks. Its controls are
 // specifically designed for CLI applications with focus on:
 // - Path validation and traversal prevention
 // - File permissions analysis and enforcement
@@ -16,8 +16,7 @@
 // Copyright (c) 2025 AGILira - A. Giordano
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
-
-package orpheus
+package security
 
 import (
 	"fmt"
@@ -27,10 +26,12 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+
+	"github.com/agilira/orpheus/errs"
 )
 
 // SecurityConfig holds security-related configuration options
-type SecurityConfig struct {
+type Config struct {
 	// EnablePathValidation enables comprehensive path security validation
 	EnablePathValidation bool
 	// MaxPathLength limits the maximum allowed path length (default: 4096)
@@ -50,8 +51,8 @@ type SecurityConfig struct {
 }
 
 // DefaultSecurityConfig returns a secure default configuration
-func DefaultSecurityConfig() SecurityConfig {
-	return SecurityConfig{
+func DefaultConfig() Config {
+	return Config{
 		EnablePathValidation:      true,
 		MaxPathLength:             4096,
 		MaxPathDepth:              50,
@@ -112,7 +113,7 @@ type PathSecurityResult struct {
 // lstat per component, and a relative one a getcwd. Rejection is the cheaper case, not the more expensive one: a
 // violation returns at the layer that found it, while a valid path is carried
 // through every remaining check.
-func ValidateSecurePath(path string, config SecurityConfig) *PathSecurityResult {
+func ValidateSecurePath(path string, config Config) *PathSecurityResult {
 	result := &PathSecurityResult{
 		Path:           path,
 		IsValid:        true,
@@ -186,7 +187,7 @@ type pathLocation struct {
 // once, and only when the path or an allowed/denied entry is relative.
 // WHY: "passwd" typed in /etc, or "etc/hostname" typed in /, matched none of
 // the absolute system, allowed or denied entries and was accepted.
-func locatePath(clean string, config SecurityConfig) (pathLocation, error) {
+func locatePath(clean string, config Config) (pathLocation, error) {
 	if isAbsolutePath(clean) && !hasRelativeEntry(config) {
 		return pathLocation{typed: clean, abs: clean, lower: lowerSlash(clean)}, nil
 	}
@@ -214,7 +215,7 @@ func isASCIILetter(c byte) bool {
 	return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
 }
 
-func hasRelativeEntry(config SecurityConfig) bool {
+func hasRelativeEntry(config Config) bool {
 	for _, lists := range [...][]string{config.AllowedPaths, config.DeniedPaths} {
 		for _, entry := range lists {
 			if !isAbsolutePath(entry) {
@@ -245,10 +246,10 @@ func absoluteFrom(p, cwd string) string {
 // risk level to record ("" = leave it unchanged).
 // WHY config by value: a pointer through this indirect call escapes, and
 // that cost one heap allocation per ValidateSecurePath.
-type pathLayer func(raw, clean string, config SecurityConfig) (msg, risk string)
+type pathLayer func(raw, clean string, config Config) (msg, risk string)
 
 // locationLayer checks where an absolute path points.
-type locationLayer func(loc pathLocation, config SecurityConfig) (msg, risk string)
+type locationLayer func(loc pathLocation, config Config) (msg, risk string)
 
 // spellingLayers and locationLayers list the checks of ValidateSecurePath
 // in the order they run.
@@ -268,35 +269,35 @@ var locationLayers = [...]locationLayer{
 	checkAllowedDenied, // Layer 10: allowed/denied lists, and where links lead
 }
 
-func checkTraversal(_, clean string, _ SecurityConfig) (string, string) {
+func checkTraversal(_, clean string, _ Config) (string, string) {
 	if containsTraversalPattern(clean) || containsEncodedTraversal(clean) {
 		return "dangerous traversal pattern detected", "critical"
 	}
 	return "", ""
 }
 
-func checkDepth(_, clean string, config SecurityConfig) (string, string) {
+func checkDepth(_, clean string, config Config) (string, string) {
 	if strings.Count(clean, string(os.PathSeparator)) > config.MaxPathDepth {
 		return fmt.Sprintf("path too complex (max depth %d)", config.MaxPathDepth), ""
 	}
 	return "", ""
 }
 
-func checkControlChars(raw, _ string, _ SecurityConfig) (string, string) {
+func checkControlChars(raw, _ string, _ Config) (string, string) {
 	if containsControlCharacters(raw) {
 		return "control characters in path not allowed", "high"
 	}
 	return "", ""
 }
 
-func checkDeviceName(raw, _ string, _ SecurityConfig) (string, string) {
+func checkDeviceName(raw, _ string, _ Config) (string, string) {
 	if isWindowsDeviceName(filepath.Base(raw)) {
 		return "windows device names not allowed", "high"
 	}
 	return "", ""
 }
 
-func checkSystemPath(loc pathLocation, _ SecurityConfig) (string, string) {
+func checkSystemPath(loc pathLocation, _ Config) (string, string) {
 	if isSystemPathLower(loc.lower) {
 		return "system file/directory access not allowed", "critical"
 	}
@@ -306,7 +307,7 @@ func checkSystemPath(loc pathLocation, _ SecurityConfig) (string, string) {
 // checkDataStream rejects NTFS alternate data streams.
 // WHY Windows only: elsewhere ':' is an ordinary filename character
 // (timestamps, host:port), and rejecting it refused legitimate files.
-func checkDataStream(raw, _ string, _ SecurityConfig) (string, string) {
+func checkDataStream(raw, _ string, _ Config) (string, string) {
 	if runtime.GOOS == "windows" && containsAlternateDataStream(raw) {
 		return "alternate data streams not allowed", "high"
 	}
@@ -320,7 +321,7 @@ func checkDataStream(raw, _ string, _ SecurityConfig) (string, string) {
 // /private/etc); the canonical form alone would miss entries that do not
 // exist yet. A path through a link must be allowed in canonical form: its
 // spelling says nothing about where it leads.
-func checkAllowedDenied(loc pathLocation, config SecurityConfig) (string, string) {
+func checkAllowedDenied(loc pathLocation, config Config) (string, string) {
 	canon := canonicalize(loc)
 	if canon.viaLink && isSystemPathLower(canon.lower) {
 		return linkForbidden()
@@ -569,12 +570,12 @@ func splitGlob(p string) (static, glob string) {
 //
 // Performance (BenchmarkAnalyzeFilePermissions): ~13us and 22 allocations,
 // file system access (symlink walk, stat, access(2)) included.
-func AnalyzeFilePermissions(path string, config SecurityConfig) (*FilePermission, error) {
+func AnalyzeFilePermissions(path string, config Config) (*FilePermission, error) {
 	// First validate the path if security is enabled
 	if config.EnablePathValidation {
 		pathResult := ValidateSecurePath(path, config)
 		if !pathResult.IsValid {
-			return nil, ValidationError("file-permission",
+			return nil, errs.ValidationError("file-permission",
 				fmt.Sprintf("insecure path: %s", strings.Join(pathResult.Errors, ", ")))
 		}
 		path = pathResult.NormalizedPath
@@ -585,7 +586,7 @@ func AnalyzeFilePermissions(path string, config SecurityConfig) (*FilePermission
 	// is always 0777 and made every symlink look world-writable.
 	info, err := os.Stat(path)
 	if err != nil {
-		return nil, ExecutionError("file-permission",
+		return nil, errs.ExecutionError("file-permission",
 			fmt.Sprintf("cannot access file: %v", err))
 	}
 
@@ -618,7 +619,7 @@ func analyzeFileInfo(path string, info os.FileInfo) *FilePermission {
 }
 
 // CheckFileReadable efficiently checks if a file is readable by current user
-func CheckFileReadable(path string, config SecurityConfig) (bool, error) {
+func CheckFileReadable(path string, config Config) (bool, error) {
 	perm, err := AnalyzeFilePermissions(path, config)
 	if err != nil {
 		return false, err
@@ -627,7 +628,7 @@ func CheckFileReadable(path string, config SecurityConfig) (bool, error) {
 }
 
 // CheckFileWritable efficiently checks if a file is writable by current user
-func CheckFileWritable(path string, config SecurityConfig) (bool, error) {
+func CheckFileWritable(path string, config Config) (bool, error) {
 	perm, err := AnalyzeFilePermissions(path, config)
 	if err != nil {
 		return false, err
@@ -636,7 +637,7 @@ func CheckFileWritable(path string, config SecurityConfig) (bool, error) {
 }
 
 // CheckFileExecutable efficiently checks if a file is executable by current user
-func CheckFileExecutable(path string, config SecurityConfig) (bool, error) {
+func CheckFileExecutable(path string, config Config) (bool, error) {
 	perm, err := AnalyzeFilePermissions(path, config)
 	if err != nil {
 		return false, err
@@ -851,7 +852,7 @@ func containsAlternateDataStream(path string) bool {
 // isPathAllowed checks if path is in allowed list (if configured).
 // Relative entries are resolved against loc.cwd, like the path. A path that
 // goes through a link is allowed only by its canonical form.
-func isPathAllowed(loc pathLocation, canon canonicalPath, config SecurityConfig) bool {
+func isPathAllowed(loc pathLocation, canon canonicalPath, config Config) bool {
 	if len(config.AllowedPaths) == 0 {
 		return true // No restrictions if no allowed paths configured
 	}
@@ -867,7 +868,7 @@ func isPathAllowed(loc pathLocation, canon canonicalPath, config SecurityConfig)
 
 // isPathDenied checks if path is explicitly denied, as spelled or in
 // canonical form. Relative entries are resolved against loc.cwd.
-func isPathDenied(loc pathLocation, canon canonicalPath, config SecurityConfig) bool {
+func isPathDenied(loc pathLocation, canon canonicalPath, config Config) bool {
 	for _, denied := range config.DeniedPaths {
 		if matchesEntry(loc, canon, denied, true) {
 			return true

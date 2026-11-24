@@ -11,7 +11,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package security
 
 import (
 	"os"
@@ -20,7 +20,7 @@ import (
 )
 
 func BenchmarkValidateSecurePath(b *testing.B) {
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	b.Run("Valid", func(b *testing.B) {
 		b.ReportAllocs()
@@ -43,7 +43,7 @@ func BenchmarkAnalyzeFilePermissions(b *testing.B) {
 	if err := os.WriteFile(path, []byte("content"), 0600); err != nil {
 		b.Fatalf("write: %v", err)
 	}
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

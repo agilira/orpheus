@@ -1,4 +1,4 @@
-// security_access_other.go: current-user access checks where access(2) is
+// access_other.go: current-user access checks where access(2) is
 // not available.
 //
 // Copyright (c) 2026 AGILira - A. Giordano
@@ -7,7 +7,7 @@
 
 //go:build !unix
 
-package orpheus
+package security
 
 import "os"
 

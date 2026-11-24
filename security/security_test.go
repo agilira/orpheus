@@ -34,7 +34,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package security
 
 import (
 	"fmt"
@@ -45,6 +45,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/agilira/orpheus/errs"
 )
 
 // =============================================================================
@@ -344,7 +346,7 @@ func (ctx *CLISecurityTestContext) AddCleanup(fn func()) {
 func TestSecurity_PathTraversalAttacks(t *testing.T) {
 	ctx := NewCLISecurityTestContext(t)
 	defer ctx.Cleanup()
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	// Define common path traversal attack patterns for CLI applications
 	pathTraversalAttacks := []struct {
@@ -446,7 +448,7 @@ func TestSecurity_PathTraversalAttacks(t *testing.T) {
 // providing appropriate error messages and preventing unauthorized operations.
 func TestSecurity_FilePermissionValidation(t *testing.T) {
 	ctx := NewCLISecurityTestContext(t)
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	t.Run("ReadOnlyFileDetection", func(t *testing.T) {
 		// SECURITY TEST SETUP: Create a read-only file for permission testing
@@ -527,7 +529,7 @@ func TestSecurity_FilePermissionValidation(t *testing.T) {
 			t.Errorf("SECURITY ISSUE: Non-existent file analysis should return error for CLI feedback")
 		} else {
 			// SECURITY VALIDATION: Verify error type is appropriate for CLI applications
-			if orpheusErr, ok := err.(*Error); ok {
+			if orpheusErr, ok := err.(*errs.Error); ok {
 				if !orpheusErr.IsExecutionError() {
 					t.Errorf("SECURITY ISSUE: Wrong error type for non-existent file: %v", orpheusErr.ErrorCode())
 				}
@@ -678,7 +680,7 @@ func TestSecurity_MaliciousInputHandling(t *testing.T) {
 				t.Logf("SECURITY GOOD: %s attack properly blocked: %v", test.attackType, err)
 
 				// SECURITY VALIDATION: Verify error is appropriate for CLI feedback
-				if orpheusErr, ok := err.(*Error); ok {
+				if orpheusErr, ok := err.(*errs.Error); ok {
 					if !orpheusErr.IsValidationError() {
 						t.Logf("SECURITY INFO: Error type for %s: %s", test.attackType, orpheusErr.ErrorCode())
 					}
@@ -808,7 +810,7 @@ func TestSecurity_EnvironmentVariableHandling(t *testing.T) {
 func TestSecurity_WindowsSpecificAttacks(t *testing.T) {
 	ctx := NewCLISecurityTestContext(t)
 	defer ctx.Cleanup()
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	windowsAttacks := []struct {
 		name        string
@@ -889,7 +891,7 @@ func TestSecurity_PerformanceImpact(t *testing.T) {
 	defer ctx.Cleanup()
 
 	validator := &InputValidator{}
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	t.Run("PathValidationPerformance", func(t *testing.T) {
 		// PERFORMANCE TEST: Path validation should be fast enough for CLI use
@@ -960,7 +962,7 @@ func TestSecurity_IntegrationScenarios(t *testing.T) {
 		config: DefaultValidationConfig(),
 		cache:  make(map[string]*ValidatedInput),
 	}
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	t.Run("SafeFileOperationWorkflow", func(t *testing.T) {
 		// INTEGRATION TEST: Complete safe file operation in CLI context
@@ -1030,7 +1032,7 @@ func TestSecurity_AuditSummary(t *testing.T) {
 	// SECURITY AUDIT: Verify all major security components are available
 	t.Run("SecurityComponentsAvailable", func(t *testing.T) {
 		// Test security configuration
-		config := DefaultSecurityConfig()
+		config := DefaultConfig()
 		if config.MaxPathLength == 0 {
 			t.Error("SECURITY CRITICAL: DefaultSecurityConfig not properly initialized")
 		}
@@ -1092,7 +1094,7 @@ func TestFileAccessibilityChecks(t *testing.T) {
 		t.Fatalf("Failed to create executable test file: %v", err)
 	}
 
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	t.Run("CheckFileReadableWithValidFile", func(t *testing.T) {
 		readable, err := CheckFileReadable(readableFile, config)
@@ -1182,7 +1184,7 @@ func TestPathSecurityResultIsSecure(t *testing.T) {
 		t.Fatalf("Failed to create secure file: %v", err)
 	}
 
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	t.Run("IsSecureWithRegularFile", func(t *testing.T) {
 		result := ValidateSecurePath(regularFile, config)
@@ -1252,7 +1254,7 @@ func TestWindowsPermissionAnalysis(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	config := DefaultSecurityConfig()
+	config := DefaultConfig()
 
 	// Call ValidateSecurePath which internally may call analyzeWindowsPermissions
 	// This ensures the Windows permission analysis code is executed for coverage

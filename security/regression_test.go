@@ -5,7 +5,7 @@
 // Series: an AGILira library
 // SPDX-License-Identifier: MPL-2.0
 
-package orpheus
+package security
 
 import (
 	"os"
@@ -49,18 +49,18 @@ func TestSecurityRegression_CacheStillHits(t *testing.T) {
 // real home directory.
 func TestSecurityRegression_DeniedGlobEntriesMatch(t *testing.T) {
 	for _, p := range []string{"/home/alice/.ssh/id_rsa", "/home/alice/.ssh", "/home/bob/.gnupg/pubring.kbx"} {
-		if r := ValidateSecurePath(p, DefaultSecurityConfig()); r.IsValid {
+		if r := ValidateSecurePath(p, DefaultConfig()); r.IsValid {
 			t.Errorf("%s accepted although denied by a /home/*/ entry", p)
 		}
 	}
-	if r := ValidateSecurePath("/home/alice/.sshconfig", DefaultSecurityConfig()); !r.IsValid {
+	if r := ValidateSecurePath("/home/alice/.sshconfig", DefaultConfig()); !r.IsValid {
 		t.Errorf("/home/alice/.sshconfig rejected: %v", r.Errors)
 	}
 }
 
 // AllowedPaths must match whole path segments.
 func TestSecurityRegression_AllowedPathsMatchOnBoundary(t *testing.T) {
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{"/srv/app"}
 	if r := ValidateSecurePath("/srv/app-secrets/key.pem", cfg); r.IsValid {
 		t.Errorf("/srv/app-secrets/key.pem accepted with AllowedPaths=[/srv/app]")
@@ -76,12 +76,12 @@ func TestSecurityRegression_AllowedPathsMatchOnBoundary(t *testing.T) {
 // are legitimate, the denied directory and its contents are not.
 func TestSecurityRegression_DeniedPathsMatchOnBoundary(t *testing.T) {
 	for _, p := range []string{"/development/proj/config.yml", "/binaries/tool", "/rootfs/img", "/system-data/x"} {
-		if r := ValidateSecurePath(p, DefaultSecurityConfig()); !r.IsValid {
+		if r := ValidateSecurePath(p, DefaultConfig()); !r.IsValid {
 			t.Errorf("legit path %q rejected: %v", p, r.Errors)
 		}
 	}
 	for _, p := range []string{"/etc", "/dev/sda", "/var/log/syslog"} {
-		if r := ValidateSecurePath(p, DefaultSecurityConfig()); r.IsValid {
+		if r := ValidateSecurePath(p, DefaultConfig()); r.IsValid {
 			t.Errorf("denied path %q accepted", p)
 		}
 	}
@@ -224,7 +224,7 @@ func TestSecurityRegression_SymlinkAndAllowedPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{filepath.Join(root, "alias")}
 	if r := ValidateSecurePath(filepath.Join(root, "alias", "escape", "f"), cfg); r.IsValid {
 		t.Errorf("link out of the allowed directory accepted")
@@ -237,11 +237,11 @@ func TestSecurityRegression_SymlinkAndAllowedPaths(t *testing.T) {
 // Mixed percent-encodings of ".." are traversal too.
 func TestSecurityRegression_EncodedTraversalVariants(t *testing.T) {
 	for _, p := range []string{"%2e./secret", ".%2E/secret", "%252e%252e/x", "%zz%2e./x", "%2e%2E/x"} {
-		if r := ValidateSecurePath(p, DefaultSecurityConfig()); r.IsValid {
+		if r := ValidateSecurePath(p, DefaultConfig()); r.IsValid {
 			t.Errorf("encoded traversal %q accepted", p)
 		}
 	}
-	if r := ValidateSecurePath("reports/100%25.txt", DefaultSecurityConfig()); !r.IsValid {
+	if r := ValidateSecurePath("reports/100%25.txt", DefaultConfig()); !r.IsValid {
 		t.Errorf("percent sign in a name rejected: %v", r.Errors)
 	}
 }
@@ -282,7 +282,7 @@ func TestSecurityRegression_SymlinkPermissionsAreTargets(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Skip(err)
 	}
-	perm, err := AnalyzeFilePermissions(link, DefaultSecurityConfig())
+	perm, err := AnalyzeFilePermissions(link, DefaultConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestSecurityRegression_ColonAllowedOutsideWindows(t *testing.T) {
 		t.Skip("NTFS alternate data streams are rejected on Windows")
 	}
 	p := "/tmp/backup-2026-11-24T10:30.tar"
-	if r := ValidateSecurePath(p, DefaultSecurityConfig()); !r.IsValid {
+	if r := ValidateSecurePath(p, DefaultConfig()); !r.IsValid {
 		t.Errorf("legit path %q rejected: %v", p, r.Errors)
 	}
 }
@@ -311,7 +311,7 @@ func TestSecurityRegression_DanglingSymlinkJudgedByTarget(t *testing.T) {
 	if err := os.Symlink(sysTarget, out); err != nil {
 		t.Skip(err)
 	}
-	if r := ValidateSecurePath(out, DefaultSecurityConfig()); r.IsValid {
+	if r := ValidateSecurePath(out, DefaultConfig()); r.IsValid {
 		t.Errorf("dangling link into %s accepted", sysTarget)
 	}
 
@@ -319,7 +319,7 @@ func TestSecurityRegression_DanglingSymlinkJudgedByTarget(t *testing.T) {
 	if err := os.Symlink("missing-target", safe); err != nil {
 		t.Fatal(err)
 	}
-	if r := ValidateSecurePath(safe, DefaultSecurityConfig()); !r.IsValid {
+	if r := ValidateSecurePath(safe, DefaultConfig()); !r.IsValid {
 		t.Errorf("dangling link inside the temp dir rejected: %v", r.Errors)
 	}
 }
@@ -332,7 +332,7 @@ func TestSecurityRegression_SymlinkLoopTerminates(t *testing.T) {
 	if err := os.Symlink("loop", loop); err != nil {
 		t.Skip(err)
 	}
-	if r := ValidateSecurePath(filepath.Join(loop, "f"), DefaultSecurityConfig()); !r.IsValid {
+	if r := ValidateSecurePath(filepath.Join(loop, "f"), DefaultConfig()); !r.IsValid {
 		t.Errorf("path under a self-referencing link rejected: %v", r.Errors)
 	}
 }
@@ -345,7 +345,7 @@ func TestSecurityRegression_SymlinkTargetMatchesEntryDirectly(t *testing.T) {
 	if err := os.Symlink(sysDir, link); err != nil {
 		t.Skip(err)
 	}
-	if r := ValidateSecurePath(link, DefaultSecurityConfig()); r.IsValid {
+	if r := ValidateSecurePath(link, DefaultConfig()); r.IsValid {
 		t.Errorf("link to %s accepted", sysDir)
 	}
 
@@ -356,7 +356,7 @@ func TestSecurityRegression_SymlinkTargetMatchesEntryDirectly(t *testing.T) {
 	if err := os.Symlink(real, filepath.Join(dir, "alias")); err != nil {
 		t.Fatal(err)
 	}
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{dir}
 	if r := ValidateSecurePath(filepath.Join(dir, "alias", "f"), cfg); !r.IsValid {
 		t.Errorf("link to an allowed directory rejected: %v", r.Errors)
@@ -365,7 +365,7 @@ func TestSecurityRegression_SymlinkTargetMatchesEntryDirectly(t *testing.T) {
 
 // A path shorter than a glob entry does not match it.
 func TestSecurityRegression_GlobEntryLongerThanPath(t *testing.T) {
-	if r := ValidateSecurePath("/home/alice", DefaultSecurityConfig()); !r.IsValid {
+	if r := ValidateSecurePath("/home/alice", DefaultConfig()); !r.IsValid {
 		t.Errorf("/home/alice rejected: %v", r.Errors)
 	}
 }
@@ -438,7 +438,7 @@ func TestSecurityRegression_RelativeSymlinkToEtcRejected(t *testing.T) {
 	}
 	t.Chdir(dir)
 	for _, p := range []string{"lnk", "cfg/passwd", "cfg/not-yet-created"} {
-		if r := ValidateSecurePath(p, DefaultSecurityConfig()); r.IsValid {
+		if r := ValidateSecurePath(p, DefaultConfig()); r.IsValid {
 			t.Errorf("relative link %q into /etc accepted", p)
 		}
 	}
@@ -461,7 +461,7 @@ func TestSecurityRegression_DanglingRelativeLinkInLinkedDir(t *testing.T) {
 	if err := os.Symlink("../evil", filepath.Join(sub, "d")); err != nil {
 		t.Fatal(err)
 	}
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{allowed}
 	if r := ValidateSecurePath(filepath.Join(allowed, "nested", "jump", "d"), cfg); r.IsValid {
 		t.Errorf("dangling link that creates %s accepted", filepath.Join(work, "outside", "evil"))
@@ -499,7 +499,7 @@ func TestSecurityRegression_RelativePathFromEtcRejected(t *testing.T) {
 		t.Skip(err)
 	}
 	t.Chdir("/etc")
-	if r := ValidateSecurePath("passwd", DefaultSecurityConfig()); r.IsValid {
+	if r := ValidateSecurePath("passwd", DefaultConfig()); r.IsValid {
 		t.Errorf(`"passwd" from /etc accepted`)
 	}
 }
@@ -510,7 +510,7 @@ func TestSecurityRegression_RelativePathFromRootRejected(t *testing.T) {
 	}
 	t.Chdir("/")
 	for _, p := range []string{"etc/hostname", "etc"} {
-		if r := ValidateSecurePath(p, DefaultSecurityConfig()); r.IsValid {
+		if r := ValidateSecurePath(p, DefaultConfig()); r.IsValid {
 			t.Errorf("%q from / accepted", p)
 		}
 	}
@@ -525,7 +525,7 @@ func TestSecurityRegression_RelativeEntriesFromWorkingDir(t *testing.T) {
 	}
 	t.Chdir(dir)
 
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{"data"}
 	for _, p := range []string{"data/x.json", filepath.Join(dir, "data", "x.json")} {
 		if r := ValidateSecurePath(p, cfg); !r.IsValid {
@@ -536,7 +536,7 @@ func TestSecurityRegression_RelativeEntriesFromWorkingDir(t *testing.T) {
 		t.Errorf("other/x.json accepted with AllowedPaths=[data]")
 	}
 
-	cfg = DefaultSecurityConfig()
+	cfg = DefaultConfig()
 	cfg.DeniedPaths = []string{"./secret"}
 	if r := ValidateSecurePath(filepath.Join(dir, "secret", "k"), cfg); r.IsValid {
 		t.Errorf("absolute path into a relative denied entry accepted")
@@ -545,7 +545,7 @@ func TestSecurityRegression_RelativeEntriesFromWorkingDir(t *testing.T) {
 
 // The original spelling stays in the result; only the comparison is absolute.
 func TestSecurityRegression_RelativePathKeepsSpelling(t *testing.T) {
-	r := ValidateSecurePath("data/./x.json", DefaultSecurityConfig())
+	r := ValidateSecurePath("data/./x.json", DefaultConfig())
 	if r.Path != "data/./x.json" || r.NormalizedPath != filepath.Clean("data/x.json") {
 		t.Errorf("Path=%q NormalizedPath=%q", r.Path, r.NormalizedPath)
 	}
@@ -568,7 +568,7 @@ func TestSecurityRegression_DanglingLinkMissingDirAfterDotDot(t *testing.T) {
 	if err := os.Symlink("../missing_dir/evil", filepath.Join(sub, "d")); err != nil {
 		t.Fatal(err)
 	}
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{allowed}
 	if r := ValidateSecurePath(filepath.Join(allowed, "nested", "jump", "d"), cfg); r.IsValid {
 		t.Errorf("dangling link that targets %s accepted", filepath.Join(work, "outside", "missing_dir", "evil"))
@@ -600,7 +600,7 @@ func TestSecurityRegression_AllowedEntryThroughAlias(t *testing.T) {
 	}
 	t.Chdir(alias)
 
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.AllowedPaths = []string{alias}
 	for _, p := range []string{"f.txt", filepath.Join(real, "f.txt"), filepath.Join(alias, "f.txt")} {
 		if r := ValidateSecurePath(p, cfg); !r.IsValid {
@@ -623,7 +623,7 @@ func TestSecurityRegression_DeniedEntryThroughAlias(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(real, "secret"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := DefaultSecurityConfig()
+	cfg := DefaultConfig()
 	cfg.DeniedPaths = append(cfg.DeniedPaths, filepath.Join(alias, "secret"))
 	for _, p := range []string{filepath.Join(real, "secret", "k"), filepath.Join(alias, "secret", "k")} {
 		if r := ValidateSecurePath(p, cfg); r.IsValid {
