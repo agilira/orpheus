@@ -21,7 +21,7 @@ A Git-like CLI with nested subcommands, flags and errors that carry hints ([exam
 
 </div>
 
-**[Features](#features) • [Performance](#performance) • [Security](#security) • [Quick Start](#quick-start) • [Storage System](#storage-system) • [Observability](#production-observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
+**[Features](#features) • [Performance](#performance) • [Security](#security) • [Quick Start](#quick-start) • [Storage System](#storage-system) • [Observability](#observability) • [Examples](#examples) • [API Reference](#api-reference) • [Philosophy](#the-philosophy-behind-orpheus)**
 
 ## Features
 
