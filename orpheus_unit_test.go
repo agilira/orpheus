@@ -306,7 +306,7 @@ func TestGetFlagMethods(t *testing.T) {
 	cmd.AddFlag("name", "n", "default", "Name flag")
 	app.AddCommand(cmd)
 
-	var flagValue interface{}
+	var flagValue any
 	cmd.SetHandler(func(ctx *orpheus.Context) error {
 		flagValue = ctx.GetFlag("name")
 		return nil
@@ -329,7 +329,7 @@ func TestGetGlobalFlag(t *testing.T) {
 	cmd := orpheus.NewCommand("test", "Test command")
 	app.AddCommand(cmd)
 
-	var debugValue interface{}
+	var debugValue any
 	cmd.SetHandler(func(ctx *orpheus.Context) error {
 		debugValue = ctx.GetGlobalFlag("debug")
 		return nil

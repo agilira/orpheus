@@ -165,8 +165,8 @@ func (u *Universe) describeType(name string, tn *types.TypeName) []string {
 	lines := []string{fmt.Sprintf("type %s %s", name, u.underlying(named.Underlying()))}
 	ms := types.NewMethodSet(types.NewPointer(named))
 	values := types.NewMethodSet(named)
-	for i := 0; i < ms.Len(); i++ {
-		m := ms.At(i).Obj()
+	for method := range ms.Methods() {
+		m := method.Obj()
 		if !m.Exported() {
 			continue
 		}
@@ -207,8 +207,7 @@ func (u *Universe) underlying(t types.Type) string {
 func (u *Universe) iface(t *types.Interface) string {
 	var methods []string
 	hidden := false
-	for i := 0; i < t.NumMethods(); i++ {
-		m := t.Method(i)
+	for m := range t.Methods() {
 		if !m.Exported() {
 			hidden = true
 			continue
@@ -326,12 +325,16 @@ func lineDiff(want, got []string) string {
 	var sb strings.Builder
 	for _, l := range want {
 		if !inGot[l] {
-			sb.WriteString("- " + l + "\n")
+			sb.WriteString("- ")
+			sb.WriteString(l)
+			sb.WriteByte('\n')
 		}
 	}
 	for _, l := range got {
 		if !inWant[l] {
-			sb.WriteString("+ " + l + "\n")
+			sb.WriteString("+ ")
+			sb.WriteString(l)
+			sb.WriteByte('\n')
 		}
 	}
 	return sb.String()

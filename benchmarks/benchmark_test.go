@@ -56,7 +56,7 @@ func BenchmarkOrpheus(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := app.RunContext(ctx, args)
 		if err != nil {
 			b.Fatal(err)
@@ -71,7 +71,7 @@ func BenchmarkOrpheusSignalSetup(b *testing.B) {
 	app, args := orpheusApp()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := app.Run(args)
 		if err != nil {
 			b.Fatal(err)
@@ -103,7 +103,7 @@ func BenchmarkCobra(b *testing.B) {
 	rootCmd.AddCommand(cmd)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		rootCmd.SetArgs([]string{"deploy", "--env", "staging", "--verbose", "--timeout", "60"})
 		err := rootCmd.Execute()
 		if err != nil {
@@ -153,7 +153,7 @@ func BenchmarkUrfaveCli(b *testing.B) {
 	args := []string{"benchmark", "deploy", "--env", "staging", "--verbose", "--timeout", "60"}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := app.Run(args)
 		if err != nil {
 			b.Fatal(err)
@@ -172,7 +172,7 @@ func BenchmarkKingpin(b *testing.B) {
 	args := []string{"deploy", "--env", "staging", "--verbose", "--timeout", "60"}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		cmd, err := app.Parse(args)
 		if err != nil {
 			b.Fatal(err)
@@ -189,7 +189,7 @@ func BenchmarkKingpin(b *testing.B) {
 // Standard library flag (baseline)
 func BenchmarkStdFlag(b *testing.B) {
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		// Reset flag state
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 

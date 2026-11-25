@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -37,7 +38,7 @@ type MockLogger struct {
 type LogEntry struct {
 	Level   string
 	Message string
-	Fields  map[string]interface{}
+	Fields  map[string]any
 }
 
 func (m *MockLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {
@@ -70,7 +71,7 @@ func (m *MockLogger) addLog(level, msg string, fields []observe.Field) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	fieldMap := make(map[string]interface{})
+	fieldMap := make(map[string]any)
 	for _, f := range fields {
 		fieldMap[f.Key] = f.Value
 	}
@@ -102,7 +103,7 @@ type MockStoragePlugin struct {
 	name        string
 	version     string
 	description string
-	config      map[string]interface{}
+	config      map[string]any
 	storage     Storage
 }
 
@@ -118,21 +119,21 @@ func (m *MockStoragePlugin) Description() string {
 	return m.description
 }
 
-func (m *MockStoragePlugin) New(config map[string]interface{}) (Storage, error) {
+func (m *MockStoragePlugin) New(config map[string]any) (Storage, error) {
 	if config["fail_on_new"] == true {
 		return nil, fmt.Errorf("mock error: failed to create storage")
 	}
 	return m.storage, nil
 }
 
-func (m *MockStoragePlugin) Validate(config map[string]interface{}) error {
+func (m *MockStoragePlugin) Validate(config map[string]any) error {
 	if config["invalid"] == true {
 		return fmt.Errorf("mock error: invalid configuration")
 	}
 	return nil
 }
 
-func (m *MockStoragePlugin) DefaultConfig() map[string]interface{} {
+func (m *MockStoragePlugin) DefaultConfig() map[string]any {
 	return m.config
 }
 
@@ -250,7 +251,7 @@ func (m *MockStorage) SetHealthError(err error) {
 
 // Test helper functions
 
-func createTempDir(t interface{}) string {
+func createTempDir(t any) string {
 	dir, err := os.MkdirTemp("", "orpheus_test_*")
 	if err != nil {
 		switch v := t.(type) {
@@ -265,7 +266,7 @@ func createTempDir(t interface{}) string {
 	return dir
 }
 
-func createMockPlugin(dir, name string, t interface{}) string {
+func createMockPlugin(dir, name string, t any) string {
 	// Create a fake .so file for testing
 	pluginPath := filepath.Join(dir, name+".so")
 	file, err := os.Create(pluginPath)
@@ -395,13 +396,7 @@ func TestDefaultPluginSecurityConfig(t *testing.T) {
 	}
 
 	expectedSymbol := "NewStoragePlugin"
-	found := false
-	for _, symbol := range config.RequiredSymbols {
-		if symbol == expectedSymbol {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(config.RequiredSymbols, expectedSymbol)
 	if !found {
 		t.Errorf("Expected %s to be in required symbols", expectedSymbol)
 	}
@@ -415,7 +410,7 @@ func TestPluginManagerConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	numGoroutines := 10
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -967,7 +962,7 @@ func TestUnloadPluginCompleteCoverage(t *testing.T) {
 			Path:     "/test/path/test_plugin.so",
 			Hash:     "test_hash",
 			LoadTime: time.Now(),
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"name":        "test_plugin",
 				"version":     "1.0.0",
 				"description": "Test plugin for unload testing",
@@ -1004,7 +999,7 @@ func TestUnloadPluginCompleteCoverage(t *testing.T) {
 		ctx := context.Background()
 
 		// Add multiple plugins to registry
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			pluginName := fmt.Sprintf("concurrent_test_%d", i)
 			mockPlugin := &LoadedPlugin{
 				Plugin: &MockStoragePlugin{
@@ -1026,7 +1021,7 @@ func TestUnloadPluginCompleteCoverage(t *testing.T) {
 		var wg sync.WaitGroup
 		errors := make(chan error, 5)
 
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			wg.Add(1)
 			go func(pluginIndex int) {
 				defer wg.Done()
@@ -1078,7 +1073,7 @@ func BenchmarkPluginDiscovery(b *testing.B) {
 	}()
 
 	// Create multiple plugin files
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		createMockPlugin(tempDir, fmt.Sprintf("plugin%d", i), b)
 	}
 
@@ -1089,7 +1084,7 @@ func BenchmarkPluginDiscovery(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := pm.DiscoverPlugins(ctx)
 		if err != nil {
 			b.Fatalf("Discovery failed: %v", err)

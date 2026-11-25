@@ -137,7 +137,7 @@ func (e *Error) WithUserMessage(msg string) *Error {
 }
 
 // WithContext adds context information and returns the error for chaining
-func (e *Error) WithContext(key string, value interface{}) *Error {
+func (e *Error) WithContext(key string, value any) *Error {
 	e.goError = e.goError.WithContext(key, value)
 	return e
 }

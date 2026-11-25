@@ -212,7 +212,7 @@ func quoteFishSingle(s string) string {
 func (app *App) generateBashCompletion() string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf(`# Bash completion for %s
+	fmt.Fprintf(&sb, `# Bash completion for %s
 _%s_completion() {
     local cur prev words cword
     _init_completion || return
@@ -226,15 +226,15 @@ _%s_completion() {
         *)
             # Complete based on the command
             case ${words[1]} in
-`, app.name, app.name, app.getCommandNames()))
+`, app.name, app.name, app.getCommandNames())
 
 	// Add completion for each command
 	for _, cmd := range app.sortedCommands() {
-		sb.WriteString(fmt.Sprintf(`                %s)
+		fmt.Fprintf(&sb, `                %s)
                     COMPREPLY=($(compgen -W "--help -h" -- "$cur"))
                     return 0
                     ;;
-`, cmd.Name()))
+`, cmd.Name())
 	}
 
 	sb.WriteString(`                help)
@@ -271,14 +271,14 @@ complete -F _`)
 func (app *App) generateZshCompletion() string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf(`#compdef %s
+	fmt.Fprintf(&sb, `#compdef %s
 
 _%s() {
     local context curcontext="$curcontext" state line
     typeset -A opt_args
     local -a commands topics
     topics=(
-`, app.name, app.name))
+`, app.name, app.name)
 
 	for _, cmd := range app.sortedCommands() {
 		sb.WriteString(zshDescribeSpec(cmd.Name(), cmd.Description()))
@@ -334,20 +334,20 @@ func zshDescribeSpec(name, description string) string {
 func (app *App) generateFishCompletion() string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# Fish completion for %s\n\n", app.name))
+	fmt.Fprintf(&sb, "# Fish completion for %s\n\n", app.name)
 
 	// Complete command names
-	sb.WriteString(fmt.Sprintf("complete -c %s -f\n", app.name))
+	fmt.Fprintf(&sb, "complete -c %s -f\n", app.name)
 
 	// Add completions for each command
 	for _, cmd := range app.sortedCommands() {
-		sb.WriteString(fmt.Sprintf("complete -c %s -n '__fish_use_subcommand' -a %s -d '%s'\n",
-			app.name, cmd.Name(), quoteFishSingle(cmd.Description())))
+		fmt.Fprintf(&sb, "complete -c %s -n '__fish_use_subcommand' -a %s -d '%s'\n",
+			app.name, cmd.Name(), quoteFishSingle(cmd.Description()))
 	}
 
 	// Add help command
-	sb.WriteString(fmt.Sprintf("complete -c %s -n '__fish_use_subcommand' -a help -d 'Show help for commands'\n",
-		app.name))
+	fmt.Fprintf(&sb, "complete -c %s -n '__fish_use_subcommand' -a help -d 'Show help for commands'\n",
+		app.name)
 
 	// Add global flags
 	sb.WriteString(app.fishBuiltinFlag("help", "h", "Show help"))
@@ -357,8 +357,8 @@ func (app *App) generateFishCompletion() string {
 
 	// Add help completions for each command
 	for _, cmd := range app.sortedCommands() {
-		sb.WriteString(fmt.Sprintf("complete -c %s -n '__fish_seen_subcommand_from help' -a %s\n",
-			app.name, cmd.Name()))
+		fmt.Fprintf(&sb, "complete -c %s -n '__fish_seen_subcommand_from help' -a %s\n",
+			app.name, cmd.Name())
 	}
 
 	return sb.String()

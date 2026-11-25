@@ -46,7 +46,7 @@ func BenchmarkAnalyzeFilePermissions(b *testing.B) {
 	config := DefaultConfig()
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = AnalyzeFilePermissions(path, config)
 	}
 }
@@ -57,7 +57,7 @@ func BenchmarkValidateStringFlag(b *testing.B) {
 	v := NewInputValidator(config)
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = v.ValidateStringFlag("name", "production-cluster-01")
 	}
 }
@@ -96,7 +96,7 @@ func BenchmarkValidateEnvironmentValue(b *testing.B) {
 	v := NewInputValidator(DefaultValidationConfig())
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = v.ValidateEnvironmentValue("ORPHEUS_HOME", "/opt/orpheus")
 	}
 }
@@ -113,7 +113,7 @@ func BenchmarkValidateFileOperation(b *testing.B) {
 	v := NewInputValidator(config)
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = v.ValidateFileOperation(path, "read")
 	}
 }

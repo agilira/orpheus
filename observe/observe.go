@@ -57,7 +57,7 @@ type Tracer interface {
 // Span represents a single trace span
 type Span interface {
 	// SetAttribute adds an attribute to the span
-	SetAttribute(key string, value interface{})
+	SetAttribute(key string, value any)
 
 	// SetStatus sets the span status
 	SetStatus(code StatusCode, description string)
@@ -114,7 +114,7 @@ type Histogram interface {
 // Field represents a key-value pair for structured logging
 type Field struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 // StringField creates a string field for logging

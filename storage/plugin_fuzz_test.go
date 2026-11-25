@@ -328,7 +328,7 @@ func FuzzConcurrentPluginOperations(f *testing.F) {
 		pm := NewPluginManager(&MockLogger{}, config)
 
 		// Create a few test files
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			testFile := filepath.Join(tempDir, fmt.Sprintf("test%d.so", i))
 			_ = os.WriteFile(testFile, []byte("fake plugin"), 0644)
 		}
@@ -345,7 +345,7 @@ func FuzzConcurrentPluginOperations(f *testing.F) {
 		}()
 
 		// Launch concurrent operations based on fuzzed input
-		for i := 0; i < maxOps; i++ {
+		for i := range maxOps {
 			opType := operations[i] % 6
 
 			go func(op int, id int) {
@@ -503,14 +503,6 @@ func FuzzPluginDiscoveryPaths(f *testing.F) {
 			}
 		}
 	})
-}
-
-// Helper function for min
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // Helper to validate plugin manager state after attacks

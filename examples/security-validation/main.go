@@ -363,7 +363,7 @@ func handleBenchmark(ctx *orpheus.Context) error {
 
 	if testType == "all" || testType == "path" {
 		start := time.Now()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			validator.ValidatePathFlag("benchmark-path", testPath)
 		}
 		duration := time.Since(start)
@@ -383,7 +383,7 @@ func handleBenchmark(ctx *orpheus.Context) error {
 
 	if testType == "all" || testType == "input" {
 		start := time.Now()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			validator.ValidateStringFlag("benchmark-input", testInput)
 		}
 		duration := time.Since(start)

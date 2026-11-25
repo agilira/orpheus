@@ -125,7 +125,7 @@ func (ctx *Context) GetPositional(index int) string {
 }
 
 // GetFlag returns the value of a flag as interface{}.
-func (ctx *Context) GetFlag(name string) interface{} {
+func (ctx *Context) GetFlag(name string) any {
 	if ctx.Flags != nil {
 		if flag := ctx.Flags.Lookup(name); flag != nil {
 			return flag.Value()
@@ -183,7 +183,7 @@ func (ctx *Context) FlagChanged(name string) bool {
 }
 
 // GetGlobalFlag returns the value of a global flag.
-func (ctx *Context) GetGlobalFlag(name string) interface{} {
+func (ctx *Context) GetGlobalFlag(name string) any {
 	if ctx.GlobalFlags != nil {
 		if flag := ctx.GlobalFlags.Lookup(name); flag != nil {
 			return flag.Value()

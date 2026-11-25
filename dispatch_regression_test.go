@@ -249,7 +249,7 @@ func BenchmarkDispatchCommandFlags(b *testing.B) {
 	args := []string{"deploy", "--env", "staging", "--force", "--timeout", "60"}
 	ctx := context.Background()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := app.RunContext(ctx, args); err != nil {
 			b.Fatal(err)
 		}
@@ -261,7 +261,7 @@ func BenchmarkDispatchGlobalAndSubcommand(b *testing.B) {
 	args := []string{"-x", "--config", "c.yaml", "remote", "add", "-f", "origin", "url"}
 	ctx := context.Background()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := app.RunContext(ctx, args); err != nil {
 			b.Fatal(err)
 		}
@@ -271,7 +271,7 @@ func BenchmarkDispatchGlobalAndSubcommand(b *testing.B) {
 func BenchmarkDispatchAppHelp(b *testing.B) {
 	app := benchDispatchApp()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = app.GenerateHelp()
 	}
 }
@@ -281,7 +281,7 @@ func BenchmarkDispatchCommandHelp(b *testing.B) {
 	gen := NewHelpGenerator(app)
 	cmd := app.commands["deploy"]
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = gen.GenerateCommandHelp(cmd)
 	}
 }

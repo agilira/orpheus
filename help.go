@@ -50,18 +50,18 @@ func (h *HelpGenerator) addCommandUsage(sb *strings.Builder, cmd *Command) {
 	if cmd.parent != nil {
 		usage = cmd.parent.FullName() + " " + usage
 	}
-	sb.WriteString(fmt.Sprintf("Usage: %s %s\n\n", h.app.name, usage))
+	fmt.Fprintf(sb, "Usage: %s %s\n\n", h.app.name, usage)
 }
 
 // addCommandDescription adds the command description to the help text
 func (h *HelpGenerator) addCommandDescription(sb *strings.Builder, cmd *Command) {
 	if cmd.Description() != "" {
-		sb.WriteString(fmt.Sprintf("%s\n\n", cmd.Description()))
+		fmt.Fprintf(sb, "%s\n\n", cmd.Description())
 	}
 
 	// Long description (if available)
 	if cmd.longDescription != "" {
-		sb.WriteString(fmt.Sprintf("%s\n\n", cmd.longDescription))
+		fmt.Fprintf(sb, "%s\n\n", cmd.longDescription)
 	}
 }
 
@@ -77,7 +77,7 @@ func (h *HelpGenerator) addSubcommands(sb *strings.Builder, cmd *Command) {
 
 	for _, name := range names {
 		subcmd := subcommands[name]
-		sb.WriteString(fmt.Sprintf("  %-20s %s\n", name, subcmd.Description()))
+		fmt.Fprintf(sb, "  %-20s %s\n", name, subcmd.Description())
 	}
 	sb.WriteString("\n")
 }
@@ -102,7 +102,7 @@ func (h *HelpGenerator) addExamples(sb *strings.Builder, cmd *Command) {
 
 	sb.WriteString("Examples:\n")
 	for _, example := range cmd.examples {
-		sb.WriteString(fmt.Sprintf("  %s\n", example))
+		fmt.Fprintf(sb, "  %s\n", example)
 	}
 	sb.WriteString("\n")
 }
@@ -130,10 +130,11 @@ func (h *HelpGenerator) GenerateAppHelp() string {
 
 	// Header with description
 	if h.app.description != "" {
-		sb.WriteString(h.app.description + "\n\n")
+		sb.WriteString(h.app.description)
+		sb.WriteString("\n\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("Usage: %s [command] [flags]\n\n", h.app.name))
+	fmt.Fprintf(&sb, "Usage: %s [command] [flags]\n\n", h.app.name)
 
 	// Available commands (sorted)
 	if len(h.app.commands) > 0 {
@@ -160,12 +161,12 @@ func (h *HelpGenerator) GenerateAppHelp() string {
 		for _, name := range names {
 			cmd := h.app.commands[name]
 			padding := strings.Repeat(" ", maxLen-len(name)+2)
-			sb.WriteString(fmt.Sprintf("  %s%s%s\n", name, padding, cmd.Description()))
+			fmt.Fprintf(&sb, "  %s%s%s\n", name, padding, cmd.Description())
 		}
 
 		// Add built-in help command
 		padding := strings.Repeat(" ", maxLen-4+2)
-		sb.WriteString(fmt.Sprintf("  help%sShow help for commands\n", padding))
+		fmt.Fprintf(&sb, "  help%sShow help for commands\n", padding)
 		sb.WriteString("\n")
 	}
 
@@ -175,7 +176,7 @@ func (h *HelpGenerator) GenerateAppHelp() string {
 	sb.WriteString("\n")
 
 	// Footer
-	sb.WriteString(fmt.Sprintf("Use \"%s help [command]\" for more information about a command.\n", h.app.name))
+	fmt.Fprintf(&sb, "Use \"%s help [command]\" for more information about a command.\n", h.app.name)
 
 	return sb.String()
 }
@@ -311,7 +312,7 @@ func (h *HelpGenerator) formatFlagHelp(flag *flashflags.Flag, defaults flagDefau
 	// "(default: )" tells the reader nothing and reads like a rendering bug.
 	if def := defaults.of(flag); flag.Type() != "bool" && !isEmptyDefault(def) {
 		line.WriteString(" (default: ")
-		line.WriteString(fmt.Sprintf("%v", def))
+		fmt.Fprintf(&line, "%v", def)
 		line.WriteString(")")
 	}
 
@@ -336,7 +337,7 @@ func (app *App) GetHelpGenerator() *HelpGenerator {
 	return NewHelpGenerator(app)
 }
 
-func isEmptyDefault(v interface{}) bool {
+func isEmptyDefault(v any) bool {
 	switch x := v.(type) {
 	case nil:
 		return true

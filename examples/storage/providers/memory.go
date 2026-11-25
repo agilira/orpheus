@@ -27,7 +27,7 @@ type MemoryStorage struct {
 }
 
 // NewMemoryStorage creates a new memory storage instance
-func NewMemoryStorage(config map[string]interface{}) (storage.Storage, error) {
+func NewMemoryStorage(config map[string]any) (storage.Storage, error) {
 	return &MemoryStorage{
 		data: make(map[string][]byte),
 		stats: &storage.Stats{
@@ -205,21 +205,21 @@ func (p *MemoryStoragePlugin) Version() string {
 }
 
 // Validate validates the configuration
-func (p *MemoryStoragePlugin) Validate(config map[string]interface{}) error {
+func (p *MemoryStoragePlugin) Validate(config map[string]any) error {
 	// Memory storage doesn't need any configuration validation
 	return nil
 }
 
 // DefaultConfig returns the default configuration
-func (p *MemoryStoragePlugin) DefaultConfig() map[string]interface{} {
-	return map[string]interface{}{
+func (p *MemoryStoragePlugin) DefaultConfig() map[string]any {
+	return map[string]any{
 		"initial_capacity": 1000,
 		"enable_stats":     true,
 	}
 }
 
 // New creates a new storage instance
-func (p *MemoryStoragePlugin) New(config map[string]interface{}) (storage.Storage, error) {
+func (p *MemoryStoragePlugin) New(config map[string]any) (storage.Storage, error) {
 	return NewMemoryStorage(config)
 }
 

@@ -29,7 +29,7 @@ type MockLogger struct {
 type LogEntry struct {
 	Level   string
 	Message string
-	Fields  map[string]interface{}
+	Fields  map[string]any
 }
 
 func (m *MockLogger) Trace(ctx context.Context, msg string, fields ...observe.Field) {
@@ -62,7 +62,7 @@ func (m *MockLogger) addLog(level, msg string, fields []observe.Field) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	fieldMap := make(map[string]interface{})
+	fieldMap := make(map[string]any)
 	for _, f := range fields {
 		fieldMap[f.Key] = f.Value
 	}

@@ -471,7 +471,7 @@ func TestStorageConfig(t *testing.T) {
 			name: "Valid minimal config",
 			config: Config{
 				Provider: "sqlite",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"path": "/tmp/test.db",
 				},
 			},
@@ -482,7 +482,7 @@ func TestStorageConfig(t *testing.T) {
 			config: Config{
 				Provider:      "redis",
 				PluginPath:    "/opt/plugins/redis.so",
-				Config:        map[string]interface{}{"host": "localhost", "port": 6379},
+				Config:        map[string]any{"host": "localhost", "port": 6379},
 				Namespace:     "myapp",
 				EnableMetrics: true,
 				EnableTracing: true,
@@ -494,7 +494,7 @@ func TestStorageConfig(t *testing.T) {
 			name: "Empty provider",
 			config: Config{
 				Provider: "",
-				Config:   map[string]interface{}{},
+				Config:   map[string]any{},
 			},
 			valid: false,
 		},
@@ -505,11 +505,6 @@ func TestStorageConfig(t *testing.T) {
 			// Basic validation - provider should not be empty
 			if tt.config.Provider == "" && tt.valid {
 				t.Error("Empty provider should be invalid")
-			}
-
-			if tt.config.Provider != "" && !tt.valid {
-				// Additional validation logic would go here
-				// For now, we just check that non-empty provider is considered valid
 			}
 		})
 	}
@@ -564,7 +559,7 @@ func BenchmarkStorageConcurrency(b *testing.B) {
 		i := 0
 		for pb.Next() {
 			key := fmt.Sprintf("concurrent_key_%d", i)
-			value := []byte(fmt.Sprintf("concurrent_value_%d", i))
+			value := fmt.Appendf(nil, "concurrent_value_%d", i)
 
 			_ = storage.Set(ctx, key, value)
 			_, _ = storage.Get(ctx, key)

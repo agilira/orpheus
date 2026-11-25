@@ -17,7 +17,7 @@ func TestCompletionScriptsAreDeterministic(t *testing.T) {
 
 	for _, shell := range []string{"bash", "zsh", "fish"} {
 		first := newApp().GenerateCompletion(shell)
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			if got := newApp().GenerateCompletion(shell); got != first {
 				t.Fatalf("%s completion is not deterministic (run %d differs)", shell, i)
 			}

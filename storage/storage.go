@@ -81,9 +81,9 @@ type Stats struct {
 	AvgListLatency   time.Duration `json:"avg_list_latency_ns"`
 
 	// Provider-specific information
-	Provider string                 `json:"provider"`
-	Config   map[string]interface{} `json:"config,omitempty"`
-	Uptime   time.Duration          `json:"uptime_ns"`
+	Provider string         `json:"provider"`
+	Config   map[string]any `json:"config,omitempty"`
+	Uptime   time.Duration  `json:"uptime_ns"`
 }
 
 // StoragePlugin defines the interface that storage providers must implement
@@ -101,15 +101,15 @@ type Plugin interface {
 
 	// New creates a new Storage instance with the given configuration.
 	// The config map contains provider-specific configuration options.
-	New(config map[string]interface{}) (Storage, error)
+	New(config map[string]any) (Storage, error)
 
 	// Validate checks if the provided configuration is valid for this provider.
 	// Should return a descriptive error if the configuration is invalid.
-	Validate(config map[string]interface{}) error
+	Validate(config map[string]any) error
 
 	// DefaultConfig returns the default configuration for this provider.
 	// Used for documentation and initialization.
-	DefaultConfig() map[string]interface{}
+	DefaultConfig() map[string]any
 }
 
 // StorageConfig holds the configuration for storage initialization
@@ -135,7 +135,7 @@ type Config struct {
 	AllowUnsignedPlugins bool `json:"allow_unsigned_plugins,omitempty" yaml:"allow_unsigned_plugins,omitempty"`
 
 	// Config contains provider-specific configuration options
-	Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`
+	Config map[string]any `json:"config,omitempty" yaml:"config,omitempty"`
 
 	// Namespace provides key isolation when multiple apps share the same storage
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`

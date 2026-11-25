@@ -725,11 +725,11 @@ func TestConcurrencyAndRaceConditions(t *testing.T) {
 	var wg sync.WaitGroup
 	errorChan := make(chan error, numGoroutines*numIterations)
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < numIterations; j++ {
+			for j := range numIterations {
 				input := fmt.Sprintf("test-input-%d-%d", id, j)
 				result := validator.ValidateStringFlag("test-flag", input)
 
@@ -766,7 +766,7 @@ func TestMemoryLeakPrevention(t *testing.T) {
 	// Generate many unique inputs to stress test memory usage
 	const numInputs = 1000
 
-	for i := 0; i < numInputs; i++ {
+	for i := range numInputs {
 		input := fmt.Sprintf("unique-input-%d-%s", i, strings.Repeat("x", i%100))
 		result := validator.ValidateStringFlag("test-flag", input)
 

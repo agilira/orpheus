@@ -22,6 +22,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"plugin"
@@ -77,7 +78,7 @@ type LoadedPlugin struct {
 	LoadTime time.Time
 
 	// Metadata contains additional plugin information
-	Metadata map[string]interface{}
+	Metadata map[string]any
 }
 
 // PluginSecurityConfig controls security validation during plugin loading
@@ -238,7 +239,7 @@ func (pm *PluginManager) register(sp Plugin, pluginPath, realPath, hash string) 
 		Path:     pluginPath,
 		Hash:     hash,
 		LoadTime: time.Now(),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"name":        name,
 			"version":     sp.Version(),
 			"description": sp.Description(),
@@ -341,9 +342,7 @@ func (pm *PluginManager) ListLoadedPlugins() map[string]*LoadedPlugin {
 
 	// Return a copy to prevent external modifications
 	result := make(map[string]*LoadedPlugin, len(pm.registry))
-	for name, plugin := range pm.registry {
-		result[name] = plugin
-	}
+	maps.Copy(result, pm.registry)
 
 	return result
 }
@@ -600,7 +599,7 @@ func expandPluginPath(path string) (string, bool) {
 	return path, true
 }
 
-func (pm *PluginManager) logDebug(ctx context.Context, message string, args ...interface{}) {
+func (pm *PluginManager) logDebug(ctx context.Context, message string, args ...any) {
 	if pm.logger != nil {
 		// Convert args to Field slice for the Logger interface
 		fields := make([]observe.Field, 0, len(args)/2)
@@ -613,7 +612,7 @@ func (pm *PluginManager) logDebug(ctx context.Context, message string, args ...i
 	}
 }
 
-func (pm *PluginManager) logInfo(ctx context.Context, message string, args ...interface{}) {
+func (pm *PluginManager) logInfo(ctx context.Context, message string, args ...any) {
 	if pm.logger != nil {
 		// Convert args to Field slice for the Logger interface
 		fields := make([]observe.Field, 0, len(args)/2)
@@ -626,7 +625,7 @@ func (pm *PluginManager) logInfo(ctx context.Context, message string, args ...in
 	}
 }
 
-func (pm *PluginManager) logWarn(ctx context.Context, message string, args ...interface{}) {
+func (pm *PluginManager) logWarn(ctx context.Context, message string, args ...any) {
 	if pm.logger != nil {
 		// Convert args to Field slice for the Logger interface
 		fields := make([]observe.Field, 0, len(args)/2)

@@ -122,7 +122,7 @@ func newStorageTestApp(logger *TestLogger, pluginPath string) *orpheus.App {
 		// Orpheus cannot verify plugin signatures, so loading this unsigned
 		// demo plugin is an explicit opt-in.
 		AllowUnsignedPlugins: true,
-		Config:               map[string]interface{}{},
+		Config:               map[string]any{},
 	}
 	app.ConfigureStorage(config)
 
@@ -669,7 +669,7 @@ func BenchmarkStorageDemo_SetOperation(b *testing.B) {
 	app, _ := setupTestApp(&testing.T{})
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		key := "bench_key"
 		value := "bench_value"
 		suppressOutput(func() {
@@ -693,7 +693,7 @@ func BenchmarkStorageDemo_GetOperation(b *testing.B) {
 	})
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		suppressOutput(func() {
 			err := app.Run([]string{"get", "bench_key"})
 			if err != nil {

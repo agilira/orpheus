@@ -49,8 +49,7 @@ func (l *errorLog) reasons() []metrics.DropReason {
 	defer l.mu.Unlock()
 	var out []metrics.DropReason
 	for _, err := range l.errs {
-		var d *metrics.DropError
-		if errors.As(err, &d) {
+		if d, ok := errors.AsType[*metrics.DropError](err); ok {
 			out = append(out, d.Reason)
 		}
 	}
@@ -302,7 +301,7 @@ func TestHostileLabelValueCannotForgeSeries(t *testing.T) {
 	p, _ := newCollector(t, metrics.Options{})
 	p.Gauge("cerberus_probe_status", "", "probe").Set(ctx, 0, "x\"} 0\ncerberus_probe_status{probe=\"evil\"} 1\n#")
 	out := scrape(t, p)
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
 		if strings.HasPrefix(line, `cerberus_probe_status{probe="evil"}`) {
 			t.Fatalf("label value forged a series:\n%s", out)
 		}
@@ -313,9 +312,7 @@ func TestConcurrentUse(t *testing.T) {
 	p, _ := newCollector(t, metrics.Options{})
 	var wg sync.WaitGroup
 	for i := range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for j := range 200 {
 				p.Counter("c", "", "w").Inc(ctx, strconv.Itoa(i))
 				p.Gauge("g", "").Set(ctx, float64(j))
@@ -324,7 +321,7 @@ func TestConcurrentUse(t *testing.T) {
 					scrape(t, p)
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	if !strings.Contains(scrape(t, p), "h_count 1600\n") {
@@ -350,7 +347,7 @@ func FuzzCollector(f *testing.F) {
 		p.Histogram(name+"_h", "", nil, label).Observe(ctx, v, value)
 		rec := httptest.NewRecorder()
 		p.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
-		for _, line := range strings.Split(strings.TrimSuffix(rec.Body.String(), "\n"), "\n") {
+		for line := range strings.SplitSeq(strings.TrimSuffix(rec.Body.String(), "\n"), "\n") {
 			if !commentLine.MatchString(line) && !sampleLine.MatchString(line) {
 				t.Fatalf("malformed line %q in:\n%s", line, rec.Body.String())
 			}

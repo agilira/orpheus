@@ -534,7 +534,7 @@ func BenchmarkGreetCommand(b *testing.B) {
 	args := []string{"greet", "BenchmarkUser"}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
 			if err := app.Run(args); err != nil {
@@ -549,7 +549,7 @@ func BenchmarkEchoCommand(b *testing.B) {
 	args := []string{"echo", "benchmark", "test", "args"}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
 			if err := app.Run(args); err != nil {
@@ -564,7 +564,7 @@ func BenchmarkDeployCommand(b *testing.B) {
 	args := []string{"deploy", "production"}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		// Capture output to avoid printing during benchmark
 		_ = captureOutput(func() {
 			if err := app.Run(args); err != nil {

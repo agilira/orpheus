@@ -21,7 +21,7 @@ import (
 
 func TestMemoryStorage_NewMemoryStorage(t *testing.T) {
 	t.Run("WithValidConfig", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"initial_capacity": 1000,
 			"enable_stats":     true,
 		}
@@ -52,7 +52,7 @@ func TestMemoryStorage_NewMemoryStorage(t *testing.T) {
 	})
 
 	t.Run("WithEmptyConfig", func(t *testing.T) {
-		storage, err := NewMemoryStorage(map[string]interface{}{})
+		storage, err := NewMemoryStorage(map[string]any{})
 		if err != nil {
 			t.Fatalf("Failed to create memory storage with empty config: %v", err)
 		}
@@ -481,13 +481,13 @@ func TestMemoryStorage_ConcurrentAccess(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	// Test concurrent operations
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(goroutineID int) {
 			defer wg.Done()
 
-			for j := 0; j < numOperations; j++ {
+			for j := range numOperations {
 				key := fmt.Sprintf("concurrent_key_%d_%d", goroutineID, j)
-				value := []byte(fmt.Sprintf("value_%d_%d", goroutineID, j))
+				value := fmt.Appendf(nil, "value_%d_%d", goroutineID, j)
 
 				// Set
 				err := storage.Set(ctx, key, value)
@@ -732,7 +732,7 @@ func TestMemoryStoragePlugin_Interface(t *testing.T) {
 			t.Errorf("Validate with default config should not error: %v", err)
 		}
 
-		err = plugin.Validate(map[string]interface{}{})
+		err = plugin.Validate(map[string]any{})
 		if err != nil {
 			t.Errorf("Validate with empty config should not error: %v", err)
 		}
@@ -791,7 +791,7 @@ func BenchmarkMemoryStorage_Set(b *testing.B) {
 	value := []byte("benchmark_value")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		key := fmt.Sprintf("bench_key_%d", i)
 		err := storage.Set(ctx, key, value)
 		if err != nil {
@@ -812,7 +812,7 @@ func BenchmarkMemoryStorage_Get(b *testing.B) {
 	storage.Set(ctx, key, value)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := storage.Get(ctx, key)
 		if err != nil {
 			b.Fatalf("Get failed: %v", err)
@@ -851,13 +851,13 @@ func BenchmarkMemoryStorage_List(b *testing.B) {
 	value := []byte("benchmark_value")
 
 	// Pre-populate with data
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		key := fmt.Sprintf("bench_list_key_%d", i)
 		storage.Set(ctx, key, value)
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := storage.List(ctx, "bench_list")
 		if err != nil {
 			b.Fatalf("List failed: %v", err)

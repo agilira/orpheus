@@ -56,7 +56,7 @@ type record struct {
 func records(t *testing.T, out string) []record {
 	t.Helper()
 	var recs []record
-	for _, line := range strings.Split(strings.TrimSuffix(out, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(out, "\n"), "\n") {
 		if line == "" {
 			continue
 		}
@@ -171,14 +171,12 @@ func TestJSONLConcurrentLinesDoNotInterleave(t *testing.T) {
 	j := metrics.NewJSONL(&buf, metrics.Options{})
 	var wg sync.WaitGroup
 	for range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			c := j.Counter("c", "", "v")
 			for range 200 {
 				c.Inc(ctx, strings.Repeat("x", 512))
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	if n := len(records(t, buf.String())); n != 1600 {

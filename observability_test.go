@@ -74,7 +74,7 @@ func BenchmarkContextWithoutObservability(b *testing.B) {
 	ctx := &Context{App: app}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		// Access observability components (should be nil checks only)
 		_ = ctx.Logger()
 		_ = ctx.AuditLogger()
@@ -113,7 +113,7 @@ func (m *mockTracer) SpanFromContext(ctx context.Context) observe.Span { return 
 
 type mockSpan struct{}
 
-func (m *mockSpan) SetAttribute(key string, value interface{})            {}
+func (m *mockSpan) SetAttribute(key string, value any)                    {}
 func (m *mockSpan) SetStatus(code observe.StatusCode, description string) {}
 func (m *mockSpan) RecordError(err error, opts ...observe.ErrorOption)    {}
 func (m *mockSpan) End()                                                  {}
@@ -151,7 +151,7 @@ func TestFieldCreationHelpers(t *testing.T) {
 	tests := []struct {
 		name     string
 		testFunc func() observe.Field
-		expected interface{}
+		expected any
 	}{
 		{
 			name: "StringFieldCreation",

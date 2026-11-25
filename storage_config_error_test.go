@@ -19,7 +19,7 @@ import (
 func TestConfigureStorageRecordsLoadFailure(t *testing.T) {
 	app := New("myapp").ConfigureStorage(&storage.Config{
 		Provider: "no-such-provider",
-		Config:   map[string]interface{}{},
+		Config:   map[string]any{},
 	})
 
 	err := app.StorageError()

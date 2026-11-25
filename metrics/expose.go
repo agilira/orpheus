@@ -47,8 +47,15 @@ func formatValue(v float64) string {
 }
 
 func writeHeader(b *strings.Builder, name, help, kind string) {
-	b.WriteString("# HELP " + name + " " + escapeHelp(help) + "\n")
-	b.WriteString("# TYPE " + name + " " + kind + "\n")
+	b.WriteString("# HELP ")
+	b.WriteString(name)
+	b.WriteByte(' ')
+	b.WriteString(escapeHelp(help))
+	b.WriteString("\n# TYPE ")
+	b.WriteString(name)
+	b.WriteByte(' ')
+	b.WriteString(kind)
+	b.WriteByte('\n')
 }
 
 // writeSample writes one sample line. extraName/extraValue add a trailing
@@ -65,12 +72,17 @@ func writeSample(b *strings.Builder, name string, labels, values []string, extra
 		}
 		b.WriteByte('}')
 	}
-	b.WriteString(" " + formatValue(v) + "\n")
+	b.WriteByte(' ')
+	b.WriteString(formatValue(v))
+	b.WriteByte('\n')
 }
 
 func writeLabel(b *strings.Builder, comma bool, name, value string) {
 	if comma {
 		b.WriteByte(',')
 	}
-	b.WriteString(name + `="` + escapeLabelValue(value) + `"`)
+	b.WriteString(name)
+	b.WriteString(`="`)
+	b.WriteString(escapeLabelValue(value))
+	b.WriteByte('"')
 }

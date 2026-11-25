@@ -236,7 +236,7 @@ func BenchmarkConfigOperation(b *testing.B) {
 	defer os.Setenv("HOME", originalHome)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		runGitlike(&testing.T{}, "config", "set", "bench.key", "bench-value")
 	}
 }

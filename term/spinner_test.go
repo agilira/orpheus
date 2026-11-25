@@ -116,7 +116,7 @@ func TestSpinnerSanitizesAndBoundsLabel(t *testing.T) {
 	if strings.Contains(out, "\n") {
 		t.Fatalf("label broke the line: %q", out)
 	}
-	for _, frame := range strings.Split(out, "\r\x1b[2K") {
+	for frame := range strings.SplitSeq(out, "\r\x1b[2K") {
 		if strings.Contains(frame, "\x1b") {
 			t.Fatalf("raw escape in frame %q", frame)
 		}
@@ -139,13 +139,11 @@ func TestSpinnerConcurrentUse(t *testing.T) {
 	s := term.StartSpinner(&b, colorCaps, "x", fast)
 	var wg sync.WaitGroup
 	for i := range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for j := range 200 {
 				s.Update(int64(i*j), 1600)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	errs := make(chan error, 2)

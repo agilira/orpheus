@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"unicode"
@@ -761,13 +762,7 @@ func isWindowsDeviceName(name string) bool {
 		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 	}
 
-	for _, device := range deviceNames {
-		if upperName == device {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(deviceNames, upperName)
 }
 
 // lowerSlash is the form every path comparison uses: lower case, forward

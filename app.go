@@ -9,6 +9,7 @@ package orpheus
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	flashflags "github.com/agilira/flash-flags"
@@ -351,7 +352,7 @@ func (app *App) RunContext(ctx context.Context, args []string) error {
 	// anywhere among the global flags ends the run before anything is parsed.
 	globalArgs, cmdArgs, builtin := app.splitGlobalArgs(args)
 	if builtin != "" {
-		return app.runBuiltin(ctx, builtin)
+		return app.runBuiltin(builtin)
 	}
 	if err := parseFresh(app.globalFlags, &app.globalParsed, globalArgs); err != nil {
 		return errs.ValidationError("", "global flag parsing failed: "+err.Error())
@@ -366,7 +367,7 @@ func (app *App) handleEmptyArgs(ctx context.Context) error {
 	if app.defaultCmd != "" {
 		return app.runCommand(ctx, app.defaultCmd, []string{})
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+	return app.helpHandler()
 }
 
 // builtinHelp and builtinVersion name the built-in flags splitGlobalArgs reports.
@@ -401,12 +402,12 @@ func (app *App) builtinFlag(arg string) string {
 }
 
 // runBuiltin performs the built-in flag reported by splitGlobalArgs.
-func (app *App) runBuiltin(ctx context.Context, builtin string) error {
+func (app *App) runBuiltin(builtin string) error {
 	if builtin == builtinVersion {
 		app.printVersion()
 		return nil
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+	return app.helpHandler()
 }
 
 // builtinClaims reports whether arg is the built-in flag identified by longName
@@ -483,18 +484,18 @@ func (app *App) handleCommandExecution(ctx context.Context, cmdArgs []string) er
 
 	// Handle built-in help command
 	if cmdName == "help" {
-		return app.handleHelpCommand(ctx, cmdArgs)
+		return app.handleHelpCommand(cmdArgs)
 	}
 
 	return app.runCommand(ctx, cmdName, cmdArgs)
 }
 
 // handleHelpCommand handles the built-in help command.
-func (app *App) handleHelpCommand(ctx context.Context, cmdArgs []string) error {
+func (app *App) handleHelpCommand(cmdArgs []string) error {
 	if len(cmdArgs) > 0 {
 		return app.showCommandHelp(cmdArgs)
 	}
-	return app.helpHandler(&Context{App: app, storage: app.storage, prompter: app.prompter, ctx: ctx})
+	return app.helpHandler()
 }
 
 // runCommand executes a specific command.
@@ -705,7 +706,7 @@ func (app *App) isShortBooleanFlag(arg string) bool {
 }
 
 // helpHandler handles the help command.
-func (app *App) helpHandler(ctx *Context) error {
+func (app *App) helpHandler() error {
 	generator := NewHelpGenerator(app)
 	fmt.Printf("%s", generator.GenerateAppHelp())
 	return nil
@@ -746,9 +747,7 @@ func (app *App) GenerateHelp() string {
 // GetCommands returns a copy of the commands map for introspection.
 func (app *App) GetCommands() map[string]*Command {
 	commands := make(map[string]*Command)
-	for name, cmd := range app.commands {
-		commands[name] = cmd
-	}
+	maps.Copy(commands, app.commands)
 	return commands
 }
 

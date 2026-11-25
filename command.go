@@ -8,6 +8,7 @@ package orpheus
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	flashflags "github.com/agilira/flash-flags"
@@ -378,9 +379,7 @@ func (c *Command) Subcommand(name, description string, handler CommandHandler) *
 // GetSubcommands returns a copy of the subcommands map for introspection.
 func (c *Command) GetSubcommands() map[string]*Command {
 	subcommands := make(map[string]*Command)
-	for name, cmd := range c.subcommands {
-		subcommands[name] = cmd
-	}
+	maps.Copy(subcommands, c.subcommands)
 	return subcommands
 }
 
@@ -439,10 +438,10 @@ func parseFresh(fs *flashflags.FlagSet, parsed *bool, args []string) error {
 // value had been parsed -- `app --config x.yaml help` -- the help reported
 // "(default: x.yaml)". flash-flags exposes no default after a value is set, so
 // Orpheus keeps the one it was given.
-type flagDefaults map[string]interface{}
+type flagDefaults map[string]any
 
 // record stores the default of the named flag, creating the map on first use.
-func (d *flagDefaults) record(name string, value interface{}) {
+func (d *flagDefaults) record(name string, value any) {
 	if *d == nil {
 		*d = make(flagDefaults)
 	}
@@ -452,7 +451,7 @@ func (d *flagDefaults) record(name string, value interface{}) {
 // of returns the recorded default of flag. A flag registered on the FlagSet
 // directly, not through Orpheus, has none recorded; its value is the only one
 // known.
-func (d flagDefaults) of(flag *flashflags.Flag) interface{} {
+func (d flagDefaults) of(flag *flashflags.Flag) any {
 	if v, ok := d[flag.Name()]; ok {
 		return v
 	}

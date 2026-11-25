@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -49,8 +50,8 @@ func newSecurityTestHarness(t *testing.T) *SecurityTestHarness {
 }
 
 func (h *SecurityTestHarness) teardown(t *testing.T) {
-	for i := len(h.cleanup) - 1; i >= 0; i-- {
-		h.cleanup[i]()
+	for _, v := range slices.Backward(h.cleanup) {
+		v()
 	}
 	if err := os.RemoveAll(h.tempDir); err != nil {
 		t.Logf("Warning: failed to remove temp dir: %v", err)
@@ -127,7 +128,7 @@ func TestSecurityPathTraversalAttacks(t *testing.T) {
 	t.Run("ExcessiveDirectoryDepth", func(t *testing.T) {
 		// Create deeply nested directory structure to test recursion limits
 		deepPath := harness.tempDir
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			deepPath = filepath.Join(deepPath, fmt.Sprintf("level%d", i))
 		}
 		deepPath = filepath.Join(deepPath, "plugin.so")
@@ -203,14 +204,12 @@ func TestSecuritySymlinkAttacks(t *testing.T) {
 		// Start plugin loading in goroutine
 		var loadErr error
 		var wg sync.WaitGroup
-		wg.Add(1)
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			// Add small delay to increase chance of race condition
 			time.Sleep(1 * time.Millisecond)
 			_, loadErr = pm.LoadPlugin(context.Background(), pluginPath)
-		}()
+		})
 
 		// Immediately replace with malicious content
 		maliciousContent := []byte("malicious content that should not be loaded")
@@ -359,7 +358,7 @@ func TestSecurityResourceExhaustionAttacks(t *testing.T) {
 
 		// Create thousands of fake plugin files
 		const numFiles = 10000
-		for i := 0; i < numFiles; i++ {
+		for i := range numFiles {
 			filename := fmt.Sprintf("plugin%d.so", i)
 			filePath := filepath.Join(harness.tempDir, filename)
 			if err := os.WriteFile(filePath, []byte("fake"), 0644); err != nil {
@@ -387,7 +386,7 @@ func TestSecurityResourceExhaustionAttacks(t *testing.T) {
 	t.Run("InfiniteRecursionViaDirectories", func(t *testing.T) {
 		// Create deeply nested directory structure
 		deepPath := harness.tempDir
-		for i := 0; i < 50; i++ {
+		for i := range 50 {
 			deepPath = filepath.Join(deepPath, fmt.Sprintf("deep%d", i))
 			if err := os.MkdirAll(deepPath, 0755); err != nil {
 				t.Fatalf("Failed to create deep directory: %v", err)
@@ -436,7 +435,7 @@ func TestSecurityConcurrencyAttacks(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Attempt to corrupt registry through concurrent access
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
@@ -477,7 +476,7 @@ func TestSecurityConcurrencyAttacks(t *testing.T) {
 		// Goroutine 1: Long-running discovery
 		go func() {
 			ready <- true
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				_, _ = pm.DiscoverPlugins(context.Background())
 				if i%100 == 0 {
 					runtime.Gosched() // Yield to other goroutines
@@ -489,7 +488,7 @@ func TestSecurityConcurrencyAttacks(t *testing.T) {
 		// Goroutine 2: Rapid registry access
 		go func() {
 			ready <- true
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				_ = pm.ListLoadedPlugins()
 				_, _ = pm.GetPlugin(fmt.Sprintf("plugin%d", i%10))
 				if i%100 == 0 {
@@ -552,7 +551,7 @@ func TestSecuritySymbolAttacks(t *testing.T) {
 	t.Run("ExcessiveSymbolRequirements", func(t *testing.T) {
 		// Test with hundreds of required symbols to check performance impact
 		var requiredSymbols []string
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			requiredSymbols = append(requiredSymbols, fmt.Sprintf("Symbol%d", i))
 		}
 

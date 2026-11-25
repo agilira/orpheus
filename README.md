@@ -42,7 +42,7 @@ A Git-like CLI with nested subcommands, flags and errors that carry hints ([exam
 
 ## Compatibility and Support
 
-Orpheus is designed for Go 1.25.9+ environments and follows Long-Term Support guidelines to ensure consistent performance across production deployments.
+Orpheus is designed for Go 1.26.0+ environments and follows Long-Term Support guidelines to ensure consistent performance across production deployments.
 
 ## Performance
 
@@ -409,7 +409,7 @@ Invalid or unbounded input (bad names, wrong label counts, NaN, too many
 series) is dropped, counted in `orpheus_metrics_dropped_total{reason}` and
 reported to `Options.OnError`; the collectors never panic.
 
-**Performance**: 0.24 ns/op and no allocation when not configured; when configured, no measurable difference per dispatch — the cost is whatever your own logger, tracer or collector does
+**Performance**: under a nanosecond and no allocation when not configured; when configured, no measurable difference per dispatch — the cost is whatever your own logger, tracer or collector does
 
 **[Complete Observability Guide →](./docs/OBSERVABILITY.md)**
 

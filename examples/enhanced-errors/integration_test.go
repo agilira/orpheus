@@ -226,13 +226,13 @@ func TestConcurrentErrorCreation(t *testing.T) {
 
 	done := make(chan bool, numGoroutines)
 
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
 			defer func() { done <- true }()
 
 			app := createTestApp()
 
-			for j := 0; j < numIterations; j++ {
+			for j := range numIterations {
 				// Test different error types concurrently
 				switch j % 4 {
 				case 0:
@@ -249,7 +249,7 @@ func TestConcurrentErrorCreation(t *testing.T) {
 	}
 
 	// Wait for all goroutines to complete
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		<-done
 	}
 }

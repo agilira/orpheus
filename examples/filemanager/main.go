@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -335,12 +336,7 @@ func matchesExtension(path string, extensions []string) bool {
 	}
 
 	ext := strings.TrimPrefix(filepath.Ext(path), ".")
-	for _, allowedExt := range extensions {
-		if ext == allowedExt {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(extensions, ext)
 }
 
 // matchesPattern checks if file matches the search pattern

@@ -783,7 +783,7 @@ func TestSecurity_EnvironmentVariableHandling(t *testing.T) {
 		for _, pattern := range sensitivePatterns {
 			for _, env := range os.Environ() {
 				if strings.Contains(strings.ToUpper(env), pattern) {
-					key := strings.Split(env, "=")[0]
+					key, _, _ := strings.Cut(env, "=")
 					t.Logf("SECURITY AUDIT: Found potential sensitive env var: %s", key)
 					// CLI applications should mask or avoid logging these
 				}
@@ -899,7 +899,7 @@ func TestSecurity_PerformanceImpact(t *testing.T) {
 		iterations := 1000
 
 		startTime := time.Now()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			result := ValidateSecurePath(testPath, config)
 			if !result.IsValid {
 				t.Errorf("Unexpected validation failure in performance test: %v", result.Errors)
@@ -930,7 +930,7 @@ func TestSecurity_PerformanceImpact(t *testing.T) {
 		validator.cache = make(map[string]*ValidatedInput)
 
 		startTime := time.Now()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			err := validator.ValidateInput(testInput)
 			if err != nil {
 				t.Errorf("Unexpected validation failure in performance test: %v", err)

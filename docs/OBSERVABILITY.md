@@ -15,7 +15,7 @@ All interfaces are optional and context-aware, using Go's `context.Context` for 
 
 ## Key Features
 
-- **Zero Overhead**: reading the interfaces when none is configured costs 0.24 ns/op and no allocation (`BenchmarkContextWithoutObservability`)
+- **Zero Overhead**: reading the interfaces when none is configured costs under a nanosecond and no allocation (`BenchmarkContextWithoutObservability`)
 - **Context-Based**: Full integration with Go's context package and OpenTelemetry
 - **Optional by Design**: Applications work perfectly without any observability configuration
 - **Flexible Implementation**: Choose your own logging, tracing, and metrics libraries
@@ -284,7 +284,7 @@ Correlation depends on passing the *handler's* context, so always use `ctx.Conte
 
 The observability framework is designed for zero overhead:
 
-- **No Configuration**: 0.24 ns/op, zero allocations (`BenchmarkContextWithoutObservability`)
+- **No Configuration**: under a nanosecond, zero allocations (`BenchmarkContextWithoutObservability`)
 - **With Configuration**: no measurable difference per dispatch — 279 ns/op either way in `BenchmarkObservabilityOverhead`, same allocations. The cost of observability is what your logger, tracer or collector does when you call it, not what Orpheus does to carry them.
 - **Context Passing**: Native Go context performance
 - **Interface Calls**: Optimized for high-frequency operations

@@ -57,7 +57,7 @@ func main() {
 		// Orpheus cannot verify plugin signatures, so loading this unsigned
 		// demo plugin is an explicit opt-in.
 		AllowUnsignedPlugins: true,
-		Config:               map[string]interface{}{},
+		Config:               map[string]any{},
 	}
 
 	fmt.Printf("Configuring storage with plugin: %s\n", config.PluginPath)
